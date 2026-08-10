@@ -21,6 +21,15 @@
  *   `data-tz-sheet`, `data-tz-handle` (`aria-hidden`, a sibling of the menu,
  *   authored above it), `data-tz-menu` containing anchor items, and
  *   `data-tz-trigger` with an accessible name that names the menu.
+ * - The sheet as a `role="dialog"` with `aria-modal="true"` and an accessible
+ *   name of its own, and `aria-controls` on the trigger resolving to that
+ *   sheet's `id`. axe reports none of these missing — an unlabelled `<div>`
+ *   is not a broken dialog to it, it is not a dialog at all — so the suite
+ *   asserts all four structurally.
+ * - The trigger's accessible name is the port's to author, in its own words
+ *   and language. The pattern names an unnamed trigger and otherwise leaves
+ *   an authored name alone in both states: `aria-expanded` reports open or
+ *   closed, so the name does not have to.
  * - The sheet authored `inert` and `data-tz-open="false"`, and still fully
  *   rendered while closed — moved out of view, never `hidden` or
  *   `display: none`, or there is nothing for the open transition to animate
@@ -28,6 +37,16 @@
  * - More than one menu item. Ordering, focus order and the trap are all
  *   unobservable on a menu of one, and the suite fails rather than pretending
  *   otherwise.
+ *
+ * Placement — the claim the whole pattern is arguing, and so the one thing a
+ * port cannot reinterpret:
+ * - The trigger horizontally centred, with its bottom edge inside
+ *   `MAX_TRIGGER_BOTTOM_GAP` of the viewport's bottom edge. Reachability is a
+ *   bounded claim: "in the lower half" would admit a trigger at 51% of the
+ *   viewport height, which no thumb reaches.
+ * - The open sheet's bottom edge flush with the viewport's bottom edge. A
+ *   top-anchored drawer can satisfy every other line in this contract, which
+ *   is exactly why this one is stated and asserted.
  *
  * Behaviour:
  * - `data-tz-open` on sheet and scrim, `aria-expanded` on the trigger,

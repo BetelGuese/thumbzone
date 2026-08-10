@@ -3,8 +3,15 @@ import { test, expect, type Page } from '@playwright/test'
 // that the suite's definition of "focusable" and the implementations' cannot
 // drift apart.
 import { FOCUSABLE } from '../systems/vanilla/src/thumbzone.js'
-import { destroyThumbzone } from './support/handles'
+import { destroyThumbzone, reinitThumbzone } from './support/handles'
+import { openSheetAndSettle } from './support/sheet'
 import { describeForEachSystem } from './support/systems'
+
+// Subpixel slack only. The sheet's own height is fractional on both device
+// projects (a percentage of a dvh), so its edge lands a fraction of a pixel
+// either side of the viewport's; anything larger than rounding is a sheet
+// that is not actually anchored to the bottom.
+const BOTTOM_EDGE_TOLERANCE_PX = 1
 
 describeForEachSystem('open and close', (system) => {
   test('opens on trigger tap and reports expanded state', async ({ page }) => {
@@ -12,6 +19,58 @@ describeForEachSystem('open and close', (system) => {
     await page.locator('[data-tz-trigger]').click()
     await expect(page.locator('[data-tz-sheet]')).toHaveAttribute('data-tz-open', 'true')
     await expect(page.locator('[data-tz-trigger]')).toHaveAttribute('aria-expanded', 'true')
+  })
+
+  // Nothing else in the suite looks at where the sheet comes to rest, so a
+  // top-anchored, full-height drawer — correctly reordered items, correct
+  // data-tz-open, inert, focus trap, transition and touch-action — would pass
+  // every other check in it while inverting the one thing the pattern is
+  // arguing for. Asserted while open, which is the only state in which the
+  // resting position is observable at all: closed, the sheet is deliberately
+  // translated out of view.
+  test('rests against the bottom edge of the viewport when open', async ({ page }) => {
+    await page.goto(system.route)
+    await openSheetAndSettle(page)
+
+    const box = (await page.locator('[data-tz-sheet]').boundingBox())!
+    const viewport = page.viewportSize()!
+    expect(
+      Math.abs(viewport.height - (box.y + box.height)),
+      "the open sheet's bottom edge must meet the viewport's bottom edge",
+    ).toBeLessThanOrEqual(BOTTOM_EDGE_TOLERANCE_PX)
+    // Guards the premise: a sheet of zero height would satisfy the edge check
+    // from anywhere on the screen, since its top and bottom edges coincide.
+    expect(box.height).toBeGreaterThan(0)
+  })
+
+  // The dialog semantics are non-negotiable in this project's own
+  // documentation, and axe cannot report their absence: a bare <div> with no
+  // role is not a broken dialog to axe, it is not a dialog at all. So they
+  // have to be asserted structurally, or a port that shipped an unlabelled
+  // <div> would pass the whole suite including the accessibility gate.
+  test('presents the sheet as a named modal dialog that the trigger controls', async ({ page }) => {
+    await page.goto(system.route)
+    const sheet = page.locator('[data-tz-sheet]')
+    await expect(sheet).toHaveAttribute('role', 'dialog')
+    await expect(sheet).toHaveAttribute('aria-modal', 'true')
+
+    // The name is read while open: a closed sheet is inert, and an inert
+    // subtree is excluded from the accessibility tree, so its name is not
+    // computable from there.
+    await openSheetAndSettle(page)
+    await expect(sheet).toHaveAccessibleName(/\S/)
+
+    // Resolved, not merely present: an aria-controls pointing at an id no
+    // element carries is the same as no association at all to a screen
+    // reader, and is exactly what a copied-in id or a renamed sheet leaves
+    // behind.
+    const controls = await page.locator('[data-tz-trigger]').getAttribute('aria-controls')
+    expect(controls, 'the trigger must reference the sheet it controls').toBeTruthy()
+    const resolvesToSheet = await page.evaluate(
+      (id) => document.getElementById(id!) === document.querySelector('[data-tz-sheet]'),
+      controls,
+    )
+    expect(resolvesToSheet, `aria-controls="${controls}" must resolve to the sheet itself`).toBe(true)
   })
 
   test('moves focus into the sheet on open', async ({ page }) => {

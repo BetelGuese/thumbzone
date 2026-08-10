@@ -18,14 +18,31 @@ export const DISMISS_RATIO = 0.25
 /** Downward velocity (px/ms) that dismisses regardless of distance. */
 export const FLING_VELOCITY = 0.5
 
-// The four constants below are implemented in thumbzone.css, which cannot
-// import them. They are declared here so that the conformance suite has one
-// named source for each value rather than a literal per assertion, and so
-// that a stylesheet edit which drifts from the documented contract fails a
-// test instead of passing quietly.
+// The constants below are implemented in thumbzone.css, which cannot import
+// them. They are declared here so that the conformance suite has one named
+// source for each value rather than a literal per assertion, and so that a
+// stylesheet edit which drifts from the documented contract fails a test
+// instead of passing quietly.
 
-/** Minimum hit target (CSS px) for the trigger, in both axes. */
+/** Minimum hit target (CSS px) for the trigger and the drag handle, in both axes. */
 export const MIN_HIT_TARGET = 48
+
+/**
+ * Largest gap (CSS px) allowed between the trigger's bottom edge and the
+ * viewport's bottom edge.
+ *
+ * The pattern's entire argument is that the trigger sits where the thumb
+ * already rests, so "near the bottom" has to be a bounded claim: "below the
+ * halfway line" would accept a trigger at 51% of the viewport height, which
+ * is nowhere near a thumb on any phone. This ceiling is deliberately loose
+ * enough that a port can reach the bottom edge through its own spacing scale
+ * (the largest bottom inset a design system's tokens realistically produce is
+ * around 3rem) stacked on top of a home-indicator safe-area inset (34px on
+ * the tallest iPhones), while still being a small fraction of the shortest
+ * viewport this pattern targets — so anything drifting toward the middle of
+ * the screen fails it several times over.
+ */
+export const MAX_TRIGGER_BOTTOM_GAP = 96
 
 /** Viewport width (CSS px) at and above which the pattern hides itself entirely. */
 export const DESKTOP_BREAKPOINT = 768
