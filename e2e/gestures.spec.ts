@@ -104,7 +104,13 @@ test.describe('gestures', () => {
     await openSheetAndSettle(page)
     const height = (await page.locator('[data-tz-sheet]').boundingBox())!.height
 
-    await dragSheet(page, height * (DISMISS_RATIO - 0.1), SLOW_VELOCITY)
+    await beginDragSheet(page, height * (DISMISS_RATIO - 0.1), SLOW_VELOCITY)
+    // A drag that never actually registered (e.g. pointerdown landing off
+    // the sheet, or being cancelled outright) would trivially "spring back"
+    // too, since nothing would have changed either — assert the drag was
+    // real before checking how it resolved.
+    await expect(page.locator('[data-tz-sheet]')).toHaveAttribute('data-tz-dragging', 'true')
+    await page.mouse.up()
 
     await expect(page.locator('[data-tz-sheet]')).toHaveAttribute('data-tz-open', 'true')
     await expect(page.locator('[data-tz-sheet]')).not.toHaveAttribute('data-tz-dragging', 'true')
@@ -297,6 +303,54 @@ test.describe('gestures', () => {
     // a handler disabled outright.
     await page.locator('[data-tz-trigger]').click()
     await expect(page.locator('[data-tz-sheet]')).not.toHaveAttribute('data-tz-open', 'true')
+  })
+})
+
+// prefers-reduced-motion turns the sheet's open/close animation into an
+// opacity cross-fade with no transform change at all — but a drag is direct
+// manipulation, not an animation the interface imposes on its own, so it
+// must still track the finger 1:1 regardless of that preference. This
+// checks both halves: the drag itself is unaffected, and the *release* that
+// follows genuinely honours the preference rather than merely not fighting
+// it during the drag.
+test.describe('reduced motion', () => {
+  test('a drag still tracks the finger directly, and the release honours the preference once let go', async ({
+    page,
+  }) => {
+    // test.use({ reducedMotion: 'reduce' }) does not reliably take effect
+    // against this project's webServer-launched, device-emulated contexts
+    // in this Playwright version — emulateMedia() called directly does, and
+    // is verified below via matchMedia before relying on it for the rest of
+    // the test.
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await page.goto('/demo/vanilla')
+    // Guards the emulation itself: if it silently stopped taking effect,
+    // the assertions below would otherwise fail confusingly further down.
+    expect(await page.evaluate(() => window.matchMedia('(prefers-reduced-motion: reduce)').matches)).toBe(true)
+    await page.locator('[data-tz-trigger]').click()
+    // Under reduced motion the sheet only animates opacity, never position
+    // (transform stays 'none' throughout), so there is no transform
+    // transition to await here — unlike openSheetAndSettle's normal-motion
+    // helper, which specifically waits on one.
+    await expect(page.locator('[data-tz-sheet]')).toHaveAttribute('data-tz-open', 'true')
+
+    const height = (await page.locator('[data-tz-sheet]').boundingBox())!.height
+    await beginDragSheet(page, height * 0.1, SLOW_VELOCITY)
+
+    const transformDuringDrag = await page
+      .locator('[data-tz-sheet]')
+      .evaluate((el) => (el as HTMLElement).style.transform)
+    expect(transformDuringDrag).not.toBe('')
+
+    await page.mouse.up()
+
+    // The stylesheet's own reduced-motion media query collapses the
+    // transition duration to 1ms — this is what actually makes the
+    // spring-back/dismiss animation that follows honour the preference.
+    const transitionDuration = await page
+      .locator('[data-tz-sheet]')
+      .evaluate((el) => getComputedStyle(el).transitionDuration)
+    expect(transitionDuration).toBe('0.001s')
   })
 })
 

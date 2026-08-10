@@ -139,6 +139,12 @@ describe('createVelocityTracker', () => {
     expect(tracker.velocityAt(endPosition, endTime)).toBeCloseTo(speed, 6)
   })
 
+  // The headline regression this tracker exists to fix: a naive
+  // last-sample-only reading would report the outlier delta between two
+  // adjacent samples directly, even though the drag's overall speed across
+  // the window stays comfortably under FLING_VELOCITY — the same physical
+  // gesture would then dismiss or not depending on how tightly spaced the
+  // event stream happened to be, not on how the user actually moved.
   //
   // Deliberately does not `record()` the release point itself, matching how
   // gestures.js actually drives this: pointermove calls `record()`, and

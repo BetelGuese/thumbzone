@@ -83,6 +83,16 @@ export function attachGestures({ sheet, trigger, dragProgress, shouldDismiss, cr
     if (!drag || drag.source !== 'sheet' || event.pointerId !== drag.pointerId) return
     const offset = Math.max(event.clientY - drag.startY, 0)
     drag.tracker.record(event.clientY, event.timeStamp)
+    // This inline transform outranks the reduced-motion stylesheet rule
+    // (`.tz-sheet { transform: none }`) on specificity, so the sheet tracks
+    // the finger 1:1 even with prefers-reduced-motion set — deliberately:
+    // that preference is about motion the interface imposes on its own,
+    // not motion the user is actively driving with a finger. Freezing
+    // direct manipulation would read as broken, not calmer. Once the
+    // pointer is released, onSheetPointerUp clears this override and hands
+    // control back to the stylesheet, whose 240ms/1ms transition duration
+    // (per that same media query) governs the spring-back or dismiss
+    // animation that follows — that release step honours the preference.
     sheet.style.transform = `translateY(${dragProgress(offset, sheet.offsetHeight) * 100}%)`
   }
 
