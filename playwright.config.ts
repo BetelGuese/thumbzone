@@ -23,6 +23,12 @@ export default defineConfig({
     // node_modules/astro/dist/cli/dev/index.js, not the public CLI docs.
     // Recheck this against that source on any Astro upgrade in case the
     // flag or the detection mechanism is renamed.
-    env: { ASTRO_DEV_BACKGROUND: '1' },
+    //
+    // TZ_E2E tells astro.config.mjs to disable the dev toolbar only for
+    // this Playwright-managed server: its default bottom-center placement
+    // sits on top of thumbzone's bottom-center trigger and swallows every
+    // click aimed at it. Ordinary `npm run dev` keeps the toolbar (its
+    // Audit panel is genuinely useful on an accessibility-focused project).
+    env: { ASTRO_DEV_BACKGROUND: '1', TZ_E2E: '1' },
   },
 })
