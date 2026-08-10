@@ -198,14 +198,33 @@ describeForEachSystem('menu order', (system) => {
   // destroy()/re-init hooks used to exercise other init-time-only behaviour.
   test('data-tz-order="dom" opts out of the reorder', async ({ page }) => {
     await page.goto(system.route)
+    const links = page.locator('[data-tz-menu] a')
+
     await destroyThumbzone(page)
     await page.evaluate(() => {
       document.querySelector('[data-tz-menu]')!.setAttribute('data-tz-order', 'dom')
     })
     await reinitThumbzone(page)
 
-    const texts = await page.locator('[data-tz-menu] a').allTextContents()
-    expect(texts).toEqual([...system.authoredMenuOrder])
+    expect(await links.allTextContents()).toEqual([...system.authoredMenuOrder])
+
+    // The positive control. Everything above is equally satisfied by an
+    // initialiser that reorders nothing under any circumstances — the opt-out
+    // only means something if the same re-initialisation *does* reorder when
+    // the attribute is absent. Run second, on the same page, so the two halves
+    // differ by nothing but the attribute.
+    await destroyThumbzone(page)
+    await page.evaluate(() => {
+      document.querySelector('[data-tz-menu]')!.removeAttribute('data-tz-order')
+    })
+    await reinitThumbzone(page)
+
+    const reordered = await links.allTextContents()
+    expect(reordered).not.toEqual([...system.authoredMenuOrder])
+    // Stated as thumb-first rather than as a reversal: what the pattern
+    // promises is that the first authored item ends up nearest the thumb,
+    // which in DOM terms is last.
+    expect(reordered[reordered.length - 1]).toBe(system.authoredMenuOrder[0])
   })
 
   // destroy() must fully restore the pre-init DOM state, and the reorder has
