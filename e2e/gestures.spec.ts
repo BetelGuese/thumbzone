@@ -117,12 +117,15 @@ describeForEachSystem('gestures', (system) => {
     await page.mouse.up()
   })
 
-  // A second finger landing mid-drag (or any non-primary pointer) must not
-  // be able to hijack the gesture: without a guard, its pointerdown would
-  // silently overwrite the first finger's drag state, and the first finger's
-  // eventual pointerup would then be discarded on the pointerId mismatch —
-  // leaving data-tz-dragging and the inline transform (and the CSS transition
-  // they disable) stuck until some later drag happened to clear them.
+  // A second finger landing mid-drag (or any non-primary pointer) must not be
+  // able to hijack the gesture: without a guard, its pointerdown silently
+  // overwrites the first finger's drag state — including where that drag
+  // started from — so the first finger's own release is then measured against
+  // the interloper's position instead of its own, and a gesture the user
+  // deliberately stopped short dismisses the sheet anyway. Accidental second
+  // touches are common on a bottom sheet operated with a thumb while the rest
+  // of the hand rests nearby, which is what makes this a real gesture rather
+  // than a synthetic one.
   test('a second pointer landing mid-drag does not hijack or corrupt the gesture', async ({ page }) => {
     await page.goto(system.route)
     await openSheetAndSettle(page)
@@ -137,9 +140,20 @@ describeForEachSystem('gestures', (system) => {
 
     // A second, non-primary touch landing on the sheet while the first
     // pointer is still down.
+    //
+    // Reuses the *live* pointerId rather than a fresh one, which is the only
+    // way this reaches the guard at all: setPointerCapture() throws
+    // NotFoundError for a pointerId with no currently active pointer behind
+    // it (the failed-capture test further down proves that directly), and the
+    // implementation commits to a drag only once capture has succeeded — so a
+    // synthetic pointerdown carrying an unused id is rejected before the
+    // guard is ever consulted, and would leave this test unable to fail. With
+    // the real pointer's id, capture succeeds, and only the guard stands
+    // between this event and the first finger's drag state being overwritten
+    // with the coordinates below.
     await page.locator('[data-tz-sheet]').evaluate((el) => {
       el.dispatchEvent(
-        new PointerEvent('pointerdown', { pointerId: 2, isPrimary: false, clientY: 1, bubbles: true }),
+        new PointerEvent('pointerdown', { pointerId: 1, isPrimary: false, clientY: 1, bubbles: true }),
       )
     })
 
@@ -614,11 +628,17 @@ describeForEachSystem('real touch input (Chromium only, via CDP)', (system) => {
     const sheetBox = (await page.locator('[data-tz-sheet]').boundingBox())!
     const startY = sheetBox.y / 2
     const client = await context.newCDPSession(page)
-    const touchTarget = await page.evaluate(
-      ([x, y]) => document.elementFromPoint(x, y)?.getAttribute('data-tz-scrim') !== null,
+    // Compared by element identity, not by reading an attribute off whatever
+    // elementFromPoint returned: it returns null for a point outside the
+    // viewport, and `null?.getAttribute(...) !== null` is `undefined !== null`
+    // — true — so the attribute shape would report "yes, the scrim" for a
+    // coordinate that hits nothing at all, which is precisely the vacuity
+    // this guard exists to rule out.
+    const touchTargetIsScrim = await page.evaluate(
+      ([x, y]) => document.elementFromPoint(x, y) === document.querySelector('[data-tz-scrim]'),
       [scrimBox.x + scrimBox.width / 2, startY],
     )
-    expect(touchTarget).toBe(true)
+    expect(touchTargetIsScrim, 'the touch must land on the scrim itself for this to prove anything').toBe(true)
     await cdpTouchDrag(client, scrimBox.x + scrimBox.width / 2, startY, -300)
 
     expect(await page.evaluate(() => document.scrollingElement!.scrollTop)).toBe(scrollBefore)
