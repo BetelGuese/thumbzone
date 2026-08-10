@@ -157,6 +157,16 @@ export function initThumbzone({ trigger, sheet, scrim, menu, inertRoot }) {
   }
   initializedSheets.add(sheet)
 
+  // Captured before anything below mutates them, so destroy() can hand back
+  // the state the markup itself authored rather than this module's own
+  // defaults. `hidden` is stripped on every setOpen because a sheet that is
+  // display: none has nothing for the open transition to animate and makes
+  // `inert` decorative; a consumer who authored it nonetheless still gets it
+  // back at teardown.
+  const authoredTriggerLabel = trigger.getAttribute('aria-label')
+  const authoredSheetHidden = sheet.hasAttribute('hidden')
+  const authoredScrimHidden = scrim.hasAttribute('hidden')
+
   let isOpen = false
 
   function setOpen(next) {
@@ -166,7 +176,15 @@ export function initThumbzone({ trigger, sheet, scrim, menu, inertRoot }) {
     sheet.dataset.tzOpen = String(next)
     scrim.dataset.tzOpen = String(next)
     trigger.setAttribute('aria-expanded', String(next))
-    trigger.setAttribute('aria-label', next ? 'Close menu' : 'Open menu')
+    // Only ever names an unnamed trigger — an authored name is left alone.
+    // A port or consumer names the trigger in its own words and language
+    // ("Navigation", "Menü"), and overwriting that with an English string on
+    // every state change loses it silently; the open/closed state itself is
+    // already carried by aria-expanded above, so nothing is left unsaid by
+    // keeping the authored wording in both states.
+    if (authoredTriggerLabel === null) {
+      trigger.setAttribute('aria-label', next ? 'Close menu' : 'Open menu')
+    }
     inertRoot.toggleAttribute('inert', next)
     // The mirror of inertRoot above: a closed sheet is still fully rendered
     // (only translated off-screen, so the open transition has something to
@@ -299,10 +317,18 @@ export function initThumbzone({ trigger, sheet, scrim, menu, inertRoot }) {
       if (reordersMenu) {
         menu.append(...Array.from(menu.children).reverse())
       }
-      // tabindex is the last of this kind: a pure init-time addition with no
-      // markup equivalent to fall back to, removed outright rather than
-      // reset via setOpen — same reasoning as the line above it.
+      // tabindex is one of a kind with the reorder: a pure init-time addition
+      // with no markup equivalent to fall back to, removed outright rather
+      // than reset via setOpen — same reasoning as the line above it.
       sheet.removeAttribute('tabindex')
+      // The same for the fallback accessible name, which is only ever added
+      // where the markup authored none — so restoring it means removing it,
+      // and an authored name needs no restoring because nothing overwrote it.
+      if (authoredTriggerLabel === null) trigger.removeAttribute('aria-label')
+      // setOpen() above has just stripped `hidden` again on its way out, so
+      // these come last.
+      sheet.toggleAttribute('hidden', authoredSheetHidden)
+      scrim.toggleAttribute('hidden', authoredScrimHidden)
       initializedSheets.delete(sheet)
     },
   }

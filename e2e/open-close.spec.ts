@@ -172,6 +172,38 @@ describeForEachSystem('open and close', (system) => {
     await expect(page.locator('[data-tz-trigger]')).toBeFocused()
   })
 
+  // `hidden` is stripped from the sheet and scrim on every state change, and
+  // rightly so: a display: none sheet has nothing for the open transition to
+  // animate and makes `inert` decorative. Keeping it stripped after teardown
+  // is the part that is wrong — destroy() restores the pre-init DOM exactly,
+  // so a consumer who authored `hidden` (a no-JS default, say) must not be
+  // left with a permanently visible sheet by an instance that no longer
+  // exists. No fixture can author it, since the contract forbids it as a
+  // starting state, so this drives destroy()/re-init instead.
+  test('destroy() restores an authored hidden attribute on the sheet and scrim', async ({ page }) => {
+    await page.goto(system.route)
+    const sheet = page.locator('[data-tz-sheet]')
+    const scrim = page.locator('[data-tz-scrim]')
+
+    await destroyThumbzone(page)
+    await page.evaluate(() => {
+      document.querySelector('[data-tz-sheet]')!.toggleAttribute('hidden', true)
+      document.querySelector('[data-tz-scrim]')!.toggleAttribute('hidden', true)
+    })
+
+    await reinitThumbzone(page)
+    // Guards the premise: initialisation has to have taken the attribute off
+    // for its restoration to mean anything — otherwise "restored" would be
+    // indistinguishable from "never touched".
+    await expect(sheet).not.toHaveAttribute('hidden')
+    await expect(scrim).not.toHaveAttribute('hidden')
+
+    await destroyThumbzone(page)
+
+    await expect(sheet).toHaveAttribute('hidden')
+    await expect(scrim).toHaveAttribute('hidden')
+  })
+
   test.describe('closing', () => {
     const closers: Array<{ name: string; act: (page: Page) => Promise<void> }> = [
       { name: 'Escape', act: (page) => page.keyboard.press('Escape') },

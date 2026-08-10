@@ -27,7 +27,11 @@ const items = ['Home', 'Search', 'Library', 'Profile', 'Settings']
     </ul>
   </div>
 
-  <button class="tz-trigger" data-tz-trigger type="button" aria-expanded="false" aria-controls="tz-sheet" aria-label="Open menu">
+  <!-- The name names the menu and stays put in both states: aria-expanded is
+       what reports open or closed, so a name that changed with it would say
+       the same thing twice — and the pattern deliberately leaves an authored
+       name alone. -->
+  <button class="tz-trigger" data-tz-trigger type="button" aria-expanded="false" aria-controls="tz-sheet" aria-label="Menu">
     <svg width="20" height="14" viewBox="0 0 20 14" aria-hidden="true">
       <path d="M0 1h20M0 7h20M0 13h20" stroke="currentColor" stroke-width="2" />
     </svg>

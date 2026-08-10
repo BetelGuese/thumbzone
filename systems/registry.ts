@@ -66,9 +66,10 @@
  *   capture on the sheet, tracking the finger through an inline `transform`
  *   on the sheet and marking `data-tz-dragging` while in flight. The menu is
  *   the scroll container, and no drag may begin inside it.
- * - `destroy()` restoring the pre-init DOM exactly: attributes, menu order
- *   (including non-element nodes), and any inline transform that was there
- *   before.
+ * - `destroy()` restoring the pre-init DOM exactly: attributes (an authored
+ *   accessible name and an authored `hidden` included, and anything the
+ *   pattern added itself removed again), menu order (including non-element
+ *   nodes), and any inline transform that was there before.
  *
  * Motion and touch:
  * - The sheet's travel declared as a CSS transition on `transform`, within the
