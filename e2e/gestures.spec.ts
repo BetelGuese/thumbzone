@@ -5,9 +5,10 @@ import { test, expect } from '@playwright/test'
 import { DISMISS_RATIO } from '../systems/vanilla/src/thumbzone.js'
 import { FAST_VELOCITY, SLOW_VELOCITY, beginDragSheet, dragSheet, swipeUpOnTrigger } from './support/drag'
 import { destroyThumbzone, reinitThumbzone } from './support/handles'
+import { INSTANT_MOTION_MAX_MS, maxTransitionDurationMs } from './support/motion'
 import { openSheetAndSettle } from './support/sheet'
 import { describeForEachSystem, describeOverflowFixture } from './support/systems'
-import { cdpTouchDrag, skipWithoutRealTouch } from './support/touch'
+import { cdpTouchDrag, permitsVerticalPanning, skipWithoutRealTouch } from './support/touch'
 
 describeForEachSystem('gestures', (system) => {
   test('dismisses when dragged past the threshold', async ({ page }) => {
@@ -431,13 +432,14 @@ describeForEachSystem('reduced motion', (system) => {
 
     await page.mouse.up()
 
-    // The stylesheet's own reduced-motion media query collapses the
-    // transition duration to 1ms — this is what actually makes the
-    // spring-back/dismiss animation that follows honour the preference.
-    const transitionDuration = await page
-      .locator('[data-tz-sheet]')
-      .evaluate((el) => getComputedStyle(el).transitionDuration)
-    expect(transitionDuration).toBe('0.001s')
+    // The system's own reduced-motion rules must collapse the sheet's
+    // transitions to effectively nothing — this is what actually makes the
+    // spring-back/dismiss animation that follows honour the preference. A
+    // bound rather than an exact duration: "instant" is the contract, and a
+    // port whose tokens collapse to 0s honours it just as well as one that
+    // collapses to a millisecond.
+    const settleDuration = await maxTransitionDurationMs(page.locator('[data-tz-sheet]'))
+    expect(settleDuration).toBeLessThanOrEqual(INSTANT_MOTION_MAX_MS)
   })
 })
 
@@ -459,19 +461,26 @@ describeForEachSystem('touch-action contract (engine-independent)', (system) => 
       await page.goto(overflowRoute)
       await openSheetAndSettle(page)
 
-      // Exact computed values, not a substring check: 'auto' (the default a
-      // missing declaration falls back to), 'none', and 'manipulation' would
-      // all equally satisfy "does not contain 'pan-y'" without actually
-      // blocking panning the way 'pinch-zoom' does — a missing declaration on
-      // the handle itself previously passed this exact check while leaving
-      // panning on the handle entirely unblocked on its own computed style
-      // (the ancestor sheet's touch-action doesn't inherit into it).
+      // Read from the element's own computed style, and judged on whether it
+      // permits a vertical pan rather than on one exact spelling: 'none',
+      // 'pinch-zoom' and 'pan-x' all block panning and are all legitimate for
+      // a port, while 'auto' (what a missing declaration falls back to) and
+      // 'manipulation' both hand the pan straight to the browser. A missing
+      // declaration on the handle is exactly the regression this catches: the
+      // ancestor sheet's touch-action does not inherit into it, so the
+      // handle's own computed value silently becomes fully permissive.
       const handleTouchAction = await page.locator('[data-tz-handle]').evaluate((el) => getComputedStyle(el).touchAction)
-      expect(handleTouchAction).toBe('pinch-zoom')
+      expect(
+        permitsVerticalPanning(handleTouchAction),
+        `the handle must not hand a vertical pan to the browser (touch-action: ${handleTouchAction})`,
+      ).toBe(false)
 
       const menu = page.locator('[data-tz-menu]')
       const touchActionBeforeScroll = await menu.evaluate((el) => getComputedStyle(el).touchAction)
-      expect(touchActionBeforeScroll).toBe('pan-y pinch-zoom')
+      expect(
+        permitsVerticalPanning(touchActionBeforeScroll),
+        `the menu must always be natively pannable (touch-action: ${touchActionBeforeScroll})`,
+      ).toBe(true)
 
       // The deadlock this closes was specifically "touch-action depended on
       // scrollTop, and scrollTop could never move because of it" — so the
@@ -503,7 +512,10 @@ describeForEachSystem('touch-action contract (engine-independent)', (system) => 
     await openSheetAndSettle(page)
 
     const scrimTouchAction = await page.locator('[data-tz-scrim]').evaluate((el) => getComputedStyle(el).touchAction)
-    expect(scrimTouchAction).toBe('pinch-zoom')
+    expect(
+      permitsVerticalPanning(scrimTouchAction),
+      `the scrim must not hand a vertical pan to the browser (touch-action: ${scrimTouchAction})`,
+    ).toBe(false)
   })
 })
 

@@ -8,8 +8,13 @@ import { PLANNED_SYSTEMS, SHIPPED_SYSTEMS } from '../systems/registry'
 // nothing. That failure mode is invisible from inside the conformance specs
 // themselves, which is why it is checked here instead.
 test.describe('systems registry', () => {
-  test('ships at least one system, so the conformance specs cannot pass vacuously', () => {
+  test('ships at least one system, the normative one included', () => {
+    // An empty list is the vacuity described above.
     expect(SHIPPED_SYSTEMS.length).toBeGreaterThan(0)
+    // vanilla-reference.spec.ts pins the reference implementation's exact
+    // values against its route directly. It is only the reference while it is
+    // still registered as a shipped system held to the whole suite.
+    expect(SHIPPED_SYSTEMS.map((system) => system.id)).toContain('vanilla')
   })
 
   test('every shipped entry carries what the conformance specs need', () => {

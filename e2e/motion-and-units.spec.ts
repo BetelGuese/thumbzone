@@ -1,6 +1,17 @@
 import { test, expect } from '@playwright/test'
 import { readFileSync, statSync, globSync } from 'node:fs'
+import {
+  INSTANT_MOTION_MAX_MS,
+  SHEET_MOTION_MAX_MS,
+  SHEET_MOTION_MIN_MS,
+  isNonLinearEasing,
+  maxTransitionDurationMs,
+  parseDurationsMs,
+  transitionDurationMsFor,
+  transitionEasing,
+} from './support/motion'
 import { describeForEachSystem } from './support/systems'
+import { permitsVerticalPanning } from './support/touch'
 
 // Assets a CSS length cannot hide in. Everything else under the two source
 // roots is scanned, rather than an allowlist of extensions: a stylesheet, a
@@ -57,6 +68,68 @@ test.describe('vh guard', () => {
   })
 })
 
+// Also project-level, and for the same reason the vh pattern is checked
+// directly: the conformance specs now assert on the *meaning* of a computed
+// value rather than its exact spelling, so a predicate that quietly answered
+// the same way for everything would make those assertions unable to fail. The
+// cases below are the ones a port could plausibly declare.
+test.describe('contract predicates', () => {
+  test('panning permission is read from the value, not merely from its presence', () => {
+    // Blocking: the reference implementation's own choice, the blunter
+    // alternative, and a horizontal-only grant.
+    expect(permitsVerticalPanning('pinch-zoom')).toBe(false)
+    expect(permitsVerticalPanning('none')).toBe(false)
+    expect(permitsVerticalPanning('pan-x')).toBe(false)
+    // Permissive: the default a missing declaration falls back to, the one
+    // that only drops double-tap zoom, and explicit vertical grants.
+    expect(permitsVerticalPanning('auto')).toBe(true)
+    expect(permitsVerticalPanning('manipulation')).toBe(true)
+    expect(permitsVerticalPanning('pan-y pinch-zoom')).toBe(true)
+    expect(permitsVerticalPanning('pan-down')).toBe(true)
+  })
+
+  test('durations and easings are read across a multi-property transition', () => {
+    // Both CSS time units, and a list — a port declaring `transform 240ms,
+    // opacity 100ms` must not have only its first entry read.
+    expect(parseDurationsMs('0.24s')).toEqual([240])
+    expect(parseDurationsMs('240ms, 0.1s')).toEqual([240, 100])
+    // The commas inside cubic-bezier() must not be mistaken for list
+    // separators, or a single easing would parse as four unreadable ones.
+    expect(isNonLinearEasing('cubic-bezier(0.32, 0.72, 0, 1)')).toBe(true)
+    expect(isNonLinearEasing('ease-out')).toBe(true)
+    expect(isNonLinearEasing('linear')).toBe(false)
+    expect(isNonLinearEasing('steps(4, end)')).toBe(false)
+    // Every entry has to qualify: one linear leg is still linear motion.
+    expect(isNonLinearEasing('cubic-bezier(0.32, 0.72, 0, 1), linear')).toBe(false)
+  })
+})
+
+// The sheet's motion is a stated global constraint, and until now nothing
+// asserted it at all: a port could slide the sheet for 600ms at a constant
+// rate and pass the entire suite.
+//
+// Bounded rather than exact, unlike the reference implementation's own numbers
+// (pinned in vanilla-reference.spec.ts): a port should reach these through its
+// own design system's motion tokens, which is the whole premise of porting the
+// pattern rather than restyling one implementation.
+describeForEachSystem('sheet motion', (system) => {
+  test('slides the sheet within perceptible bounds, on a non-linear curve', async ({ page }) => {
+    await page.goto(system.route)
+    const sheet = page.locator('[data-tz-sheet]')
+
+    // Read for `transform` specifically: that is the property the sheet
+    // travels on, and a port transitioning only `opacity` for 240ms while
+    // snapping its position would otherwise satisfy a bound taken over
+    // whatever happened to be the longest.
+    const duration = await transitionDurationMsFor(sheet, 'transform')
+    expect(duration, 'the sheet must transition transform').toBeGreaterThanOrEqual(SHEET_MOTION_MIN_MS)
+    expect(duration).toBeLessThanOrEqual(SHEET_MOTION_MAX_MS)
+
+    const easing = await transitionEasing(sheet)
+    expect(isNonLinearEasing(easing), `the sheet's motion must not be linear (${easing})`).toBe(true)
+  })
+})
+
 // The drag-and-release halves of this preference are already covered where
 // the drag itself lives (gestures.spec.ts) — direct manipulation is exempt
 // from prefers-reduced-motion because the user, not the interface, is
@@ -89,10 +162,11 @@ describeForEachSystem('reduced motion', (system) => {
     expect(openBox.y).toBeCloseTo(closedBox.y, 0)
     expect(openBox.height).toBeCloseTo(closedBox.height, 0)
 
-    // The system's own reduced-motion media query collapses every transition
-    // it names to 1ms, which is what makes the position check above
-    // meaningful rather than a slide merely caught mid-flight.
-    const transitionDuration = await sheet.evaluate((el) => getComputedStyle(el).transitionDuration)
-    expect(transitionDuration).toBe('0.001s')
+    // The system's own reduced-motion rules must collapse every transition on
+    // the sheet to effectively nothing, which is what makes the position check
+    // above meaningful rather than a slide merely caught mid-flight. A bound,
+    // not an exact duration: 0s honours the preference as well as 1ms does,
+    // and a port is free to reach it through its own motion tokens.
+    expect(await maxTransitionDurationMs(sheet)).toBeLessThanOrEqual(INSTANT_MOTION_MAX_MS)
   })
 })
