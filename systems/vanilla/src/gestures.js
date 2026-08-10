@@ -31,6 +31,11 @@ export function attachGestures({ sheet, trigger, dragProgress, shouldDismiss, cr
     event.currentTarget.setPointerCapture(event.pointerId)
   }
 
+  function resetSheetDragVisuals() {
+    delete sheet.dataset.tzDragging
+    sheet.style.transform = ''
+  }
+
   // A menu link (or image) is natively draggable in Chromium; once a press
   // on one moves far enough, Chromium commits to its own drag-and-drop
   // gesture and cancels our pointer stream — a 'pointercancel' with
@@ -64,8 +69,7 @@ export function attachGestures({ sheet, trigger, dragProgress, shouldDismiss, cr
     const velocity = drag.tracker.velocityAt(event.clientY, event.timeStamp)
     const dismiss = shouldDismiss({ offset, velocity, height: sheet.offsetHeight })
     drag = null
-    delete sheet.dataset.tzDragging
-    sheet.style.transform = ''
+    resetSheetDragVisuals()
     if (dismiss) close()
   }
 
@@ -86,13 +90,32 @@ export function attachGestures({ sheet, trigger, dragProgress, shouldDismiss, cr
     open()
   }
 
+  // A cancelled gesture is not a completed one: it must never reach
+  // shouldDismiss. The spec does not guarantee a cancelled pointer's
+  // coordinates — Chromium happens to zero them, which today makes a
+  // cancelled drag's offset clamp to 0 and fall through shouldDismiss's own
+  // "offset <= 0" guard by coincidence, but an engine that instead retained
+  // the last real coordinates would hand shouldDismiss a positive offset
+  // and a stale velocity and dismiss a gesture the browser aborted, not one
+  // the user released. This handler resets the same drag/visual state
+  // pointerup does, but always springs back rather than ever evaluating
+  // dismissal, on both the sheet and the trigger (a swipe-open cancelled by
+  // the platform must not leave `drag` permanently set either).
+  function onPointerCancel(event) {
+    if (!drag || event.pointerId !== drag.pointerId) return
+    const wasSheetDrag = drag.source === 'sheet'
+    drag = null
+    if (wasSheetDrag) resetSheetDragVisuals()
+  }
+
   sheet.addEventListener('dragstart', preventNativeDrag)
   sheet.addEventListener('pointerdown', onSheetPointerDown)
   sheet.addEventListener('pointermove', onSheetPointerMove)
   sheet.addEventListener('pointerup', onSheetPointerUp)
-  sheet.addEventListener('pointercancel', onSheetPointerUp)
+  sheet.addEventListener('pointercancel', onPointerCancel)
   trigger.addEventListener('pointerdown', onTriggerPointerDown)
   trigger.addEventListener('pointerup', onTriggerPointerUp)
+  trigger.addEventListener('pointercancel', onPointerCancel)
 
   return {
     detach() {
@@ -100,9 +123,10 @@ export function attachGestures({ sheet, trigger, dragProgress, shouldDismiss, cr
       sheet.removeEventListener('pointerdown', onSheetPointerDown)
       sheet.removeEventListener('pointermove', onSheetPointerMove)
       sheet.removeEventListener('pointerup', onSheetPointerUp)
-      sheet.removeEventListener('pointercancel', onSheetPointerUp)
+      sheet.removeEventListener('pointercancel', onPointerCancel)
       trigger.removeEventListener('pointerdown', onTriggerPointerDown)
       trigger.removeEventListener('pointerup', onTriggerPointerUp)
+      trigger.removeEventListener('pointercancel', onPointerCancel)
     },
     // Check-and-clear in one step: a second click shortly after a swipe
     // (e.g. a genuine follow-up tap) must be treated as the ordinary tap it
