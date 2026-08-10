@@ -184,7 +184,14 @@ export function initThumbzone({ trigger, sheet, scrim, menu, inertRoot }) {
       // gone. setOpen(false) also restores the sheet/trigger/scrim
       // attributes to the same closed defaults the markup itself authors,
       // so a destroyed instance and a never-initialised page look alike.
+      const wasOpen = isOpen
       setOpen(false)
+      // setOpen() alone leaves focus wherever it was — on a menu link that
+      // is about to become inert, which would blur to <body> with nothing
+      // to move it on. Tearing down from an open state must hand focus
+      // back to the trigger, the same as a normal close(), or a keyboard
+      // user loses their place entirely.
+      if (wasOpen) trigger.focus()
       trigger.removeEventListener('click', onTriggerClick)
       scrim.removeEventListener('click', close)
       document.removeEventListener('keydown', onKeydown)
