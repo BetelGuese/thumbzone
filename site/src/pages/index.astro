@@ -1,0 +1,10 @@
+---
+const systems = ['vanilla']
+---
+<html lang="en">
+  <head><meta charset="utf-8" /><title>thumbzone</title></head>
+  <body>
+    <h1>thumbzone</h1>
+    <ul>{systems.map((s) => <li><a href={`/demo/${s}`}>{s}</a></li>)}</ul>
+  </body>
+</html>
