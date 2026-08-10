@@ -3,10 +3,20 @@ import { DISMISS_RATIO, FLING_VELOCITY } from '../systems/vanilla/src/thumbzone.
 
 // The demo route exposes the initThumbzone() handle on window purely for
 // tests: destroy() has no attribute-driven equivalent a test could trigger
-// from the DOM alone.
+// from the DOM alone. __initThumbzone (the constructor itself) is exposed
+// for the same reason: re-initialising the same elements after setting a
+// pre-init inline style on them is the only way to exercise "what was here
+// before initThumbzone ran" from outside the module.
 declare global {
   interface Window {
     __thumbzone?: { open: () => void; close: () => void; destroy: () => void }
+    __initThumbzone?: (refs: {
+      trigger: Element | null
+      sheet: Element | null
+      scrim: Element | null
+      menu: Element | null
+      inertRoot: Element | null
+    }) => { open: () => void; close: () => void; destroy: () => void }
   }
 }
 
@@ -275,6 +285,52 @@ test.describe('gestures', () => {
     // concerned; release it so later tests in the same worker don't start
     // with a stuck mouse button.
     await page.mouse.up()
+  })
+
+  // The test above never distinguishes "cleared to empty" from "restored to
+  // whatever was there before", because the page's own inline transform was
+  // already empty at init time — both would look identical. A consumer's
+  // own pre-init inline transform (unrelated to thumbzone entirely) must
+  // still be there after destroy(), not silently discarded in favour of an
+  // empty string.
+  test('destroy() restores a pre-init inline transform instead of clearing it', async ({ page }) => {
+    await page.goto('/demo/vanilla')
+    await page.evaluate(() => window.__thumbzone?.destroy())
+
+    const customTransform = 'translateX(3px)'
+    await page.locator('[data-tz-sheet]').evaluate((el, value) => {
+      ;(el as HTMLElement).style.transform = value
+    }, customTransform)
+
+    await page.evaluate((value) => {
+      const thumbzone = window.__initThumbzone?.({
+        trigger: document.querySelector('[data-tz-trigger]'),
+        sheet: document.querySelector('[data-tz-sheet]'),
+        scrim: document.querySelector('[data-tz-scrim]'),
+        menu: document.querySelector('[data-tz-menu]'),
+        inertRoot: document.querySelector('[data-tz-app]'),
+      })
+      window.__thumbzone = thumbzone
+      // Guards the premise itself: attachGestures must capture the inline
+      // value at *this* call, before anything else in this test touches it.
+      if ((document.querySelector('[data-tz-sheet]') as HTMLElement).style.transform !== value) {
+        throw new Error('setup did not leave the expected pre-init inline transform in place')
+      }
+    }, customTransform)
+
+    // Open, drag, and let it spring back — exercising the normal
+    // clear-to-'' path mid-lifecycle, which must still hand control to the
+    // stylesheet during active use, before destroy() at the end restores
+    // the original custom value rather than that intermediate ''.
+    await openSheetAndSettle(page)
+    const height = (await page.locator('[data-tz-sheet]').boundingBox())!.height
+    await dragSheet(page, height * (DISMISS_RATIO - 0.1), SLOW_VELOCITY)
+    await expect(page.locator('[data-tz-sheet]')).toHaveAttribute('data-tz-open', 'true')
+
+    await page.evaluate(() => window.__thumbzone?.destroy())
+
+    const transformAfterDestroy = await page.locator('[data-tz-sheet]').evaluate((el) => (el as HTMLElement).style.transform)
+    expect(transformAfterDestroy).toBe(customTransform)
   })
 
   test('opens on a swipe up from the trigger', async ({ page }) => {
