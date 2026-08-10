@@ -75,4 +75,55 @@ describeForEachSystem('trigger', (system) => {
     await expect(trigger).toHaveAttribute('aria-expanded', 'false')
     await expect(trigger).toHaveAccessibleName(/menu/i)
   })
+
+  // The check above cannot catch a pattern that writes the accessible name
+  // itself: any wording it chose would match, because the fixtures name the
+  // trigger after the menu too. A name authored in a port's own words — or in
+  // a consumer's own language — must survive initialisation, every state
+  // change, and teardown untouched; the open/closed state is aria-expanded's
+  // job, not the name's. Driven through destroy()/re-init because the
+  // authored value has to be in place before an instance reads it, and no
+  // fixture route can author two different names at once.
+  test('never overwrites an authored accessible name, and leaves it behind on destroy()', async ({ page }) => {
+    await page.goto(system.route)
+    const trigger = page.locator('[data-tz-trigger]')
+
+    await destroyThumbzone(page)
+    await page.evaluate((label) => {
+      document.querySelector('[data-tz-trigger]')!.setAttribute('aria-label', label)
+    }, AUTHORED_TRIGGER_LABEL)
+    // Re-initialising runs its own open/close cycle, so the name has already
+    // survived both state changes by the time this returns.
+    await reinitThumbzone(page)
+    await expect(trigger).toHaveAccessibleName(AUTHORED_TRIGGER_LABEL)
+
+    await trigger.click()
+    // Guards the premise: the state change this name must outlive has to have
+    // actually happened, or the assertion after it proves nothing.
+    await expect(trigger).toHaveAttribute('aria-expanded', 'true')
+    await expect(trigger).toHaveAccessibleName(AUTHORED_TRIGGER_LABEL)
+
+    await destroyThumbzone(page)
+    await expect(trigger).toHaveAttribute('aria-label', AUTHORED_TRIGGER_LABEL)
+  })
+
+  // The other half of that contract: where the markup authors no name at all,
+  // the pattern supplies one — and destroy() must then take back what it
+  // added, or a destroyed instance and a never-initialised page stop looking
+  // alike.
+  test('names an unnamed trigger itself, and removes that name on destroy()', async ({ page }) => {
+    await page.goto(system.route)
+    const trigger = page.locator('[data-tz-trigger]')
+
+    await destroyThumbzone(page)
+    await page.evaluate(() => {
+      document.querySelector('[data-tz-trigger]')!.removeAttribute('aria-label')
+    })
+    await reinitThumbzone(page)
+
+    await expect(trigger).toHaveAccessibleName(/\S/)
+
+    await destroyThumbzone(page)
+    await expect(trigger).not.toHaveAttribute('aria-label')
+  })
 })
