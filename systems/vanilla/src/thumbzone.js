@@ -169,7 +169,7 @@ export function initThumbzone({ trigger, sheet, scrim, menu, inertRoot }) {
     trigger.focus()
   }
 
-  const gestures = attachGestures({ sheet, trigger, dragProgress, shouldDismiss, createVelocityTracker, open, close })
+  const gestures = attachGestures({ sheet, trigger, menu, dragProgress, shouldDismiss, createVelocityTracker, open, close })
 
   function onTriggerClick() {
     // A recognised swipe-open already opened the sheet; the 'click' the

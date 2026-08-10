@@ -13,6 +13,7 @@ const SWIPE_OPEN_DISTANCE = 24
  * @param {object} deps
  * @param {HTMLElement} deps.sheet
  * @param {HTMLElement} deps.trigger
+ * @param {HTMLElement} deps.menu
  * @param {(offset: number, height: number) => number} deps.dragProgress
  * @param {(gesture: { offset: number, velocity: number, height: number }) => boolean} deps.shouldDismiss
  * @param {() => { record: (position: number, time: number) => void, velocityAt: (position: number, time: number) => number }} deps.createVelocityTracker
@@ -20,7 +21,7 @@ const SWIPE_OPEN_DISTANCE = 24
  * @param {() => void} deps.close
  * @returns {{ detach: () => void, consumeSwipeClick: () => boolean }}
  */
-export function attachGestures({ sheet, trigger, dragProgress, shouldDismiss, createVelocityTracker, open, close }) {
+export function attachGestures({ sheet, trigger, menu, dragProgress, shouldDismiss, createVelocityTracker, open, close }) {
   let drag = null
   let swipeOpened = false
 
@@ -48,23 +49,6 @@ export function attachGestures({ sheet, trigger, dragProgress, shouldDismiss, cr
     event.preventDefault()
   }
 
-  // Chromium decides whether a touch sequence belongs to native scrolling
-  // or to us at the *start* of that sequence, from whatever touch-action is
-  // already in force at that instant. This is a second, independent way a
-  // real touch drag gets cancelled (a 'pointercancel' with zeroed
-  // coordinates, exactly like the native-drag case above) — reachable even
-  // when the press starts on plain, non-draggable sheet content, because
-  // the sheet is itself a scroll container. Setting touch-action reactively
-  // inside the pointerdown handler is a gesture too late for the *current*
-  // sequence; keeping it synced to scroll position ahead of every touch,
-  // rather than reacting to one already under way, is what makes the *next*
-  // touch land correctly: 'none' while resting at the top, where a drag
-  // should dismiss rather than scroll; restored once scrolled away from the
-  // top, where the sheet's own content must still be able to scroll.
-  function syncTouchAction() {
-    sheet.style.touchAction = sheet.scrollTop > 0 ? '' : 'none'
-  }
-
   function onSheetPointerDown(event) {
     // A second finger landing mid-drag would otherwise re-enter beginDrag
     // and silently overwrite the first finger's state; ignore it, and
@@ -72,9 +56,10 @@ export function attachGestures({ sheet, trigger, dragProgress, shouldDismiss, cr
     // same reason. Accidental second touches are common on a bottom sheet
     // operated with a thumb while the rest of the hand rests nearby.
     if (drag || !event.isPrimary) return
-    // Let the sheet's own scrollable content win when it is not at the top;
-    // otherwise the drag would fight the scroll.
-    if (sheet.scrollTop > 0) return
+    // The menu is its own always-scrollable region (see thumbzone.css); a
+    // drag never starts inside it, regardless of scroll position — that is
+    // what the menu's own static touch-action actually depends on holding.
+    if (menu.contains(event.target)) return
     beginDrag(event, 'sheet')
     sheet.dataset.tzDragging = 'true'
   }
@@ -142,8 +127,6 @@ export function attachGestures({ sheet, trigger, dragProgress, shouldDismiss, cr
     if (wasSheetDrag) resetSheetDragVisuals()
   }
 
-  syncTouchAction()
-  sheet.addEventListener('scroll', syncTouchAction)
   sheet.addEventListener('dragstart', preventNativeDrag)
   trigger.addEventListener('dragstart', preventNativeDrag)
   sheet.addEventListener('pointerdown', onSheetPointerDown)
@@ -156,7 +139,6 @@ export function attachGestures({ sheet, trigger, dragProgress, shouldDismiss, cr
 
   return {
     detach() {
-      sheet.removeEventListener('scroll', syncTouchAction)
       sheet.removeEventListener('dragstart', preventNativeDrag)
       trigger.removeEventListener('dragstart', preventNativeDrag)
       sheet.removeEventListener('pointerdown', onSheetPointerDown)
@@ -170,8 +152,9 @@ export function attachGestures({ sheet, trigger, dragProgress, shouldDismiss, cr
       // behind it — destroy() promises to fully restore the pre-init state,
       // and an inline transform plus a stuck data-tz-dragging (which also
       // disables the sheet's CSS transition) would otherwise survive it.
+      // (No inline touch-action to restore here any more — it now comes
+      // entirely from the stylesheet, never set inline by this module.)
       drag = null
-      sheet.style.touchAction = ''
       resetSheetDragVisuals()
     },
     // Check-and-clear in one step: a second click shortly after a swipe

@@ -1,12 +1,20 @@
 ---
 import DemoLayout from '../../layouts/DemoLayout.astro'
 
-const items = ['Home', 'Search', 'Library', 'Profile', 'Settings']
+// A dedicated fixture, not a query-param variant of /demo/vanilla: this
+// project builds to a static site, so a query-param-gated item list would
+// only ever render its overflowing branch under the dev server, never in a
+// real build/preview. A separate route works identically in all three.
+//
+// Twenty items comfortably overflows 85dvh on both target devices at the
+// menu's own per-item height (padding 1rem + min-block-size 3rem ≈ 80px):
+// roughly 1600px of content against a ~780-790px budget.
+const items = Array.from({ length: 20 }, (_, i) => `Item ${i + 1}`)
 ---
 <DemoLayout system="vanilla">
   <main data-tz-app>
-    <h1>thumbzone — vanilla</h1>
-    {Array.from({ length: 40 }, (_, i) => <p>Scrollable content line {i + 1}.</p>)}
+    <h1>thumbzone — vanilla (overflowing menu)</h1>
+    <p>Fixture for testing touch scrolling inside a menu taller than the sheet.</p>
   </main>
 
   <div class="tz-scrim" data-tz-scrim></div>

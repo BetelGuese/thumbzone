@@ -18,12 +18,13 @@
   background: var(--tz-trigger-bg, #ff5a1f);
   color: var(--tz-trigger-fg, #0e1012);
   cursor: pointer;
-  /* The trigger never scrolls anything itself, so this can be static rather
-     than the sheet's scroll-position-dependent toggle: without it, a real
-     touch swipe-to-open is read as an attempt to pan the page and gets
-     handed to the browser's native scroll, cancelling our pointer stream
-     before it ever reports a full gesture. */
-  touch-action: none;
+  /* The trigger never scrolls anything itself, so this can be static: without
+     it, a real touch swipe-to-open is read as an attempt to pan the page and
+     gets handed to the browser's native scroll, cancelling our pointer
+     stream before it ever reports a full gesture. pinch-zoom rather than
+     none, so a finger that happens to start a pinch gesture here still
+     zooms the page (WCAG 1.4.4) — panning is what must stay ours, not zoom. */
+  touch-action: pinch-zoom;
   transform: translateX(-50%);
   transition: transform 240ms cubic-bezier(0.32, 0.72, 0, 1);
 }
@@ -47,17 +48,28 @@
   pointer-events: auto;
 }
 
+/* A single scroll-and-drag element cannot express "let native scrolling win
+   at the bottom of a downward drag, but not the top" — touch-action has no
+   way to grant panning in only one direction on every engine (Chromium
+   alone supports the pan-up/pan-down sub-values; WebKit silently ignores
+   them and falls back to auto, which reopens the exact cancellation this is
+   meant to close). So the sheet is a non-scrolling drag surface, and its
+   menu is a separate, always-natively-scrollable region inside it — the
+   only combination that lets a menu taller than the sheet keep scrolling by
+   touch while a drag can still dismiss from the sheet's own chrome. */
 .tz-sheet {
   position: fixed;
   inset-inline: 0;
   bottom: 0;
   z-index: 25;
+  display: flex;
+  flex-direction: column;
   /* dvh, not vh: iOS Safari's collapsing URL bar makes vh resolve to the
      expanded height, which would push the sheet under the browser chrome. */
   max-block-size: 85dvh;
-  overflow-y: auto;
-  /* Stops the drag from chaining into the page behind it on iOS. */
-  overscroll-behavior: contain;
+  /* The menu, not the sheet, scrolls its own overflow now (see above). */
+  overflow: hidden;
+  touch-action: pinch-zoom;
   padding-block-end: env(safe-area-inset-bottom, 0px);
   border-start-start-radius: 1rem;
   border-start-end-radius: 1rem;
@@ -75,7 +87,47 @@
   transition: none;
 }
 
+/* Purely a visual affordance and a dedicated non-scrolling drag target —
+   gestures.js never recognises a drag starting inside .tz-menu, so this is
+   the (only) touch-drag entry point once the menu has its own scrollable
+   overflow. aria-hidden in the markup: it carries no information a screen
+   reader user needs that "Main menu" (the dialog's own label) doesn't
+   already give them. */
+.tz-handle {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  block-size: 1.75rem;
+}
+
+.tz-handle::before {
+  content: '';
+  inline-size: 2.5rem;
+  block-size: 0.25rem;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.3;
+}
+
 .tz-menu {
+  flex: 1 1 auto;
+  /* Without this, a flex child's automatic min-size is its content's
+     intrinsic height, which for a long menu is taller than the sheet's own
+     max-block-size — the menu would push the sheet past 85dvh instead of
+     scrolling inside it. */
+  min-block-size: 0;
+  overflow-y: auto;
+  /* Static and unconditional, unlike the sheet: this region must always be
+     able to scroll by touch, on both engines, regardless of scroll
+     position — a value that changed with scrollTop is exactly what
+     deadlocked before (touch-action: none blocked the very scroll that
+     would have moved scrollTop away from 0 and restored it). pinch-zoom
+     alongside pan-y for the same WCAG 1.4.4 reason as the trigger/sheet. */
+  touch-action: pan-y pinch-zoom;
+  /* Stops an at-the-boundary scroll from chaining into the page behind it
+     on iOS — the sheet itself no longer scrolls, so this moved here with
+     the scrolling responsibility. */
+  overscroll-behavior: contain;
   margin: 0;
   padding: 0.5rem;
   list-style: none;
