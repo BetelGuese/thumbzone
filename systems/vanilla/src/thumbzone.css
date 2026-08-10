@@ -97,7 +97,24 @@
   flex: 0 0 auto;
   display: grid;
   place-items: center;
-  block-size: 1.75rem;
+  /* The interactive region, not just the visible pill, must clear this
+     project's own 48px minimum (the trigger already does) — WCAG 2.5.8's
+     24px floor is not the bar here. The pill itself stays small; only the
+     hit target grows to reach it. */
+  block-size: 3rem;
+  box-sizing: border-box;
+  cursor: grab;
+  /* Explicit and static, same reasoning as the trigger/menu: relying on the
+     ancestor .tz-sheet's touch-action alone leaves this element's own
+     computed value at the CSS default (auto, i.e. fully permissive) rather
+     than the intended pinch-zoom-only, which a test reading this element's
+     own computed style — as opposed to observing the ancestor's effect on
+     real touch-action arbitration — would not catch either. */
+  touch-action: pinch-zoom;
+}
+
+.tz-sheet[data-tz-dragging='true'] .tz-handle {
+  cursor: grabbing;
 }
 
 .tz-handle::before {
@@ -106,7 +123,11 @@
   block-size: 0.25rem;
   border-radius: 999px;
   background: currentColor;
-  opacity: 0.3;
+  /* 0.3 measures ~2.4:1 against --tz-sheet-bg — under WCAG 1.4.11's 3:1
+     floor for non-text UI components. 0.4 measures ~3.27:1 (verified
+     directly against both this custom property's default and the sheet's,
+     not assumed). */
+  opacity: 0.4;
 }
 
 .tz-menu {
