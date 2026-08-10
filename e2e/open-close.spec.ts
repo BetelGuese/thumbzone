@@ -1,25 +1,21 @@
 import { test, expect, type Page } from '@playwright/test'
+// The focusable-element selector comes from the normative implementation so
+// that the suite's definition of "focusable" and the implementations' cannot
+// drift apart.
 import { FOCUSABLE } from '../systems/vanilla/src/thumbzone.js'
+import { destroyThumbzone } from './support/handles'
+import { describeForEachSystem } from './support/systems'
 
-// The demo route exposes the initThumbzone() handle on window purely for
-// tests: destroy() has no attribute-driven equivalent a test could trigger
-// from the DOM alone.
-declare global {
-  interface Window {
-    __thumbzone?: { open: () => void; close: () => void; destroy: () => void }
-  }
-}
-
-test.describe('open and close', () => {
+describeForEachSystem('open and close', (system) => {
   test('opens on trigger tap and reports expanded state', async ({ page }) => {
-    await page.goto('/demo/vanilla')
+    await page.goto(system.route)
     await page.locator('[data-tz-trigger]').click()
     await expect(page.locator('[data-tz-sheet]')).toHaveAttribute('data-tz-open', 'true')
     await expect(page.locator('[data-tz-trigger]')).toHaveAttribute('aria-expanded', 'true')
   })
 
   test('moves focus into the sheet on open', async ({ page }) => {
-    await page.goto('/demo/vanilla')
+    await page.goto(system.route)
     await page.locator('[data-tz-trigger]').click()
     const focusedInSheet = await page.evaluate(
       () => !!document.activeElement?.closest('[data-tz-sheet]'),
@@ -28,13 +24,13 @@ test.describe('open and close', () => {
   })
 
   test('makes background content inert while open', async ({ page }) => {
-    await page.goto('/demo/vanilla')
+    await page.goto(system.route)
     await page.locator('[data-tz-trigger]').click()
     await expect(page.locator('[data-tz-app]')).toHaveAttribute('inert', '')
   })
 
   test('traps focus inside the sheet, cycling through every link in order', async ({ page }) => {
-    await page.goto('/demo/vanilla')
+    await page.goto(system.route)
     await page.locator('[data-tz-trigger]').click()
 
     const links = page.locator('[data-tz-menu] a')
@@ -43,6 +39,10 @@ test.describe('open and close', () => {
     // anywhere would satisfy a weaker "still inside the sheet" check, so
     // this asserts the exact element focus lands on at every step instead.
     const linkCount = await links.count()
+    // A single-link menu satisfies both the forward wrap and the backward one
+    // without focus ever having to move anywhere, so a port whose demo
+    // authored one item would pass this having proven nothing.
+    expect(linkCount, 'the demo menu needs more than one link for a trap to be observable').toBeGreaterThan(1)
 
     await expect(links.first()).toBeFocused()
 
@@ -60,11 +60,11 @@ test.describe('open and close', () => {
   })
 
   // A closed sheet is fully rendered (merely translated off-screen), not
-  // `hidden` — `initThumbzone` must take the sheet out of the tab order and
+  // `hidden` — the implementation must take the sheet out of the tab order and
   // accessibility tree itself via `inert`, or its menu links stay reachable
   // by a keyboard/screen-reader user even though the sheet looks closed.
   test('keeps a closed sheet inert and out of the tab order', async ({ page }) => {
-    await page.goto('/demo/vanilla')
+    await page.goto(system.route)
 
     // The attribute itself.
     await expect(page.locator('[data-tz-sheet]')).toHaveAttribute('inert', '')
@@ -85,9 +85,8 @@ test.describe('open and close', () => {
     // sweep past every element the document could hand focus to and
     // confirm none of them land inside the sheet either. Deriving the
     // count from the page itself (rather than a literal like "6") means
-    // the sweep still covers the whole tab order if the fixture grows
-    // another focusable element. FOCUSABLE is imported from the
-    // implementation so the two definitions of "focusable" can't drift.
+    // the sweep still covers the whole tab order however large the
+    // system's own fixture is.
     const focusableCount = await page.locator(FOCUSABLE).count()
 
     for (let i = 0; i < focusableCount + 2; i += 1) {
@@ -100,17 +99,17 @@ test.describe('open and close', () => {
   })
 
   test('destroy() while open releases inertRoot instead of stranding it', async ({ page }) => {
-    await page.goto('/demo/vanilla')
+    await page.goto(system.route)
     await page.locator('[data-tz-trigger]').click()
     await expect(page.locator('[data-tz-app]')).toHaveAttribute('inert', '')
 
-    await page.evaluate(() => window.__thumbzone?.destroy())
+    await destroyThumbzone(page)
 
     await expect(page.locator('[data-tz-app]')).not.toHaveAttribute('inert', '')
-    // setOpen(false) alone would blur focus to <body> with nothing to move
-    // it on, since the link it was on just became inert. Tearing down from
-    // an open state must hand focus back to the trigger like a normal
-    // close() does, or a keyboard user loses their place entirely.
+    // Closing alone would blur focus to <body> with nothing to move it on,
+    // since the link it was on just became inert. Tearing down from an open
+    // state must hand focus back to the trigger like a normal close() does,
+    // or a keyboard user loses their place entirely.
     await expect(page.locator('[data-tz-trigger]')).toBeFocused()
   })
 
@@ -126,7 +125,7 @@ test.describe('open and close', () => {
 
     for (const closer of closers) {
       test(`closes on ${closer.name} and returns focus to the trigger`, async ({ page }) => {
-        await page.goto('/demo/vanilla')
+        await page.goto(system.route)
         await page.locator('[data-tz-trigger]').click()
         await expect(page.locator('[data-tz-sheet]')).toHaveAttribute('data-tz-open', 'true')
 
@@ -150,16 +149,17 @@ test.describe('open and close', () => {
   })
 })
 
-// Finding 4 (closed contract before hydration) is only proven by never
-// letting JavaScript run at all — with it enabled, Playwright's
-// auto-retrying assertions simply wait for hydration and then see the
-// JS-applied value, which would pass even if the authored markup itself
-// had regressed.
-test.describe('closed markup, before hydration', () => {
+// The closed contract before hydration is only proven by never letting
+// JavaScript run at all — with it enabled, Playwright's auto-retrying
+// assertions simply wait for hydration and then see the JS-applied value,
+// which would pass even if the authored markup itself had regressed. It is
+// also the no-JS contract: this is what a user with a failed or blocked
+// bundle is left with.
+describeForEachSystem('closed markup, before hydration', (system) => {
   test.use({ javaScriptEnabled: false })
 
   test('the sheet is inert and closed straight from the served HTML', async ({ page }) => {
-    await page.goto('/demo/vanilla')
+    await page.goto(system.route)
     await expect(page.locator('[data-tz-sheet]')).toHaveAttribute('inert', '')
     await expect(page.locator('[data-tz-sheet]')).toHaveAttribute('data-tz-open', 'false')
   })

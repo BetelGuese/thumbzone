@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { readFileSync, globSync } from 'node:fs'
+import { describeForEachSystem } from './support/systems'
 
 // Every file that can carry a CSS length for this system: the vanilla
 // system's own stylesheet and logic modules (a JS module can write an
@@ -18,6 +19,9 @@ const SCANNED_FILES = [...globSync('systems/vanilla/src/**/*.{css,js}'), ...glob
 // unit in prose ("not vh:") from tripping this.
 const BARE_VH = /\b\d+(\.\d+)?vh\b/
 
+// Project-level, not per-system: this pair scans the repository's own source
+// files rather than anything a browser rendered, so running it once per
+// registered system would repeat identical work and report identical results.
 test.describe('vh guard', () => {
   test('the pattern tells a real violation apart from dvh and from prose', () => {
     expect(BARE_VH.test('max-block-size: 100dvh;')).toBe(false)
@@ -42,7 +46,7 @@ test.describe('vh guard', () => {
 // from prefers-reduced-motion because the user, not the interface, is
 // driving it. What's missing is the plainest case: opening the sheet from a
 // tap on the trigger, with no drag involved at all.
-test.describe('reduced motion', () => {
+describeForEachSystem('reduced motion', (system) => {
   test('opening via the trigger cross-fades in place, and never translates', async ({ page }) => {
     // test.use({ reducedMotion: 'reduce' }) does not reliably take effect
     // against this project's webServer-launched, device-emulated contexts
@@ -50,16 +54,15 @@ test.describe('reduced motion', () => {
     // is verified below via matchMedia before relying on it for the rest of
     // the test. (Same finding as gestures.spec.ts.)
     await page.emulateMedia({ reducedMotion: 'reduce' })
-    await page.goto('/demo/vanilla')
+    await page.goto(system.route)
     expect(await page.evaluate(() => window.matchMedia('(prefers-reduced-motion: reduce)').matches)).toBe(true)
 
     const sheet = page.locator('[data-tz-sheet]')
     await expect(sheet).toHaveCSS('opacity', '0')
     // Under reduced motion the sheet is never actually translated
     // off-screen while closed — it stays at rest and only its opacity
-    // changes (see thumbzone.css) — so its closed position already tells
-    // us where an open one must end up too, if opening truly never
-    // translates it.
+    // changes — so its closed position already tells us where an open one
+    // must end up too, if opening truly never translates it.
     const closedBox = (await sheet.boundingBox())!
 
     await page.locator('[data-tz-trigger]').click()
@@ -70,9 +73,9 @@ test.describe('reduced motion', () => {
     expect(openBox.y).toBeCloseTo(closedBox.y, 0)
     expect(openBox.height).toBeCloseTo(closedBox.height, 0)
 
-    // The stylesheet's own reduced-motion media query collapses every
-    // transition it names to 1ms, which is what makes the position check
-    // above meaningful rather than a slide merely caught mid-flight.
+    // The system's own reduced-motion media query collapses every transition
+    // it names to 1ms, which is what makes the position check above
+    // meaningful rather than a slide merely caught mid-flight.
     const transitionDuration = await sheet.evaluate((el) => getComputedStyle(el).transitionDuration)
     expect(transitionDuration).toBe('0.001s')
   })

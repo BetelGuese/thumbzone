@@ -1,10 +1,11 @@
 import { test, expect } from '@playwright/test'
+import { describeForEachSystem } from './support/systems'
 
 const MIN_HIT_TARGET = 48
 
-test.describe('trigger', () => {
+describeForEachSystem('trigger', (system) => {
   test('is horizontally centred at the bottom of the viewport', async ({ page }) => {
-    await page.goto('/demo/vanilla')
+    await page.goto(system.route)
     const trigger = page.locator('[data-tz-trigger]')
     await expect(trigger).toBeVisible()
 
@@ -17,7 +18,7 @@ test.describe('trigger', () => {
   })
 
   test('meets the minimum hit target', async ({ page }) => {
-    await page.goto('/demo/vanilla')
+    await page.goto(system.route)
     const trigger = page.locator('[data-tz-trigger]')
     await expect(trigger).toBeVisible()
     const box = (await trigger.boundingBox())!
@@ -27,7 +28,7 @@ test.describe('trigger', () => {
 
   test('is hidden at desktop widths', async ({ page }) => {
     await page.setViewportSize({ width: 1024, height: 800 })
-    await page.goto('/demo/vanilla')
+    await page.goto(system.route)
     const trigger = page.locator('[data-tz-trigger]')
     // toBeHidden() alone passes when the locator matches zero elements, so it
     // cannot tell "hidden by CSS" apart from "missing from the DOM". Assert
@@ -38,7 +39,7 @@ test.describe('trigger', () => {
   })
 
   test('has an accessible name and reports collapsed state', async ({ page }) => {
-    await page.goto('/demo/vanilla')
+    await page.goto(system.route)
     const trigger = page.locator('[data-tz-trigger]')
     await expect(trigger).toHaveAttribute('aria-expanded', 'false')
     await expect(trigger).toHaveAccessibleName(/menu/i)
