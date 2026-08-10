@@ -4,14 +4,54 @@
  * The e2e conformance specs iterate `SHIPPED_SYSTEMS`, so moving an entry
  * from `PLANNED_SYSTEMS` into `SHIPPED_SYSTEMS` is the *only* edit a new port
  * needs in order to be held to the whole suite: there is no per-system spec
- * file to write, and no way to quietly opt a port out of a check. Everything
- * a port must provide for those specs to pass is documented on `System`
- * below — read it as the contributor checklist it is.
+ * file to write, and no way to quietly opt a port out of a check.
  *
  * `vanilla` is normative. The shared constants the suite asserts against
- * (dismiss ratio, fling velocity, scroll threshold, the focusable-element
- * selector) are imported from that implementation rather than restated per
- * system, so a port cannot pass conformance while quietly retuning them.
+ * (dismiss ratio, fling velocity, scroll threshold, hit target, breakpoint,
+ * the focusable-element selector) are imported from that implementation rather
+ * than restated per system, so a port cannot pass conformance while quietly
+ * retuning them. Its own exact motion and touch-action values are pinned
+ * separately, as the reference point they are — a port is held to the
+ * semantics, not to those numbers.
+ *
+ * ## What a port must provide
+ *
+ * Markup, on the demo route:
+ * - `data-tz-app` around the page content the sheet covers, `data-tz-scrim`,
+ *   `data-tz-sheet`, `data-tz-handle` (`aria-hidden`, a sibling of the menu,
+ *   authored above it), `data-tz-menu` containing anchor items, and
+ *   `data-tz-trigger` with an accessible name that names the menu.
+ * - The sheet authored `inert` and `data-tz-open="false"`, and still fully
+ *   rendered while closed — moved out of view, never `hidden` or
+ *   `display: none`, or there is nothing for the open transition to animate
+ *   and nothing to make `inert` load-bearing.
+ * - More than one menu item. Ordering, focus order and the trap are all
+ *   unobservable on a menu of one, and the suite fails rather than pretending
+ *   otherwise.
+ *
+ * Behaviour:
+ * - `data-tz-open` on sheet and scrim, `aria-expanded` on the trigger,
+ *   `inert` moving between `data-tz-app` and the sheet, focus into the sheet
+ *   on open and back to the trigger on every close path (trigger, scrim,
+ *   Escape), and a focus trap that owns Tab in both directions.
+ * - `data-tz-tucked` on the trigger while a downward document scroll is in
+ *   effect, cleared while the sheet is open and at the end of the document.
+ * - Thumb-first menu order, with `data-tz-order="dom"` on the menu opting out.
+ * - Drag-to-dismiss and swipe-to-open driven by Pointer Events with pointer
+ *   capture on the sheet, tracking the finger through an inline `transform`
+ *   on the sheet and marking `data-tz-dragging` while in flight. The menu is
+ *   the scroll container, and no drag may begin inside it.
+ * - `destroy()` restoring the pre-init DOM exactly: attributes, menu order
+ *   (including non-element nodes), and any inline transform that was there
+ *   before.
+ *
+ * Motion and touch:
+ * - The sheet's travel declared as a CSS transition on `transform`, within the
+ *   bounds in `e2e/support/motion.ts` and on a non-linear curve.
+ * - Under `prefers-reduced-motion`, no travel at all (opacity only) and every
+ *   transition on the sheet collapsed to effectively instant.
+ * - `touch-action` on the handle, sheet, scrim and trigger that refuses a
+ *   vertical pan, and on the menu that permits one at every scroll position.
  */
 
 export interface System {
@@ -25,10 +65,8 @@ export interface System {
   /**
    * Route serving the standalone demo the conformance suite drives.
    *
-   * It must render the DOM contract — `data-tz-app`, `data-tz-scrim`,
-   * `data-tz-sheet` (authored `inert` and `data-tz-open="false"`),
-   * `data-tz-handle`, `data-tz-menu` with anchor items, and
-   * `data-tz-trigger` — and expose two test hooks on `window`:
+   * It must meet everything under "What a port must provide" above, and expose
+   * two test hooks on `window`:
    * `__thumbzone` (the live handle, for `open()`/`destroy()`, which have no
    * attribute-driven equivalent a test could reach from the DOM alone) and
    * `__initThumbzone` (the initialiser itself, so a test can tear an
