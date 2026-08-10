@@ -1,14 +1,22 @@
 import { test, expect } from '@playwright/test'
-// The dismiss threshold comes from the normative implementation: a port that
-// retuned it would no longer be the same interaction, so every system's
-// gestures are measured against the one ratio.
-import { DISMISS_RATIO } from '../systems/vanilla/src/thumbzone.js'
+// The tuned thresholds and the hit-target floor come from the normative
+// implementation: a port that retuned any of them would no longer be the same
+// interaction, so every system's gestures are measured against the one set.
+import { DISMISS_RATIO, MIN_HIT_TARGET, SWIPE_OPEN_DISTANCE } from '../systems/vanilla/src/thumbzone.js'
 import { FAST_VELOCITY, SLOW_VELOCITY, beginDragSheet, dragSheet, swipeUpOnTrigger } from './support/drag'
 import { destroyThumbzone, reinitThumbzone } from './support/handles'
 import { INSTANT_MOTION_MAX_MS, maxTransitionDurationMs } from './support/motion'
 import { openSheetAndSettle } from './support/sheet'
 import { describeForEachSystem, describeOverflowFixture } from './support/systems'
 import { cdpTouchDrag, permitsPinchZoom, permitsVerticalPanning, skipWithoutRealTouch } from './support/touch'
+
+// Both derived from the exported threshold rather than restated as a
+// distance that happens to sit either side of it today: a bare literal would
+// silently stop meaning "recognised" or "not recognised" the moment
+// SWIPE_OPEN_DISTANCE was retuned, and the sub-threshold case below would
+// then be testing the opposite of what it says.
+const SWIPE_PAST_THRESHOLD = SWIPE_OPEN_DISTANCE * 4
+const SWIPE_SHORT_OF_THRESHOLD = SWIPE_OPEN_DISTANCE / 2
 
 describeForEachSystem('gestures', (system) => {
   test('dismisses when dragged past the threshold', async ({ page }) => {
@@ -209,7 +217,7 @@ describeForEachSystem('gestures', (system) => {
   test('opens on a swipe up from the trigger', async ({ page }) => {
     await page.goto(system.route)
 
-    await swipeUpOnTrigger(page, 96)
+    await swipeUpOnTrigger(page, SWIPE_PAST_THRESHOLD)
 
     await expect(page.locator('[data-tz-sheet]')).toHaveAttribute('data-tz-open', 'true')
   })
@@ -227,9 +235,25 @@ describeForEachSystem('gestures', (system) => {
     await page.locator('[data-tz-trigger]').click()
     await expect(page.locator('[data-tz-sheet]')).toHaveAttribute('data-tz-open', 'true')
 
-    await swipeUpOnTrigger(page, 96)
+    await swipeUpOnTrigger(page, SWIPE_PAST_THRESHOLD)
 
     await expect(page.locator('[data-tz-sheet]')).toHaveAttribute('data-tz-open', 'true')
+  })
+
+  // The other side of the same threshold, and the reason it is a threshold
+  // rather than "any upward travel at all": a thumb pressing the trigger
+  // rolls a few pixels up before it lifts, and that must still be the
+  // ordinary tap it was meant as. Distinguished from a recognised swipe the
+  // same way as the test above — from an already-open sheet, where a tap
+  // closes and a swipe would leave it open.
+  test('an upward nudge short of the swipe threshold still acts as a tap', async ({ page }) => {
+    await page.goto(system.route)
+    await page.locator('[data-tz-trigger]').click()
+    await expect(page.locator('[data-tz-sheet]')).toHaveAttribute('data-tz-open', 'true')
+
+    await swipeUpOnTrigger(page, SWIPE_SHORT_OF_THRESHOLD)
+
+    await expect(page.locator('[data-tz-sheet]')).not.toHaveAttribute('data-tz-open', 'true')
   })
 
   // A swipe-up on the trigger is also a tap as far as the browser is
@@ -243,7 +267,7 @@ describeForEachSystem('gestures', (system) => {
   test('swipe-open leaves the sheet open and it stays open', async ({ page }) => {
     await page.goto(system.route)
 
-    await swipeUpOnTrigger(page, 96)
+    await swipeUpOnTrigger(page, SWIPE_PAST_THRESHOLD)
 
     await expect(page.locator('[data-tz-sheet]')).toHaveAttribute('data-tz-open', 'true')
     // Give the browser's synthesized click, and anything reacting to it, a
@@ -562,7 +586,7 @@ describeForEachSystem('real touch input (Chromium only, via CDP)', (system) => {
     const box = (await page.locator('[data-tz-trigger]').boundingBox())!
 
     const client = await context.newCDPSession(page)
-    await cdpTouchDrag(client, box.x + box.width / 2, box.y + box.height / 2, -96)
+    await cdpTouchDrag(client, box.x + box.width / 2, box.y + box.height / 2, -SWIPE_PAST_THRESHOLD)
 
     await expect(page.locator('[data-tz-sheet]')).toHaveAttribute('data-tz-open', 'true')
   })
