@@ -1,10 +1,10 @@
 ---
-const systems = ['vanilla']
+import { SHIPPED_SYSTEMS } from '../../../systems/registry'
 ---
 <html lang="en">
   <head><meta charset="utf-8" /><title>thumbzone</title></head>
   <body>
     <h1>thumbzone</h1>
-    <ul>{systems.map((s) => <li><a href={`/demo/${s}`}>{s}</a></li>)}</ul>
+    <ul>{SHIPPED_SYSTEMS.map((system) => <li><a href={system.route}>{system.label}</a></li>)}</ul>
   </body>
 </html>
