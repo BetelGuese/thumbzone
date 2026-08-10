@@ -42,6 +42,46 @@ export function shouldDismiss({ offset, velocity, height }) {
   return offset >= height * DISMISS_RATIO || velocity >= FLING_VELOCITY
 }
 
+/** Time window (ms) a drag's velocity is averaged over, to smooth event-to-event jitter. */
+export const VELOCITY_WINDOW_MS = 80
+
+/**
+ * Tracks a drag's vertical velocity from a stream of (position, time)
+ * samples, windowed rather than taken from the single most recent delta. A
+ * last-sample-only reading is extremely sensitive to cadence: at a high
+ * touch sampling rate, one pixel of jitter between adjacent events can
+ * already read as a meaningful fraction of FLING_VELOCITY, so identical
+ * gestures would dismiss or not depending on the hardware, not the user.
+ * Averaging over VELOCITY_WINDOW_MS absorbs that noise while still
+ * capturing a genuine flick, which happens well within that span.
+ * @returns {{ record: (position: number, time: number) => void, velocityAt: (position: number, time: number) => number }}
+ */
+export function createVelocityTracker() {
+  const samples = []
+
+  return {
+    record(position, time) {
+      samples.push({ position, time })
+      while (samples.length > 1 && time - samples[0].time > VELOCITY_WINDOW_MS) {
+        samples.shift()
+      }
+    },
+    // Takes the *release* position/time explicitly rather than reusing the
+    // last recorded sample: a finger held still before lifting generates no
+    // further move events, so measuring against the real release moment —
+    // against however stale the window has become — decays velocity toward
+    // zero for a deliberate pause, instead of dismissing on however fast
+    // the user was moving before they stopped.
+    velocityAt(position, time) {
+      if (samples.length === 0) return 0
+      const oldest = samples[0]
+      const elapsed = time - oldest.time
+      if (elapsed <= 0) return 0
+      return (position - oldest.position) / elapsed
+    },
+  }
+}
+
 /**
  * Tracks scroll direction, ignoring sub-threshold jitter.
  * Returns 'show' | 'hide' when the trigger should change state, or null when it should not.
@@ -129,7 +169,7 @@ export function initThumbzone({ trigger, sheet, scrim, menu, inertRoot }) {
     trigger.focus()
   }
 
-  const gestures = attachGestures({ sheet, trigger, dragProgress, shouldDismiss, open, close })
+  const gestures = attachGestures({ sheet, trigger, dragProgress, shouldDismiss, createVelocityTracker, open, close })
 
   function onTriggerClick() {
     // A recognised swipe-open already opened the sheet; the 'click' the

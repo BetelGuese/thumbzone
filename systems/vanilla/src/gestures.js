@@ -15,23 +15,19 @@ const SWIPE_OPEN_DISTANCE = 24
  * @param {HTMLElement} deps.trigger
  * @param {(offset: number, height: number) => number} deps.dragProgress
  * @param {(gesture: { offset: number, velocity: number, height: number }) => boolean} deps.shouldDismiss
+ * @param {() => { record: (position: number, time: number) => void, velocityAt: (position: number, time: number) => number }} deps.createVelocityTracker
  * @param {() => void} deps.open
  * @param {() => void} deps.close
  * @returns {{ detach: () => void, consumeSwipeClick: () => boolean }}
  */
-export function attachGestures({ sheet, trigger, dragProgress, shouldDismiss, open, close }) {
+export function attachGestures({ sheet, trigger, dragProgress, shouldDismiss, createVelocityTracker, open, close }) {
   let drag = null
   let swipeOpened = false
 
   function beginDrag(event, source) {
-    drag = {
-      source,
-      pointerId: event.pointerId,
-      startY: event.clientY,
-      lastY: event.clientY,
-      lastTime: event.timeStamp,
-      velocity: 0,
-    }
+    const tracker = createVelocityTracker()
+    tracker.record(event.clientY, event.timeStamp)
+    drag = { source, pointerId: event.pointerId, startY: event.clientY, tracker }
     event.currentTarget.setPointerCapture(event.pointerId)
   }
 
@@ -58,17 +54,15 @@ export function attachGestures({ sheet, trigger, dragProgress, shouldDismiss, op
   function onSheetPointerMove(event) {
     if (!drag || drag.source !== 'sheet' || event.pointerId !== drag.pointerId) return
     const offset = Math.max(event.clientY - drag.startY, 0)
-    const elapsed = event.timeStamp - drag.lastTime
-    if (elapsed > 0) drag.velocity = (event.clientY - drag.lastY) / elapsed
-    drag.lastY = event.clientY
-    drag.lastTime = event.timeStamp
+    drag.tracker.record(event.clientY, event.timeStamp)
     sheet.style.transform = `translateY(${dragProgress(offset, sheet.offsetHeight) * 100}%)`
   }
 
   function onSheetPointerUp(event) {
     if (!drag || drag.source !== 'sheet' || event.pointerId !== drag.pointerId) return
     const offset = Math.max(event.clientY - drag.startY, 0)
-    const dismiss = shouldDismiss({ offset, velocity: drag.velocity, height: sheet.offsetHeight })
+    const velocity = drag.tracker.velocityAt(event.clientY, event.timeStamp)
+    const dismiss = shouldDismiss({ offset, velocity, height: sheet.offsetHeight })
     drag = null
     delete sheet.dataset.tzDragging
     sheet.style.transform = ''
