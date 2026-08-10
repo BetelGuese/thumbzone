@@ -1,6 +1,15 @@
 import { test, expect, type Page } from '@playwright/test'
 import { DISMISS_RATIO, FLING_VELOCITY } from '../systems/vanilla/src/thumbzone.js'
 
+// The demo route exposes the initThumbzone() handle on window purely for
+// tests: destroy() has no attribute-driven equivalent a test could trigger
+// from the DOM alone.
+declare global {
+  interface Window {
+    __thumbzone?: { open: () => void; close: () => void; destroy: () => void }
+  }
+}
+
 // Playwright dispatches each synthetic pointer event only a couple of
 // milliseconds apart in real time. Left unpaced, even a drag meant to be
 // "slow" reports an instantaneous velocity of several px/ms between two
@@ -205,6 +214,35 @@ test.describe('gestures', () => {
     await page.mouse.up()
     await expect(page.locator('[data-tz-sheet]')).toHaveAttribute('data-tz-open', 'true')
     await expect(page.locator('[data-tz-sheet]')).not.toHaveAttribute('data-tz-dragging', 'true')
+  })
+
+  // destroy() promises to fully restore the pre-init state; a drag mid-flight
+  // at teardown time must not leave data-tz-dragging or an inline transform
+  // behind (the former also disables the sheet's CSS transition, so a stray
+  // one would leave any *future* open/close animation dead until the next
+  // drag happened to clear it). Placed here, alongside the drag helpers,
+  // rather than in open-close.spec.ts's own destroy test, since driving a
+  // drag needs this file's pointer-sequence machinery.
+  test('destroy() mid-drag leaves no dragging state or inline transform behind', async ({ page }) => {
+    await page.goto('/demo/vanilla')
+    await openSheetAndSettle(page)
+    const height = (await page.locator('[data-tz-sheet]').boundingBox())!.height
+
+    await beginDragSheet(page, height * (DISMISS_RATIO - 0.1), SLOW_VELOCITY)
+    await expect(page.locator('[data-tz-sheet]')).toHaveAttribute('data-tz-dragging', 'true')
+    const transformDuringDrag = await page.locator('[data-tz-sheet]').evaluate((el) => (el as HTMLElement).style.transform)
+    expect(transformDuringDrag).not.toBe('')
+
+    await page.evaluate(() => window.__thumbzone?.destroy())
+
+    await expect(page.locator('[data-tz-sheet]')).not.toHaveAttribute('data-tz-dragging', 'true')
+    const transformAfterDestroy = await page.locator('[data-tz-sheet]').evaluate((el) => (el as HTMLElement).style.transform)
+    expect(transformAfterDestroy).toBe('')
+
+    // The pointer is still physically "down" as far as the OS/browser is
+    // concerned; release it so later tests in the same worker don't start
+    // with a stuck mouse button.
+    await page.mouse.up()
   })
 
   test('opens on a swipe up from the trigger', async ({ page }) => {

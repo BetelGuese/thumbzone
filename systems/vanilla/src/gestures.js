@@ -134,6 +134,12 @@ export function attachGestures({ sheet, trigger, dragProgress, shouldDismiss, cr
       trigger.removeEventListener('pointerdown', onTriggerPointerDown)
       trigger.removeEventListener('pointerup', onTriggerPointerUp)
       trigger.removeEventListener('pointercancel', onPointerCancel)
+      // A drag mid-flight at teardown time must not leave the DOM mutated
+      // behind it — destroy() promises to fully restore the pre-init state,
+      // and an inline transform plus a stuck data-tz-dragging (which also
+      // disables the sheet's CSS transition) would otherwise survive it.
+      drag = null
+      resetSheetDragVisuals()
     },
     // Check-and-clear in one step: a second click shortly after a swipe
     // (e.g. a genuine follow-up tap) must be treated as the ordinary tap it
