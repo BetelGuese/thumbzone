@@ -107,6 +107,11 @@ test.describe('open and close', () => {
     await page.evaluate(() => window.__thumbzone?.destroy())
 
     await expect(page.locator('[data-tz-app]')).not.toHaveAttribute('inert', '')
+    // setOpen(false) alone would blur focus to <body> with nothing to move
+    // it on, since the link it was on just became inert. Tearing down from
+    // an open state must hand focus back to the trigger like a normal
+    // close() does, or a keyboard user loses their place entirely.
+    await expect(page.locator('[data-tz-trigger]')).toBeFocused()
   })
 
   test.describe('closing', () => {
@@ -131,7 +136,31 @@ test.describe('open and close', () => {
         await expect(page.locator('[data-tz-trigger]')).toHaveAttribute('aria-expanded', 'false')
         await expect(page.locator('[data-tz-app]')).not.toHaveAttribute('inert', '')
         await expect(page.locator('[data-tz-trigger]')).toBeFocused()
+
+        // A sheet that has been open once must go back to being inert on
+        // close, not just on first paint. The markup only authors `inert`
+        // before the first open; nothing else re-applies it afterwards, so
+        // this is the one place that proves the *re*-application, not just
+        // the initial state.
+        await expect(page.locator('[data-tz-sheet]')).toHaveAttribute('inert', '')
+        await page.locator('[data-tz-menu] a').first().focus()
+        await expect(page.locator('[data-tz-menu] a').first()).not.toBeFocused()
       })
     }
+  })
+})
+
+// Finding 4 (closed contract before hydration) is only proven by never
+// letting JavaScript run at all — with it enabled, Playwright's
+// auto-retrying assertions simply wait for hydration and then see the
+// JS-applied value, which would pass even if the authored markup itself
+// had regressed.
+test.describe('closed markup, before hydration', () => {
+  test.use({ javaScriptEnabled: false })
+
+  test('the sheet is inert and closed straight from the served HTML', async ({ page }) => {
+    await page.goto('/demo/vanilla')
+    await expect(page.locator('[data-tz-sheet]')).toHaveAttribute('inert', '')
+    await expect(page.locator('[data-tz-sheet]')).toHaveAttribute('data-tz-open', 'false')
   })
 })
