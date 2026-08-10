@@ -347,27 +347,19 @@ test.describe('gestures', () => {
     expect(notCancelled).toBe(false)
   })
 
-  // A pointerup or pointercancel that never reaches gestures.js — the tab
-  // losing focus mid-touch, or any other case the platform doesn't hand us
-  // a matching event for — must not wedge every future gesture: since the
-  // second-pointer guard added for a different finding rejects any
-  // pointerdown while `drag` is set, a `drag` left behind by a vanished
-  // gesture would otherwise block every subsequent one forever.
-  //
-  // A real page.mouse gesture cannot reproduce "capture lost, no matching
-  // event" directly: releasePointerCapture() fires only
-  // 'lostpointercapture', but a held mouse button still implicitly
-  // redelivers its eventual mouseup to the original pointerdown target
-  // regardless (verified directly — moving the pointer away and releasing
-  // there still reaches the sheet's own listener, completing the drag via
-  // the ordinary path and never engaging this safety net at all). A
-  // pointerdown whose pointerId was never backed by a real, active pointer
-  // is the reliable proxy instead: setPointerCapture() throws
-  // NotFoundError for it on both engines (verified directly), so
-  // hasPointerCapture() is false from the very start — exactly the
-  // condition clearStaleDrag() checks for, and the closest reachable stand-in
-  // for "capture is gone and nothing ever told us."
-  test('a drag whose capture never actually succeeded does not wedge future gestures', async ({ page }) => {
+  // setPointerCapture() throws when a pointerId has no real, currently
+  // active pointer behind it (a stray or malformed event) — reachable via a
+  // pointerdown whose pointerId was never backed by anything real, which
+  // throws NotFoundError on both engines (verified directly). This must not
+  // surface as an uncaught error in the page (test output has to stay
+  // pristine), and must not leave any state behind that blocks the next,
+  // genuine gesture.
+  test('a pointerdown whose capture cannot succeed neither throws uncaught nor blocks a later gesture', async ({
+    page,
+  }) => {
+    const pageErrors: string[] = []
+    page.on('pageerror', (error) => pageErrors.push(error.message))
+
     await page.goto('/demo/vanilla')
     await openSheetAndSettle(page)
     const box = (await page.locator('[data-tz-sheet]').boundingBox())!
@@ -376,14 +368,70 @@ test.describe('gestures', () => {
       el.dispatchEvent(new PointerEvent('pointerdown', { pointerId: 999, isPrimary: true, clientY: y, bubbles: true }))
     }, box.y + 10)
 
-    // A brand-new, real gesture must still be recognized, not silently
-    // swallowed by the abandoned state left behind above.
+    expect(pageErrors).toEqual([])
+    // Never treated as a drag in progress either — beginDrag only commits
+    // to `drag` once capture has actually succeeded.
+    await expect(page.locator('[data-tz-sheet]')).not.toHaveAttribute('data-tz-dragging', 'true')
+
+    // A brand-new, real gesture afterwards must still be recognized.
     const startX = box.x + box.width / 2
     const startY = box.y + 10
     await page.mouse.move(startX, startY)
     await page.mouse.down()
     await page.mouse.move(startX, startY + 30)
     await expect(page.locator('[data-tz-sheet]')).toHaveAttribute('data-tz-dragging', 'true')
+    await page.mouse.up()
+  })
+
+  // clearStaleDrag()'s own job: a `drag` whose capture has been released
+  // without a matching pointerup/pointercancel ever telling gestures.js
+  // (the tab losing focus mid-touch, or any other case the platform
+  // doesn't hand us a matching event for) must not block every future
+  // gesture forever, since the second-pointer guard added for a different
+  // finding otherwise rejects any pointerdown while `drag` is set.
+  //
+  // A real page.mouse or CDP-touch gesture cannot reproduce "capture lost,
+  // no matching event" by ending the gesture elsewhere: verified directly
+  // that a held mouse button redelivers its eventual mouseup to the
+  // original pointerdown target regardless of an explicit
+  // releasePointerCapture() call, and that real touch does the same — a
+  // touch's terminal event targets wherever it started for its entire
+  // lifetime, independent of Pointer Capture, which only retargets *other*
+  // elements' claim on it. The reliable proxy instead: release capture
+  // explicitly (this part is real — hasPointerCapture() becomes false), then
+  // dispatch a synthetic pointerdown reusing the *same* pointerId while the
+  // real pointer is still down underneath it (so setPointerCapture can
+  // succeed again for a fresh drag). Whether the sheet's own capture for
+  // that pointerId reads true afterward is the direct, unambiguous signal
+  // that clearStaleDrag() ran and replaced the abandoned drag with a new
+  // one — not just that dragging happened to still read "true" throughout,
+  // which would be true regardless of whether the guard did anything.
+  test('a drag whose capture was silently released without a matching pointerup can be superseded', async ({
+    page,
+  }) => {
+    await page.goto('/demo/vanilla')
+    await openSheetAndSettle(page)
+    const box = (await page.locator('[data-tz-sheet]').boundingBox())!
+    const startX = box.x + box.width / 2
+    const startY = box.y + 10
+
+    await page.mouse.move(startX, startY)
+    await page.mouse.down()
+    await page.mouse.move(startX, startY + 30)
+    await expect(page.locator('[data-tz-sheet]')).toHaveAttribute('data-tz-dragging', 'true')
+
+    await page.locator('[data-tz-sheet]').evaluate((el) => el.releasePointerCapture(1))
+    expect(await page.locator('[data-tz-sheet]').evaluate((el) => el.hasPointerCapture(1))).toBe(false)
+
+    const hasCaptureAfterSupersede = await page.locator('[data-tz-sheet]').evaluate((el, y) => {
+      el.dispatchEvent(new PointerEvent('pointerdown', { pointerId: 1, isPrimary: true, clientY: y, bubbles: true }))
+      return el.hasPointerCapture(1)
+    }, startY + 5)
+    expect(hasCaptureAfterSupersede).toBe(true)
+
+    // The real mouse button is still physically down as far as the OS is
+    // concerned; release it so later tests in the same worker don't start
+    // with a stuck button.
     await page.mouse.up()
   })
 })
