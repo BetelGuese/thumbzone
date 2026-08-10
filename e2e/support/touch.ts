@@ -1,6 +1,28 @@
 import { test, type CDPSession } from '@playwright/test'
 
 /**
+ * Whether a computed `touch-action` still lets the browser claim a vertical
+ * pan for itself.
+ *
+ * This is the semantic the pattern actually depends on, rather than any one
+ * spelling of it: a surface the user drags (the sheet's handle) or that
+ * merely covers the page (the scrim) must not hand a vertical touch to native
+ * scrolling, while the menu must always hand it over. `none`, `pinch-zoom`
+ * and `pan-x` all block a vertical pan and are all legitimate choices —
+ * `pinch-zoom` is the one the reference implementation makes, because it keeps
+ * pinch-to-zoom working (WCAG 1.4.4), and that exact value is pinned for
+ * vanilla in its own reference spec.
+ *
+ * `manipulation` counts as permissive: it only drops double-tap zoom, and
+ * leaves panning entirely to the browser.
+ */
+export function permitsVerticalPanning(touchAction: string): boolean {
+  const tokens = touchAction.trim().toLowerCase().split(/\s+/)
+  if (tokens.includes('auto') || tokens.includes('manipulation')) return true
+  return tokens.some((token) => token === 'pan-y' || token === 'pan-up' || token === 'pan-down')
+}
+
+/**
  * Skips the calling test unless real touch input can be driven on this
  * engine. CDP sessions are a Chromium-only capability; there is no equivalent
  * available for WebKit through Playwright, and page.mouse exercises no
