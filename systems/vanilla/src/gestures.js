@@ -28,8 +28,24 @@ export function attachGestures({ sheet, trigger, menu, dragProgress, shouldDismi
   function beginDrag(event, source) {
     const tracker = createVelocityTracker()
     tracker.record(event.clientY, event.timeStamp)
-    drag = { source, pointerId: event.pointerId, startY: event.clientY, tracker }
+    drag = { source, pointerId: event.pointerId, startY: event.clientY, tracker, capturedBy: event.currentTarget }
     event.currentTarget.setPointerCapture(event.pointerId)
+  }
+
+  // A pointerup or pointercancel that never reaches us — the tab losing
+  // focus mid-touch, or any other case the platform doesn't hand us a
+  // matching event for — would otherwise leave `drag` set forever: every
+  // later pointerdown is unconditionally rejected by the guards below, so
+  // the whole gesture surface goes dead until a page reload. The browser's
+  // own capture bookkeeping tracks the pointer's real lifecycle independently
+  // of whether its event reached us, so a `drag` whose capture has already
+  // been released is exactly the abandoned state to recover from — treat it
+  // as gone before deciding whether a new pointerdown may proceed.
+  function clearStaleDrag() {
+    if (!drag || drag.capturedBy.hasPointerCapture(drag.pointerId)) return
+    const wasSheetDrag = drag.source === 'sheet'
+    drag = null
+    if (wasSheetDrag) resetSheetDragVisuals()
   }
 
   function resetSheetDragVisuals() {
@@ -50,6 +66,7 @@ export function attachGestures({ sheet, trigger, menu, dragProgress, shouldDismi
   }
 
   function onSheetPointerDown(event) {
+    clearStaleDrag()
     // A second finger landing mid-drag would otherwise re-enter beginDrag
     // and silently overwrite the first finger's state; ignore it, and
     // ignore any non-primary pointer (e.g. a secondary touch point) for the
@@ -92,6 +109,7 @@ export function attachGestures({ sheet, trigger, menu, dragProgress, shouldDismi
   }
 
   function onTriggerPointerDown(event) {
+    clearStaleDrag()
     if (drag || !event.isPrimary) return
     beginDrag(event, 'trigger')
   }

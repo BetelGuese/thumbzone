@@ -330,6 +330,45 @@ test.describe('gestures', () => {
     await expect(page.locator('[data-tz-sheet]')).not.toHaveAttribute('data-tz-open', 'true')
   })
 
+  // A pointerup or pointercancel that never reaches gestures.js — the tab
+  // losing focus mid-touch, or any other case the platform doesn't hand us
+  // a matching event for — must not wedge every future gesture: since the
+  // second-pointer guard added for a different finding rejects any
+  // pointerdown while `drag` is set, a `drag` left behind by a vanished
+  // gesture would otherwise block every subsequent one forever.
+  //
+  // A real page.mouse gesture cannot reproduce "capture lost, no matching
+  // event" directly: releasePointerCapture() fires only
+  // 'lostpointercapture', but a held mouse button still implicitly
+  // redelivers its eventual mouseup to the original pointerdown target
+  // regardless (verified directly — moving the pointer away and releasing
+  // there still reaches the sheet's own listener, completing the drag via
+  // the ordinary path and never engaging this safety net at all). A
+  // pointerdown whose pointerId was never backed by a real, active pointer
+  // is the reliable proxy instead: setPointerCapture() throws
+  // NotFoundError for it on both engines (verified directly), so
+  // hasPointerCapture() is false from the very start — exactly the
+  // condition clearStaleDrag() checks for, and the closest reachable stand-in
+  // for "capture is gone and nothing ever told us."
+  test('a drag whose capture never actually succeeded does not wedge future gestures', async ({ page }) => {
+    await page.goto('/demo/vanilla')
+    await openSheetAndSettle(page)
+    const box = (await page.locator('[data-tz-sheet]').boundingBox())!
+
+    await page.locator('[data-tz-sheet]').evaluate((el, y) => {
+      el.dispatchEvent(new PointerEvent('pointerdown', { pointerId: 999, isPrimary: true, clientY: y, bubbles: true }))
+    }, box.y + 10)
+
+    // A brand-new, real gesture must still be recognized, not silently
+    // swallowed by the abandoned state left behind above.
+    const startX = box.x + box.width / 2
+    const startY = box.y + 10
+    await page.mouse.move(startX, startY)
+    await page.mouse.down()
+    await page.mouse.move(startX, startY + 30)
+    await expect(page.locator('[data-tz-sheet]')).toHaveAttribute('data-tz-dragging', 'true')
+    await page.mouse.up()
+  })
 })
 
 // prefers-reduced-motion turns the sheet's open/close animation into an
