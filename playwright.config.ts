@@ -5,6 +5,12 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
+  // The default reporter (a bare 'dot' summary under CI) never writes
+  // playwright-report/ at all, which would make the workflow's "upload the
+  // report on failure" step upload nothing. The html reporter is what
+  // actually produces that directory; kept CI-only so a local run's own
+  // terminal output is unchanged.
+  reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
   use: { baseURL: 'http://localhost:4321', trace: 'on-first-retry' },
   projects: [
     { name: 'mobile-safari', use: { ...devices['iPhone 14 Pro Max'] } },
