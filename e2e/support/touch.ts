@@ -23,6 +23,24 @@ export function permitsVerticalPanning(touchAction: string): boolean {
 }
 
 /**
+ * Whether a computed `touch-action` leaves pinch-to-zoom available to the
+ * browser (WCAG 1.4.4).
+ *
+ * Per the touch-action spec, `pinch-zoom` is only ever granted if it is
+ * explicitly named — `auto` and `manipulation` carry it implicitly, but
+ * `none` and every bare `pan-*` keyword (including the ones that also block
+ * vertical panning, like `pan-x`) suppress it. That is exactly the gap this
+ * predicate closes: `permitsVerticalPanning` treats `none` and `pinch-zoom`
+ * as equally valid ways to block a pan, but only one of them keeps zoom
+ * alive, and a surface that covers the whole viewport (the scrim) has no
+ * business taking that away from the rest of the page.
+ */
+export function permitsPinchZoom(touchAction: string): boolean {
+  const tokens = touchAction.trim().toLowerCase().split(/\s+/)
+  return tokens.includes('auto') || tokens.includes('manipulation') || tokens.includes('pinch-zoom')
+}
+
+/**
  * Skips the calling test unless real touch input can be driven on this
  * engine. CDP sessions are a Chromium-only capability; there is no equivalent
  * available for WebKit through Playwright, and page.mouse exercises no
