@@ -41,11 +41,13 @@ async function openSheetAndSettle(page: Page) {
 }
 
 /**
- * Drags the sheet down by `distance` px, paced to land at roughly
- * `velocity` px/ms so the gesture's real elapsed time — not just its pixel
- * distance — matches what the test means to exercise.
+ * Presses and drags the sheet down by `distance` px (without releasing),
+ * paced to land at roughly `velocity` px/ms so the gesture's real elapsed
+ * time — not just its pixel distance — matches what the test means to
+ * exercise. Split out from `dragSheet` below so a test can assert on the
+ * in-progress state before deciding whether/how to release.
  */
-async function dragSheet(page: Page, distance: number, velocity: number, steps = 12) {
+async function beginDragSheet(page: Page, distance: number, velocity: number, steps = 12) {
   const box = (await page.locator('[data-tz-sheet]').boundingBox())!
   const startX = box.x + box.width / 2
   const startY = box.y + 20
@@ -57,6 +59,11 @@ async function dragSheet(page: Page, distance: number, velocity: number, steps =
     await page.mouse.move(startX, startY + (distance * i) / steps)
     await page.waitForTimeout(stepDelayMs)
   }
+}
+
+/** `beginDragSheet` followed immediately by a release. */
+async function dragSheet(page: Page, distance: number, velocity: number, steps = 12) {
+  await beginDragSheet(page, distance, velocity, steps)
   await page.mouse.up()
 }
 
@@ -163,6 +170,41 @@ test.describe('gestures', () => {
     // The real pointer is still physically "down"; release it so later
     // tests in the same worker don't start with a stuck mouse button.
     await page.mouse.up()
+  })
+
+  // A second finger landing mid-drag (or any non-primary pointer) must not
+  // be able to hijack the gesture: without a guard, its pointerdown would
+  // silently overwrite the first finger's `drag` state, and the first
+  // finger's eventual pointerup would then be discarded on the pointerId
+  // mismatch — leaving data-tz-dragging and the inline transform (and the
+  // CSS transition they disable) stuck until some later drag happened to
+  // clear them.
+  test('a second pointer landing mid-drag does not hijack or corrupt the gesture', async ({ page }) => {
+    await page.goto('/demo/vanilla')
+    await openSheetAndSettle(page)
+    const height = (await page.locator('[data-tz-sheet]').boundingBox())!.height
+
+    // Paced the same way as "springs back" above: unpaced, this drag alone
+    // reads as a multi-px/ms fling (Playwright dispatches events only a
+    // couple of milliseconds apart) and would dismiss regardless of the
+    // second pointer this test means to isolate.
+    await beginDragSheet(page, height * (DISMISS_RATIO - 0.1), SLOW_VELOCITY)
+    await expect(page.locator('[data-tz-sheet]')).toHaveAttribute('data-tz-dragging', 'true')
+
+    // A second, non-primary touch landing on the sheet while the first
+    // pointer is still down.
+    await page.locator('[data-tz-sheet]').evaluate((el) => {
+      el.dispatchEvent(
+        new PointerEvent('pointerdown', { pointerId: 2, isPrimary: false, clientY: 1, bubbles: true }),
+      )
+    })
+
+    // The first (real) pointer's own release must still be honoured:
+    // released short of the dismiss threshold, it must spring back exactly
+    // as it would have without the interloper.
+    await page.mouse.up()
+    await expect(page.locator('[data-tz-sheet]')).toHaveAttribute('data-tz-open', 'true')
+    await expect(page.locator('[data-tz-sheet]')).not.toHaveAttribute('data-tz-dragging', 'true')
   })
 
   test('opens on a swipe up from the trigger', async ({ page }) => {

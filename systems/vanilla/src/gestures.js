@@ -49,6 +49,12 @@ export function attachGestures({ sheet, trigger, dragProgress, shouldDismiss, cr
   }
 
   function onSheetPointerDown(event) {
+    // A second finger landing mid-drag would otherwise re-enter beginDrag
+    // and silently overwrite the first finger's state; ignore it, and
+    // ignore any non-primary pointer (e.g. a secondary touch point) for the
+    // same reason. Accidental second touches are common on a bottom sheet
+    // operated with a thumb while the rest of the hand rests nearby.
+    if (drag || !event.isPrimary) return
     // Let the sheet's own scrollable content win when it is not at the top;
     // otherwise the drag would fight the scroll.
     if (sheet.scrollTop > 0) return
@@ -74,6 +80,7 @@ export function attachGestures({ sheet, trigger, dragProgress, shouldDismiss, cr
   }
 
   function onTriggerPointerDown(event) {
+    if (drag || !event.isPrimary) return
     beginDrag(event, 'trigger')
   }
 
