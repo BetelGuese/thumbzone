@@ -61,7 +61,8 @@ export function createScrollDirectionTracker({ threshold = SCROLL_THRESHOLD } = 
   }
 }
 
-const FOCUSABLE =
+/** Shared with e2e tests so the "what counts as focusable" definition has one source of truth. */
+export const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])'
 
 function focusableWithin(root) {
@@ -69,6 +70,11 @@ function focusableWithin(root) {
     (el) => el.offsetParent !== null || el === document.activeElement,
   )
 }
+
+// Guards against wiring the same sheet twice (e.g. a caller re-running init
+// without destroying the previous instance first), which would otherwise
+// leave two 'keydown' listeners on document reacting to every open sheet.
+const initializedSheets = new WeakSet()
 
 /**
  * Wire up a thumbzone sheet. Returns handles for programmatic control.
@@ -81,6 +87,12 @@ export function initThumbzone({ trigger, sheet, scrim, menu, inertRoot }) {
   if (missing.length > 0) {
     throw new TypeError(`thumbzone: initThumbzone is missing required element(s): ${missing.join(', ')}`)
   }
+  if (initializedSheets.has(sheet)) {
+    throw new Error(
+      'thumbzone: initThumbzone was already called for this sheet; call destroy() on the previous instance first',
+    )
+  }
+  initializedSheets.add(sheet)
 
   let isOpen = false
 
@@ -139,9 +151,17 @@ export function initThumbzone({ trigger, sheet, scrim, menu, inertRoot }) {
     // all, so mid-list presses would silently walk focus out of the sheet
     // there. Owning every step keeps the trap correct on every engine.
     event.preventDefault()
-    const step = event.shiftKey ? -1 : 1
     const currentIndex = focusable.indexOf(document.activeElement)
-    const nextIndex = (currentIndex + step + focusable.length) % focusable.length
+    // indexOf is -1 when focus is on something outside the focusable list
+    // (e.g. the sheet's own tabindex="-1" fallback) — treat that as "just
+    // before the sequence" rather than letting the -1 skew the wrap math
+    // and land one element short.
+    const nextIndex =
+      currentIndex === -1
+        ? event.shiftKey
+          ? focusable.length - 1
+          : 0
+        : (currentIndex + (event.shiftKey ? -1 : 1) + focusable.length) % focusable.length
     focusable[nextIndex].focus()
   }
 
@@ -158,9 +178,21 @@ export function initThumbzone({ trigger, sheet, scrim, menu, inertRoot }) {
     open,
     close,
     destroy() {
+      // Close first: destroy() can be called while the sheet is open, and
+      // without this, inertRoot (the whole app) would be left permanently
+      // inert with every listener that could have recovered it already
+      // gone. setOpen(false) also restores the sheet/trigger/scrim
+      // attributes to the same closed defaults the markup itself authors,
+      // so a destroyed instance and a never-initialised page look alike.
+      setOpen(false)
       trigger.removeEventListener('click', onTriggerClick)
       scrim.removeEventListener('click', close)
       document.removeEventListener('keydown', onKeydown)
+      // Only tabindex is purely an init-time addition with no markup
+      // equivalent to fall back to, so it is the one attribute removed
+      // outright rather than reset via setOpen.
+      sheet.removeAttribute('tabindex')
+      initializedSheets.delete(sheet)
     },
   }
 }

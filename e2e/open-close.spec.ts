@@ -1,4 +1,14 @@
 import { test, expect, type Page } from '@playwright/test'
+import { FOCUSABLE } from '../systems/vanilla/src/thumbzone.js'
+
+// The demo route exposes the initThumbzone() handle on window purely for
+// tests: destroy() has no attribute-driven equivalent a test could trigger
+// from the DOM alone.
+declare global {
+  interface Window {
+    __thumbzone?: { open: () => void; close: () => void; destroy: () => void }
+  }
+}
 
 test.describe('open and close', () => {
   test('opens on trigger tap and reports expanded state', async ({ page }) => {
@@ -23,15 +33,30 @@ test.describe('open and close', () => {
     await expect(page.locator('[data-tz-app]')).toHaveAttribute('inert', '')
   })
 
-  test('traps focus inside the sheet', async ({ page }) => {
+  test('traps focus inside the sheet, cycling through every link in order', async ({ page }) => {
     await page.goto('/demo/vanilla')
     await page.locator('[data-tz-trigger]').click()
-    const linkCount = await page.locator('[data-tz-menu] a').count()
-    for (let i = 0; i < linkCount + 2; i += 1) await page.keyboard.press('Tab')
-    const stillInSheet = await page.evaluate(
-      () => !!document.activeElement?.closest('[data-tz-sheet]'),
-    )
-    expect(stillInSheet).toBe(true)
+
+    const links = page.locator('[data-tz-menu] a')
+    // Derived from the rendered menu, not a hardcoded item count or names —
+    // a handler that merely called preventDefault() without moving focus
+    // anywhere would satisfy a weaker "still inside the sheet" check, so
+    // this asserts the exact element focus lands on at every step instead.
+    const linkCount = await links.count()
+
+    await expect(links.first()).toBeFocused()
+
+    // Forward through every link once; tabbing past the last one must wrap
+    // back to the first — that wrap is the trap.
+    for (let step = 1; step <= linkCount; step += 1) {
+      await page.keyboard.press('Tab')
+      await expect(links.nth(step % linkCount)).toBeFocused()
+    }
+
+    // Shift+Tab from the first link wraps backward to the last.
+    await expect(links.first()).toBeFocused()
+    await page.keyboard.press('Shift+Tab')
+    await expect(links.last()).toBeFocused()
   })
 
   // A closed sheet is fully rendered (merely translated off-screen), not
@@ -41,25 +66,29 @@ test.describe('open and close', () => {
   test('keeps a closed sheet inert and out of the tab order', async ({ page }) => {
     await page.goto('/demo/vanilla')
 
-    // The direct, engine-independent signal: WebKit does not put plain
-    // `<a href>` elements without a tabindex in its native Tab sequence at
-    // all (unlike Chromium and Firefox), so a keyboard sweep alone cannot
-    // prove the sheet is reachable or not on every engine. `inert` is what
-    // actually removes the subtree from the accessibility tree that a
-    // screen reader walks, so assert it directly.
+    // The attribute itself.
     await expect(page.locator('[data-tz-sheet]')).toHaveAttribute('inert', '')
+
+    // The behavioural, engine-independent proof: `inert` blocks
+    // *programmatic* focus too, not just sequential Tab traversal. This is
+    // the check that actually holds on every engine — WebKit does not put
+    // plain `<a href>` elements without a tabindex in its native Tab
+    // sequence at all (unlike Chromium and Firefox), so a keyboard sweep
+    // alone cannot prove the sheet is unreachable there: it would pass
+    // whether or not `inert` was applied, because WebKit already skips
+    // these links on Tab regardless. Attempting to focus a link directly
+    // has no such blind spot.
+    await page.locator('[data-tz-menu] a').first().focus()
+    await expect(page.locator('[data-tz-menu] a').first()).not.toBeFocused()
 
     // Belt-and-braces for engines where Tab does traverse the links:
     // sweep past every element the document could hand focus to and
     // confirm none of them land inside the sheet either. Deriving the
     // count from the page itself (rather than a literal like "6") means
     // the sweep still covers the whole tab order if the fixture grows
-    // another focusable element.
-    const focusableCount = await page
-      .locator(
-        'a[href], button:not([disabled]), input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])',
-      )
-      .count()
+    // another focusable element. FOCUSABLE is imported from the
+    // implementation so the two definitions of "focusable" can't drift.
+    const focusableCount = await page.locator(FOCUSABLE).count()
 
     for (let i = 0; i < focusableCount + 2; i += 1) {
       await page.keyboard.press('Tab')
@@ -68,6 +97,16 @@ test.describe('open and close', () => {
       )
       expect(focusedInSheet).toBe(false)
     }
+  })
+
+  test('destroy() while open releases inertRoot instead of stranding it', async ({ page }) => {
+    await page.goto('/demo/vanilla')
+    await page.locator('[data-tz-trigger]').click()
+    await expect(page.locator('[data-tz-app]')).toHaveAttribute('inert', '')
+
+    await page.evaluate(() => window.__thumbzone?.destroy())
+
+    await expect(page.locator('[data-tz-app]')).not.toHaveAttribute('inert', '')
   })
 
   test.describe('closing', () => {
