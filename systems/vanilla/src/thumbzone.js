@@ -17,6 +17,27 @@ export const DISMISS_RATIO = 0.25
 /** Downward velocity (px/ms) that dismisses regardless of distance. */
 export const FLING_VELOCITY = 0.5
 
+// The four constants below are implemented in thumbzone.css, which cannot
+// import them. They are declared here so that the conformance suite has one
+// named source for each value rather than a literal per assertion, and so
+// that a stylesheet edit which drifts from the documented contract fails a
+// test instead of passing quietly.
+
+/** Minimum hit target (CSS px) for the trigger, in both axes. */
+export const MIN_HIT_TARGET = 48
+
+/** Viewport width (CSS px) at and above which the pattern hides itself entirely. */
+export const DESKTOP_BREAKPOINT = 768
+
+/** Duration (ms) of the sheet's open/close transition. */
+export const SHEET_TRANSITION_MS = 240
+
+/** Easing of the sheet's open/close transition. */
+export const SHEET_EASING = 'cubic-bezier(0.32, 0.72, 0, 1)'
+
+/** Duration (ms) every named transition collapses to under prefers-reduced-motion. */
+export const REDUCED_MOTION_TRANSITION_MS = 1
+
 function assertPositiveHeight(height) {
   if (!Number.isFinite(height) || height <= 0) {
     throw new RangeError(`thumbzone: sheet height must be positive, received ${height}`)
