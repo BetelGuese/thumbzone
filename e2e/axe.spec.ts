@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
 import AxeBuilder from '@axe-core/playwright'
 import { SHIPPED_SYSTEMS } from '../systems/registry'
 import { openSheetAndSettle } from './support/sheet'
@@ -13,52 +13,82 @@ import { describeForEachSystem } from './support/systems'
 const WCAG_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']
 
 /**
- * Floor for how many rules the tags above must resolve to together.
+ * `withTags([...tag])` sets axe-core's `runOnly: { type: 'tag' }`, which is
+ * not the same thing as "every rule that tag matches". axe-core additionally
+ * excludes any matched rule carrying its own `deprecated` or `experimental`
+ * tag from *any* run, tag-scoped or not (`axe._audit.tagExclude`, checked
+ * directly against 4.12.1) — the per-rule `enabled: false` default, by
+ * contrast, is irrelevant here: it only governs a tag-less default run, and
+ * a rule that matches a requested tag runs regardless of it. Confirmed
+ * directly: `target-size` (wcag22aa's only rule) is `enabled: false` and
+ * still fires a real violation under `withTags(['wcag22aa'])` alone.
  *
- * AxeBuilder.withTags() does not error on a tag axe-core has never heard of —
- * it just contributes zero rules, so a typo or an axe-core upgrade that
- * renames one of these silently narrows the gate instead of failing it: fewer
- * rules run, fewer things can be found, and "zero violations" quietly starts
- * meaning less than it did. Verified directly against the installed
- * axe-core (4.12.1): these five tags resolve to 70 rules between them, with
- * no overlap. The floor sits well under that so an axe-core upgrade that
- * retires a handful of individual rules doesn't make this flaky, while
- * staying far above what losing any one tag's contribution would leave.
+ * `label-content-name-mismatch` — wcag21a's *only* rule — carries axe-core's
+ * `experimental` tag, so without this override wcag21a would silently run
+ * zero rules while still appearing to be part of "the full WCAG 2.x A/AA
+ * surface" above: exactly the silently-narrower-than-claimed gate this file
+ * exists to not be. WCAG 2.5.3 (visible label text contained in the
+ * accessible name) is a real, meaningful check, so it is force-enabled
+ * rather than dropping wcag21a from the tag list.
+ *
+ * Six other rules matching the tags above hit the same deprecated/experimental
+ * exclusion (aria-roledescription, audio-caption, css-orientation-lock,
+ * p-as-heading, table-fake-caption, td-has-header) and are deliberately left
+ * at axe-core's own default judgement: each belongs to a tag — wcag2a or
+ * wcag21aa — that still has plenty of other rules running, so excluding them
+ * doesn't zero out anything this gate claims to check the way losing
+ * wcag21a's one rule would have.
  */
-const MIN_COMBINED_RULES = 50
+function buildAxe(page: Page): AxeBuilder {
+  return new AxeBuilder({ page })
+    .options({ rules: { 'label-content-name-mismatch': { enabled: true } } })
+    .withTags(WCAG_TAGS)
+}
+
+/**
+ * Floor for how many of the tagged rules must actually run (appear in one of
+ * the four result buckets: passed, violated, incomplete, or inapplicable —
+ * "inapplicable" still means axe considered the rule and found no matching
+ * node, which is a real run, unlike an excluded rule that never gets that far
+ * at all). A page's own content decides how many rules find a node to check,
+ * but essentially the whole tagged set gets *considered* regardless of what
+ * the page contains, so this floor is a check on the tag mechanism staying
+ * intact, not on any one page's markup.
+ */
+const MIN_TOTAL_RULES_RUN = 60
 
 // Project-level, not per-system: this is a property of the installed
-// axe-core, not of anything a system renders, so running it once per
-// registered system would repeat identical work for an identical answer.
-// It exists because the two tests below trust `results.violations` to mean
-// "checked against the full WCAG 2.x A/AA surface" — a trust this proves
-// rather than assumes.
+// axe-core and the options above, not of anything a system renders, so
+// running it once per registered system would repeat identical work for an
+// identical answer. It exists because the two tests below trust
+// `results.violations` to mean "checked against the full WCAG 2.x A/AA
+// surface" — a trust this proves against a real analyze() call rather than
+// against axe's rule *registry*, which (see buildAxe above) is not the same
+// thing as what a given run actually executes.
 test.describe('axe tag sanity', () => {
-  test('every requested tag resolves to real axe-core rules', async ({ page }) => {
+  test('every requested tag actually runs at least one rule', async ({ page }) => {
     await page.goto(SHIPPED_SYSTEMS[0].route)
-    // analyze() is what injects axe-core onto the page; running one first
-    // (and discarding its result) means the check below queries the exact
-    // same axe instance — same version, same engine — that the tests after
-    // it rely on, rather than a second one loaded some other way.
-    await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze()
+    const results = await buildAxe(page).analyze()
+    const ran = [...results.passes, ...results.violations, ...results.incomplete, ...results.inapplicable]
 
-    const rulesPerTag = await page.evaluate((tags: string[]) => {
-      const axe = (window as unknown as { axe: { getRules: (t: string[]) => unknown[] } }).axe
-      return tags.map((tag) => [tag, axe.getRules([tag]).length] as const)
-    }, WCAG_TAGS)
-
-    for (const [tag, count] of rulesPerTag) {
-      expect(count, `axe-core has no rules tagged "${tag}" — it was likely renamed or dropped upstream`).toBeGreaterThan(0)
+    for (const tag of WCAG_TAGS) {
+      const count = ran.filter((rule) => rule.tags.includes(tag)).length
+      expect(
+        count,
+        `no rule tagged "${tag}" ran in a real analyze() call — a rule being registered under a tag ` +
+          '(axe.getRules) is not proof it actually runs when that tag is requested: a typo silently ' +
+          'contributes nothing either way, and axe-core separately excludes deprecated/experimental rules ' +
+          'from a tag-scoped run even when they match',
+      ).toBeGreaterThan(0)
     }
 
-    const combinedCount = await page.evaluate(
-      (tags: string[]) => (window as unknown as { axe: { getRules: (t: string[]) => unknown[] } }).axe.getRules(tags).length,
-      WCAG_TAGS,
-    )
+    // Guards against the tag mechanism collapsing wholesale (e.g. withTags
+    // itself breaking) rather than any single tag's contribution, which the
+    // per-tag loop above already checks directly.
     expect(
-      combinedCount,
-      'the combined WCAG rule set narrowed sharply — this gate is checking far less than it claims to',
-    ).toBeGreaterThanOrEqual(MIN_COMBINED_RULES)
+      ran.length,
+      'the number of rules actually run for this tag set narrowed sharply — this gate is checking far less than it claims to',
+    ).toBeGreaterThanOrEqual(MIN_TOTAL_RULES_RUN)
   })
 })
 
@@ -72,7 +102,7 @@ function summarizeViolations(results: { violations: Array<{ id: string; help: st
 describeForEachSystem('accessibility', (system) => {
   test('has no violations with the sheet closed', async ({ page }) => {
     await page.goto(system.route)
-    const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze()
+    const results = await buildAxe(page).analyze()
     expect(results.violations, summarizeViolations(results)).toEqual([])
   })
 
@@ -82,7 +112,7 @@ describeForEachSystem('accessibility', (system) => {
   test('has no violations with the sheet open', async ({ page }) => {
     await page.goto(system.route)
     await openSheetAndSettle(page)
-    const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze()
+    const results = await buildAxe(page).analyze()
     expect(results.violations, summarizeViolations(results)).toEqual([])
   })
 })
