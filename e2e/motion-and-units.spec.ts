@@ -2,13 +2,22 @@ import { test, expect } from '@playwright/test'
 import { readFileSync, globSync } from 'node:fs'
 import { describeForEachSystem } from './support/systems'
 
-// Every file that can carry a CSS length for this system: the vanilla
-// system's own stylesheet and logic modules (a JS module can write an
-// inline `100vh` just as easily as a stylesheet can), plus every Astro page
-// and layout that renders it, since a length can land in a page's own
-// <style> too. Scoping this to thumbzone.css alone would miss the next
-// violation added anywhere else in either tree.
-const SCANNED_FILES = [...globSync('systems/vanilla/src/**/*.{css,js}'), ...globSync('site/src/**/*.astro')]
+// Every file that can carry a CSS length: each system's own stylesheets and
+// logic modules (a JS module can write an inline `100vh` just as easily as a
+// stylesheet can), plus every Astro page and layout that renders one, since a
+// length can land in a page's own <style> too. Scoping this to one
+// stylesheet would miss the next violation added anywhere else in either
+// tree.
+//
+// Both globs are deliberately system-agnostic rather than scoped to the one
+// system that exists today: a guard that only ever scanned `vanilla` would
+// keep passing while a new port shipped the very violation it exists to
+// catch. The extension list covers the source languages a design-system port
+// plausibly ships in, for the same reason.
+const SCANNED_FILES = [
+  ...globSync('systems/*/src/**/*.{css,scss,js,jsx,mjs,ts,tsx,vue,svelte}'),
+  ...globSync('site/src/**/*.astro'),
+]
 
 // A digit run immediately followed by `vh`, word-bounded on both sides. The
 // leading `\b\d+` is what keeps this from matching the "vh" inside "85dvh":
@@ -16,8 +25,10 @@ const SCANNED_FILES = [...globSync('systems/vanilla/src/**/*.{css,js}'), ...glob
 // them, so `\d+` can only anchor at that token's start — where the next
 // two characters are "dv", not "vh" — and the match fails. The same absence
 // of an immediately preceding digit run is what keeps a bare mention of the
-// unit in prose ("not vh:") from tripping this.
-const BARE_VH = /\b\d+(\.\d+)?vh\b/
+// unit in prose ("not vh:") from tripping this. Case-insensitive because CSS
+// units are: a stray `100VH` is the same violation as `100vh`, and would
+// otherwise sail straight through.
+const BARE_VH = /\b\d+(\.\d+)?vh\b/i
 
 // Project-level, not per-system: this pair scans the repository's own source
 // files rather than anything a browser rendered, so running it once per
@@ -28,6 +39,10 @@ test.describe('vh guard', () => {
     expect(BARE_VH.test('overflows 85dvh on both target devices')).toBe(false)
     expect(BARE_VH.test('dvh, not vh: iOS Safari collapsing URL bar')).toBe(false)
     expect(BARE_VH.test('max-block-size: 100vh;')).toBe(true)
+    // Case-insensitivity, both ways round: an upper-case violation is caught,
+    // and an upper-case `dvh` is still not mistaken for one.
+    expect(BARE_VH.test('max-block-size: 100VH;')).toBe(true)
+    expect(BARE_VH.test('max-block-size: 100DVH;')).toBe(false)
   })
 
   test('no scanned file uses vh where dvh is required', () => {
