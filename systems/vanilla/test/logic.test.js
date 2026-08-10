@@ -191,6 +191,38 @@ describe('createVelocityTracker', () => {
     expect(Math.abs(tracker.velocityAt(releasePosition, releaseTime))).toBeLessThan(FLING_VELOCITY)
   })
 
+  // The test above has only one stale sample to prune, so a mutated pruning
+  // loop that removes at most one sample per record() call (`while` changed
+  // to `if`) drains it in the same single call and passes regardless —
+  // `samples[0]` is not read again until the next record() or velocityAt(),
+  // and there is only one record() call after the pause in that test. A
+  // cluster of *several* stale samples, still only ever visited by a single
+  // record() call afterward (matching gestures.js's own real usage — see
+  // the note above), needs every one of them pruned in that one call for
+  // the anchor to land on real, recent movement. A single-shift mutation
+  // would otherwise leave the anchor on one of these ancient, arbitrary
+  // positions, and — since the direction of the resulting error depends on
+  // how far that stale position happens to sit from the release point —
+  // could just as easily suppress a genuine fling as fabricate one.
+  it('drains an entire cluster of stale samples in one pass, not just the oldest', () => {
+    const tracker = createVelocityTracker()
+    // Several samples close together in time, near the start — recorded
+    // during, say, an initial slow adjustment before the pause below.
+    tracker.record(-800, 0)
+    tracker.record(-800, 1)
+    tracker.record(-800, 2)
+    // A long pause, then exactly one record() call once movement resumes —
+    // pruning has only this one call to drain the entire stale cluster
+    // above before velocityAt() reads samples[0].
+    const recentStart = VELOCITY_WINDOW_MS * 3
+    const recentPosition = rand(-100, 100)
+    tracker.record(recentPosition, recentStart)
+    const slowSpeed = FLING_VELOCITY * rand(0.1, 0.4)
+    const releaseTime = recentStart + rand(10, VELOCITY_WINDOW_MS - 1)
+    const releasePosition = recentPosition + slowSpeed * (releaseTime - recentStart)
+    expect(Math.abs(tracker.velocityAt(releasePosition, releaseTime))).toBeLessThan(FLING_VELOCITY)
+  })
+
   // The other regression this tracker exists to fix: a quick flick followed
   // by holding still before releasing must not still read as a fling — the
   // pointer generates no further move events while it rests, so decay has
