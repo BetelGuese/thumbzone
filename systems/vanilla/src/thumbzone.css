@@ -40,6 +40,13 @@
   background: rgb(0 0 0 / 0.5);
   opacity: 0;
   pointer-events: none;
+  /* The scrim has no scrollable content of its own, but sits (visually, via
+     z-index — not in the ancestor chain touch-action arbitration actually
+     consults) on top of the page behind it. Without this, a touch pan
+     starting on the scrim can still scroll that page underneath, despite
+     pointer-events blocking taps from reaching it. pinch-zoom, not none,
+     for the same WCAG 1.4.4 reason as everywhere else here. */
+  touch-action: pinch-zoom;
   transition: opacity 240ms cubic-bezier(0.32, 0.72, 0, 1);
 }
 
