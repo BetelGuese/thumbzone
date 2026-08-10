@@ -76,17 +76,27 @@ describeForEachSystem('scroll-aware trigger', (system) => {
   // an overflowing menu would tuck the trigger the instant a user reads
   // through it.
   describeOverflowFixture(system, 'overflowing menu', (overflowRoute) => {
+    // Scrolled with the sheet *closed*. Tucking is suppressed outright while
+    // the sheet is open (the test above is what proves that), so a menu
+    // scrolled from an open sheet could never tuck the trigger whatever the
+    // implementation did with the event — the isolation this test is named
+    // for would be indistinguishable from that suppression. Closed, the
+    // trigger is genuinely tuckable, and only the fact that the menu's own
+    // scrolling never reaches the tucking logic keeps it untucked.
     test('does not tuck when the overflowing menu itself is scrolled', async ({ page }) => {
       await page.goto(overflowRoute)
       const trigger = page.locator('[data-tz-trigger]')
-      await trigger.click()
-      await expect(page.locator('[data-tz-sheet]')).toHaveAttribute('data-tz-open', 'true')
+      await expect(trigger).not.toHaveAttribute('data-tz-tucked', 'true')
 
       const menu = page.locator('[data-tz-menu]')
-      await menu.evaluate((el) => {
-        el.scrollTop = el.scrollHeight
+      // Downward, comfortably past the jitter threshold but well short of the
+      // menu's own end: at the end, a tracker fed this scroll by mistake
+      // would answer "show" for its own end-of-content reason and mask the
+      // very confusion this is looking for.
+      await menu.evaluate((el, distance) => {
+        el.scrollTop = distance
         el.dispatchEvent(new Event('scroll'))
-      })
+      }, SCROLL_NUDGE)
       // Guards the premise: this only proves the trigger's isolation from
       // menu-scrolling if the menu actually scrolled.
       expect(await menu.evaluate((el) => el.scrollTop)).toBeGreaterThan(0)
