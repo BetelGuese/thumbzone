@@ -402,6 +402,25 @@ describeForEachSystem('gestures', (system) => {
     await page.mouse.up()
   })
 
+  // The handle is where a real touch has to start a dismiss drag — the menu
+  // owns every pan inside it, and on a menu tall enough to fill the sheet
+  // there is nothing else left — so its hit size is a reachability claim in
+  // exactly the way the trigger's is, held to the same floor. Purely a
+  // stylesheet concern, which is what makes it silent: every gesture test
+  // above drives the sheet by coordinate rather than by hitting the handle,
+  // so a handle shrunk to the height of its visible pill would break real
+  // thumbs and nothing else.
+  test('the drag handle meets the minimum hit target', async ({ page }) => {
+    await page.goto(system.route)
+    await openSheetAndSettle(page)
+
+    const handle = page.locator('[data-tz-handle]')
+    await expect(handle).toBeVisible()
+    const box = (await handle.boundingBox())!
+    expect(box.width).toBeGreaterThanOrEqual(MIN_HIT_TARGET)
+    expect(box.height).toBeGreaterThanOrEqual(MIN_HIT_TARGET)
+  })
+
   // Isolates the JS-level gate specifically, decoupled from the CSS
   // touch-action layer (the real-touch fixture test covers that
   // separately): page.mouse never engages touch-action arbitration at all,

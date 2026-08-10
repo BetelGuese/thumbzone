@@ -1,9 +1,19 @@
 import { test, expect } from '@playwright/test'
-// Both values come from the normative implementation rather than being
+// Every value comes from the normative implementation rather than being
 // restated here, so the suite and the stylesheet cannot disagree about what
 // the contract is.
-import { DESKTOP_BREAKPOINT, MIN_HIT_TARGET } from '../systems/vanilla/src/thumbzone.js'
+import {
+  DESKTOP_BREAKPOINT,
+  MAX_TRIGGER_BOTTOM_GAP,
+  MIN_HIT_TARGET,
+} from '../systems/vanilla/src/thumbzone.js'
+import { destroyThumbzone, reinitThumbzone } from './support/handles'
 import { describeForEachSystem } from './support/systems'
+
+// Distinct from anything the implementation would write for itself, and from
+// the word the suite looks for elsewhere: a label the pattern could have
+// produced on its own would not show that the authored one survived.
+const AUTHORED_TRIGGER_LABEL = 'Navigation'
 
 describeForEachSystem('trigger', (system) => {
   test('is horizontally centred at the bottom of the viewport', async ({ page }) => {
@@ -17,6 +27,15 @@ describeForEachSystem('trigger', (system) => {
     expect(Math.abs(triggerCentre - viewport.width / 2)).toBeLessThanOrEqual(1)
     expect(box.y + box.height).toBeLessThanOrEqual(viewport.height)
     expect(box.y).toBeGreaterThan(viewport.height / 2)
+    // The claim the whole project rests on, stated as a bound rather than as
+    // "somewhere in the lower half": a trigger at 51% of the viewport height
+    // satisfies the line above while sitting nowhere a thumb can reach, so
+    // this is the assertion that actually holds a port to thumb placement.
+    const gapBelowTrigger = viewport.height - (box.y + box.height)
+    expect(
+      gapBelowTrigger,
+      `the trigger must sit within ${MAX_TRIGGER_BOTTOM_GAP}px of the viewport's bottom edge`,
+    ).toBeLessThanOrEqual(MAX_TRIGGER_BOTTOM_GAP)
   })
 
   test('meets the minimum hit target', async ({ page }) => {
