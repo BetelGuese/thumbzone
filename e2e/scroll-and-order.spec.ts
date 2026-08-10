@@ -16,17 +16,28 @@ declare global {
       menu: Element | null
       inertRoot: Element | null
     }) => { open: () => void; close: () => void; destroy: () => void }
+    __scrollCount?: number
   }
 }
 
+// Mirrors site/src/pages/demo/vanilla.astro's authored `items` array — the
+// independent source of truth the destroy()-restoration test below checks
+// against, rather than deriving "original" by reversing whatever the page
+// currently renders (which would only prove destroy() inverts a reverse,
+// not that it restores what the author actually wrote).
+const AUTHORED_MENU_ORDER = ['Home', 'Search', 'Library', 'Profile', 'Settings']
+
 // A wide margin above the jitter threshold, derived from the exported
-// constant rather than a bare literal, so these two added scenarios keep
-// meaning "comfortably past the threshold" if it's ever retuned.
-const SCROLL_PAST_THRESHOLD = SCROLL_THRESHOLD * 50
+// constant rather than a bare literal, so these scenarios keep meaning
+// "comfortably past the threshold" if it's ever retuned — a bare 400 would
+// silently stop meaning that (and one of these tests would false-pass by
+// never tucking at all) the moment SCROLL_THRESHOLD crossed it.
+const SCROLL_DOWN_PAST_THRESHOLD = SCROLL_THRESHOLD * 50
+const SCROLL_UP_PAST_THRESHOLD = SCROLL_THRESHOLD * 25
 // A second, smaller nudge past the threshold, used only for a scroll that
 // must land mid-document rather than at its end — the fixture's scrollable
-// range is nowhere near two lots of SCROLL_PAST_THRESHOLD, and landing on
-// the document's actual end would trigger createScrollDirectionTracker's
+// range is nowhere near two lots of SCROLL_DOWN_PAST_THRESHOLD, and landing
+// on the document's actual end would trigger createScrollDirectionTracker's
 // own "always show at the end" rule for a reason that has nothing to do
 // with whatever this scroll is meant to test.
 const SCROLL_NUDGE = SCROLL_THRESHOLD * 10
@@ -56,64 +67,93 @@ async function openSheetAndSettle(page: Page) {
 }
 
 /**
- * Waits out one full rendering frame. window.scrollBy()/scrollTo() update
- * scrollY synchronously, but Chromium does not always dispatch the
- * corresponding 'scroll' event in the same task — confirmed directly: a
- * scroll issued shortly after another DOM mutation (such as open()'s
- * attribute/inert toggling) can update scrollY with its 'scroll' event not
- * reaching listeners until a later frame. Because the assertions below are
- * `not.toHaveAttribute` checks that already pass trivially on a
- * not-yet-tucked trigger, an unsettled scroll would let the test resolve
- * green without the event the implementation reacts to ever having fired —
- * a false pass, not a real one. Two nested requestAnimationFrame calls
- * guarantee at least one full frame has completed.
+ * Installs a counting 'scroll' listener on window exactly once per page —
+ * idempotent, so scrollAndSettle can call it before every scroll without
+ * caring whether an earlier call in the same test already has.
  */
-async function settleScroll(page: Page) {
-  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+async function ensureScrollCounter(page: Page) {
+  await page.evaluate(() => {
+    if (window.__scrollCount !== undefined) return
+    window.__scrollCount = 0
+    window.addEventListener('scroll', () => {
+      window.__scrollCount!++
+    })
+  })
+}
+
+/**
+ * Runs `act`, then waits for window's 'scroll' event count to have advanced
+ * — proof the implementation's own listener actually saw a 'scroll' event,
+ * not just that a frame or two passed. Chromium does not always dispatch
+ * 'scroll' in the same task as window.scrollBy()/scrollTo()/a wheel gesture
+ * — confirmed directly, especially right after another DOM mutation such as
+ * open()'s attribute/inert toggling — and every assertion downstream of a
+ * scroll in this file is a `not.toHaveAttribute` check that already passes
+ * trivially on an untucked trigger. Waiting on a fixed number of frames
+ * would let such a test resolve green without the event under test ever
+ * having fired; waiting on the count is a direct, not inferred, proof it did.
+ */
+async function scrollAndSettle(page: Page, act: () => Promise<void>) {
+  await ensureScrollCounter(page)
+  const before = await page.evaluate(() => window.__scrollCount!)
+  await act()
+  await page.waitForFunction((n) => window.__scrollCount! > n, before)
+}
+
+/**
+ * Scrolls the document by `amount` (positive = down), using whichever
+ * mechanism exercises real input on the current engine. WebKit has no
+ * wheel-input emulation in Playwright at all ("Mouse wheel is not supported
+ * in mobile WebKit", confirmed directly) — window.scrollBy is the only
+ * option there. Chromium does support page.mouse.wheel, and it is the more
+ * faithful simulation of the two: it goes through the browser's real
+ * input/compositor pipeline — coalesced scroll events, a fling's tail
+ * reversing direction — rather than an instantaneous JS-level position
+ * change, which is exactly the kind of input SCROLL_THRESHOLD's jitter
+ * absorption exists for. The mouse is never moved to a specific element
+ * first: at its default (0,0), it sits over the page's own top-of-document
+ * content on every fixture here, never over the bottom-anchored
+ * trigger/sheet/scrim, so a wheel there always reaches the document.
+ */
+async function scrollDocument(page: Page, browserName: string, amount: number) {
+  await scrollAndSettle(page, async () => {
+    if (browserName === 'webkit') {
+      await page.evaluate((n) => window.scrollBy(0, n), amount)
+    } else {
+      await page.mouse.wheel(0, amount)
+    }
+  })
 }
 
 test.describe('scroll-aware trigger', () => {
-  test('tucks away on scroll down and returns on scroll up', async ({ page }) => {
+  test('tucks away on scroll down and returns on scroll up', async ({ page, browserName }) => {
     await page.goto('/demo/vanilla')
     const trigger = page.locator('[data-tz-trigger]')
 
-    // window.scrollBy rather than page.mouse.wheel(): Playwright has no
-    // wheel-input emulation for mobile WebKit at all ("Mouse wheel is not
-    // supported in mobile WebKit", confirmed directly), and this suite must
-    // pass on both device projects. scrollBy moves the real document
-    // scrollY and fires the same native 'scroll' event a wheel gesture
-    // would — the listener under test reacts to that event and to
-    // window.scrollY alone, never to how the scroll was produced.
-    await page.evaluate(() => window.scrollBy(0, 400))
-    await settleScroll(page)
+    await scrollDocument(page, browserName, SCROLL_DOWN_PAST_THRESHOLD)
     await expect(trigger).toHaveAttribute('data-tz-tucked', 'true')
 
-    await page.evaluate(() => window.scrollBy(0, -200))
-    await settleScroll(page)
+    await scrollDocument(page, browserName, -SCROLL_UP_PAST_THRESHOLD)
     await expect(trigger).not.toHaveAttribute('data-tz-tucked', 'true')
   })
 
   test('is always visible at the end of the document', async ({ page }) => {
     await page.goto('/demo/vanilla')
-    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
-    await settleScroll(page)
+    await scrollAndSettle(page, () => page.evaluate(() => window.scrollTo(0, document.body.scrollHeight)))
     await expect(page.locator('[data-tz-trigger]')).not.toHaveAttribute('data-tz-tucked', 'true')
   })
 
   // Resolution: the trigger and an open sheet never compete for the thumb's
   // reach at once, so tucking must both clear on open and stay cleared for
   // any scroll that arrives while the sheet is still open.
-  test('never tucks while the sheet is open, even if a scroll arrives', async ({ page }) => {
+  test('never tucks while the sheet is open, even if a scroll arrives', async ({ page, browserName }) => {
     await page.goto('/demo/vanilla')
     const trigger = page.locator('[data-tz-trigger]')
 
     // Get it tucked first, so what's under test is genuinely "cleared on
     // open" rather than "never got set in the first place" — starting from
-    // an already-untucked trigger could not tell the two apart. See the
-    // note on the test above for why this is scrollBy rather than
-    // mouse.wheel.
-    await page.evaluate((n) => window.scrollBy(0, n), SCROLL_PAST_THRESHOLD)
-    await settleScroll(page)
+    // an already-untucked trigger could not tell the two apart.
+    await scrollDocument(page, browserName, SCROLL_DOWN_PAST_THRESHOLD)
     await expect(trigger).toHaveAttribute('data-tz-tucked', 'true')
 
     // Driven through the open() handle directly, not a tap on the trigger:
@@ -125,20 +165,12 @@ test.describe('scroll-aware trigger', () => {
     await expect(page.locator('[data-tz-sheet]')).toHaveAttribute('data-tz-open', 'true')
     await expect(trigger).not.toHaveAttribute('data-tz-tucked', 'true')
 
-    // A real background scroll while the sheet is open: window.scrollBy
-    // changes document scrollY and fires a genuine 'scroll' event,
-    // independent of where the mouse happens to be — the trigger renders
-    // above the open sheet (by design, so a tap there can still close it),
-    // which would make a mouse-wheel-based scroll depend on exactly which
-    // fixed element the pointer sits over. The listener itself only cares
-    // about window.scrollY and open state, so this exercises the identical
-    // code path a genuine background scroll would. A small nudge, not
-    // another full SCROLL_PAST_THRESHOLD: the fixture is already close to
-    // the bottom of its scroll range from the first scroll above, and
-    // landing exactly on the document's end would trigger "always show"
-    // regardless of the open check this is meant to isolate.
-    await page.evaluate((n) => window.scrollBy(0, n), SCROLL_NUDGE)
-    await settleScroll(page)
+    // A small nudge, not another full SCROLL_DOWN_PAST_THRESHOLD: the
+    // fixture is already close to the bottom of its scroll range from the
+    // first scroll above, and landing exactly on the document's end would
+    // trigger "always show" regardless of the open check this is meant to
+    // isolate.
+    await scrollDocument(page, browserName, SCROLL_NUDGE)
     await expect(trigger).not.toHaveAttribute('data-tz-tucked', 'true')
   })
 
@@ -160,6 +192,11 @@ test.describe('scroll-aware trigger', () => {
     // Guards the premise: this only proves the trigger's isolation from
     // menu-scrolling if the menu actually scrolled.
     expect(await menu.evaluate((el) => el.scrollTop)).toBeGreaterThan(0)
+    // The dispatch above is synchronous and already handled by the time
+    // evaluate() resolves — this is a settle point for consistency with
+    // every other scripted scroll in this file, not because this one has
+    // shown any timing sensitivity of its own.
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))))
 
     await expect(trigger).not.toHaveAttribute('data-tz-tucked', 'true')
   })
@@ -175,12 +212,14 @@ test.describe('menu order', () => {
     const boxes = await Promise.all(
       Array.from({ length: count }, (_, i) => links.nth(i).boundingBox()),
     )
+    const allYs = boxes.map((b) => b!.y)
 
-    // 'Home' is authored first in the route, so it must sit lowest on screen.
+    // 'Home' is authored first in the route, so it must sit exactly lowest
+    // on screen — the list's maximum y, not merely below at least one other
+    // item (which a partial shuffle, not a full reversal, could also
+    // satisfy without actually being thumb-first).
     const homeIndex = (await links.allTextContents()).indexOf('Home')
-    const homeY = boxes[homeIndex]!.y
-    const otherYs = boxes.filter((_, i) => i !== homeIndex).map((b) => b!.y)
-    expect(Math.min(...otherYs)).toBeLessThan(homeY)
+    expect(allYs[homeIndex]).toBe(Math.max(...allYs))
   })
 
   // Adapted per the self-managed focus trap: initThumbzone owns Tab cycling
@@ -204,8 +243,16 @@ test.describe('menu order', () => {
       await page.keyboard.press('Tab')
       ys.push(await page.evaluate(() => document.activeElement!.getBoundingClientRect().y))
     }
-    const sorted = [...ys].sort((a, b) => a - b)
-    expect(ys).toEqual(sorted)
+    // Strictly increasing, not "already equal to its own sorted self": a
+    // stalled trap — Tab never advancing focus, activeElement stuck on the
+    // first link — produces a constant array, which is trivially already
+    // sorted and would pass a same-as-sorted check without ever proving
+    // focus moved at all. That is the single most valuable regression this
+    // test exists to catch, since resolution 4 exists precisely because
+    // initThumbzone owns Tab cycling rather than trusting native order.
+    for (let i = 1; i < ys.length; i += 1) {
+      expect(ys[i]).toBeGreaterThan(ys[i - 1])
+    }
   })
 
   // Resolution: the reorder must trust that menu.children holds only real
@@ -257,35 +304,54 @@ test.describe('menu order', () => {
     })
 
     const texts = await page.locator('[data-tz-menu] a').allTextContents()
-    expect(texts[0]).toBe('Home')
+    expect(texts).toEqual(AUTHORED_MENU_ORDER)
   })
 
   // Global constraint: destroy() must fully restore the pre-init DOM state,
   // including whatever this task adds — the reorder has no CSS counterpart
   // to fall back to, so leaving it in place after teardown would mean a
   // destroyed instance and a never-initialised page no longer look alike.
-  // Derives the expected original order from the live (already-reordered)
-  // list rather than hardcoding the route's item names, so this stays
-  // correct if the fixture's menu items ever change.
+  // Checked against the route's own authored order (the independent source
+  // of truth), not against a reversal of whatever is currently rendered —
+  // the latter would only prove destroy() inverts a reverse, which holds
+  // even if the reorder that ran at init was itself wrong.
   test('destroy() restores the pre-reorder menu order', async ({ page }) => {
     await page.goto('/demo/vanilla')
-    const reorderedTexts = await page.locator('[data-tz-menu] a').allTextContents()
-    const expectedOriginalOrder = [...reorderedTexts].reverse()
 
     await page.evaluate(() => window.__thumbzone?.destroy())
 
     const restoredTexts = await page.locator('[data-tz-menu] a').allTextContents()
-    expect(restoredTexts).toEqual(expectedOriginalOrder)
+    expect(restoredTexts).toEqual(AUTHORED_MENU_ORDER)
+  })
+
+  // Same global constraint, and append() (rather than replaceChildren()) is
+  // specifically what makes it possible: a non-element node authored
+  // between list items — whitespace or a comment, common in hand-written
+  // markup even though this project's own fixtures happen not to have any —
+  // must survive both the init reorder and this destroy() restoration.
+  test('destroy() does not drop non-element nodes from the menu', async ({ page }) => {
+    await page.goto('/demo/vanilla')
+    await page.evaluate(() => {
+      document.querySelector('[data-tz-menu]')!.appendChild(document.createComment('marker'))
+    })
+
+    await page.evaluate(() => window.__thumbzone?.destroy())
+
+    const hasComment = await page.evaluate(() =>
+      Array.from(document.querySelector('[data-tz-menu]')!.childNodes).some(
+        (n) => n.nodeType === Node.COMMENT_NODE,
+      ),
+    )
+    expect(hasComment).toBe(true)
   })
 
   // Same constraint, for the other DOM mutation this task adds: data-tz-tucked
   // has no authored default either, so a destroyed instance must not leave
   // it behind.
-  test('destroy() clears any tucked state left on the trigger', async ({ page }) => {
+  test('destroy() clears any tucked state left on the trigger', async ({ page, browserName }) => {
     await page.goto('/demo/vanilla')
     const trigger = page.locator('[data-tz-trigger]')
-    await page.evaluate(() => window.scrollBy(0, 400))
-    await settleScroll(page)
+    await scrollDocument(page, browserName, SCROLL_DOWN_PAST_THRESHOLD)
     await expect(trigger).toHaveAttribute('data-tz-tucked', 'true')
 
     await page.evaluate(() => window.__thumbzone?.destroy())
