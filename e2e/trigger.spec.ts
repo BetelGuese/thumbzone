@@ -18,7 +18,9 @@ test.describe('trigger', () => {
 
   test('meets the minimum hit target', async ({ page }) => {
     await page.goto('/demo/vanilla')
-    const box = (await page.locator('[data-tz-trigger]').boundingBox())!
+    const trigger = page.locator('[data-tz-trigger]')
+    await expect(trigger).toBeVisible()
+    const box = (await trigger.boundingBox())!
     expect(box.width).toBeGreaterThanOrEqual(MIN_HIT_TARGET)
     expect(box.height).toBeGreaterThanOrEqual(MIN_HIT_TARGET)
   })
@@ -26,7 +28,13 @@ test.describe('trigger', () => {
   test('is hidden at desktop widths', async ({ page }) => {
     await page.setViewportSize({ width: 1024, height: 800 })
     await page.goto('/demo/vanilla')
-    await expect(page.locator('[data-tz-trigger]')).toBeHidden()
+    const trigger = page.locator('[data-tz-trigger]')
+    // toBeHidden() alone passes when the locator matches zero elements, so it
+    // cannot tell "hidden by CSS" apart from "missing from the DOM". Assert
+    // it is attached first so a regression that drops the element entirely
+    // still fails here.
+    await expect(trigger).toBeAttached()
+    await expect(trigger).toBeHidden()
   })
 
   test('has an accessible name and reports collapsed state', async ({ page }) => {

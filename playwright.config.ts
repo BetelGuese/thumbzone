@@ -19,6 +19,10 @@ export default defineConfig({
     // foreground process Playwright is watching before the port ever opens.
     // Setting this disables only that auto-detection; an explicit
     // `--background` flag would still work as documented.
+    // ASTRO_DEV_BACKGROUND is undocumented — found by reading
+    // node_modules/astro/dist/cli/dev/index.js, not the public CLI docs.
+    // Recheck this against that source on any Astro upgrade in case the
+    // flag or the detection mechanism is renamed.
     env: { ASTRO_DEV_BACKGROUND: '1' },
   },
 })

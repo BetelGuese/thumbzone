@@ -9,6 +9,10 @@
   place-items: center;
   inline-size: 3.5rem;
   block-size: 3.5rem;
+  /* The 48px minimum hit target is a stated project constraint, not an
+     accident of UA form-control defaults — make border-box explicit so the
+     box model can't shift under us if that default ever changes. */
+  box-sizing: border-box;
   border: 0;
   border-radius: 50%;
   background: var(--tz-trigger-bg, #ff5a1f);
