@@ -126,6 +126,45 @@ test.describe('gestures', () => {
     await expect(page.locator('[data-tz-sheet]')).not.toHaveAttribute('data-tz-dragging', 'true')
   })
 
+  // A cancelled gesture must never reach shouldDismiss. Chromium happens to
+  // zero a pointercancel's coordinates, which today makes a cancelled
+  // drag's offset clamp to 0 and fall through shouldDismiss's own
+  // "offset <= 0" guard by coincidence — but the spec does not require
+  // that, and an engine that instead retained the last real coordinates
+  // would hand shouldDismiss a positive offset and dismiss a gesture the
+  // platform aborted, not one the user released. Dispatching the cancel
+  // synthetically with a deliberately large clientY (playing the part of
+  // that hypothetical engine) proves the handler ignores the cancel event's
+  // own coordinates altogether, rather than merely happening to survive
+  // Chromium's specific zeroing.
+  test('a cancelled drag springs back regardless of the cancel event\'s own coordinates', async ({ page }) => {
+    await page.goto('/demo/vanilla')
+    await openSheetAndSettle(page)
+    const box = (await page.locator('[data-tz-sheet]').boundingBox())!
+    const startX = box.x + box.width / 2
+    const startY = box.y + 20
+
+    await page.mouse.move(startX, startY)
+    await page.mouse.down()
+    await page.mouse.move(startX, startY + 30)
+    await expect(page.locator('[data-tz-sheet]')).toHaveAttribute('data-tz-dragging', 'true')
+
+    // Real page.mouse-driven pointer events use pointerId 1 (verified
+    // directly against both engines) and the sheet already holds pointer
+    // capture for it, so this cancel is indistinguishable from one the
+    // platform itself would have dispatched mid-drag.
+    await page.locator('[data-tz-sheet]').evaluate((el, clientY) => {
+      el.dispatchEvent(new PointerEvent('pointercancel', { pointerId: 1, clientY, bubbles: true }))
+    }, startY + box.height * 2)
+
+    await expect(page.locator('[data-tz-sheet]')).toHaveAttribute('data-tz-open', 'true')
+    await expect(page.locator('[data-tz-sheet]')).not.toHaveAttribute('data-tz-dragging', 'true')
+
+    // The real pointer is still physically "down"; release it so later
+    // tests in the same worker don't start with a stuck mouse button.
+    await page.mouse.up()
+  })
+
   test('opens on a swipe up from the trigger', async ({ page }) => {
     await page.goto('/demo/vanilla')
 
