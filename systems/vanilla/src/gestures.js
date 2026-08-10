@@ -5,8 +5,12 @@
  * lifecycle of its own outside of initThumbzone.
  */
 
-/** Vertical travel (px) on the trigger that counts as a swipe rather than a tap. */
-const SWIPE_OPEN_DISTANCE = 24
+/**
+ * Vertical travel (px) on the trigger that counts as a swipe rather than a tap.
+ * Exported (via thumbzone.js, the public surface) so the conformance suite
+ * paces its swipes either side of this threshold instead of restating it.
+ */
+export const SWIPE_OPEN_DISTANCE = 24
 
 /**
  * Wires the gestures onto an already-open-capable sheet/trigger pair.

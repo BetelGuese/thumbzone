@@ -6,10 +6,11 @@
 import { attachGestures } from './gestures.js'
 import { attachScrollAwareness } from './scroll.js'
 
-// Re-exported so the public surface (and every existing import of this
-// module) stays unchanged now that both live in scroll.js, which is their
-// only consumer.
+// scroll.js and gestures.js exist only as internal splits of this module, so
+// this file stays the one public surface: what they own is re-exported here,
+// which is where the conformance suite and the unit tests import it from.
 export { SCROLL_THRESHOLD, createScrollDirectionTracker } from './scroll.js'
+export { SWIPE_OPEN_DISTANCE } from './gestures.js'
 
 /** Fraction of sheet height a drag must pass to dismiss. */
 export const DISMISS_RATIO = 0.25
