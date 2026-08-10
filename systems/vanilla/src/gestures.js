@@ -24,6 +24,14 @@ const SWIPE_OPEN_DISTANCE = 24
 export function attachGestures({ sheet, trigger, menu, dragProgress, shouldDismiss, createVelocityTracker, open, close }) {
   let drag = null
   let swipeOpened = false
+  // Captured once, up front, so detach() can hand back whatever inline
+  // transform a consumer had set before initThumbzone ran — mid-lifecycle,
+  // clearing it to '' on every drag release is correct (it hands control
+  // back to the CSS class rule that animates open/closed), but at teardown
+  // there is no later class-driven transform of ours left to defer to, so
+  // clearing unconditionally would silently discard a value that was never
+  // this module's to take in the first place.
+  const initialTransform = sheet.style.transform
 
   // Returns whether a drag was actually started, so callers only mark the
   // gesture as in progress (e.g. data-tz-dragging) when it genuinely is.
@@ -181,12 +189,15 @@ export function attachGestures({ sheet, trigger, menu, dragProgress, shouldDismi
       trigger.removeEventListener('pointercancel', onPointerCancel)
       // A drag mid-flight at teardown time must not leave the DOM mutated
       // behind it — destroy() promises to fully restore the pre-init state,
-      // and an inline transform plus a stuck data-tz-dragging (which also
-      // disables the sheet's CSS transition) would otherwise survive it.
-      // (No inline touch-action to restore here any more — it now comes
-      // entirely from the stylesheet, never set inline by this module.)
+      // and a stuck data-tz-dragging (which also disables the sheet's CSS
+      // transition) would otherwise survive it. The inline transform is
+      // restored to its captured pre-init value, not cleared outright — see
+      // the comment where that value was captured. (No inline touch-action
+      // to restore here any more — it now comes entirely from the
+      // stylesheet, never set inline by this module.)
       drag = null
-      resetSheetDragVisuals()
+      delete sheet.dataset.tzDragging
+      sheet.style.transform = initialTransform
     },
     // Check-and-clear in one step: a second click shortly after a swipe
     // (e.g. a genuine follow-up tap) must be treated as the ordinary tap it

@@ -53,4 +53,10 @@ const items = ['Home', 'Search', 'Library', 'Profile', 'Settings']
   // particular, has no attribute-driven equivalent to trigger from a test).
   // @ts-expect-error — deliberate test hook, not part of the page's own contract.
   window.__thumbzone = thumbzone
+  // Exposed so a test can destroy() this instance and re-initThumbzone()
+  // the same elements after setting a pre-init inline style on them —
+  // there is no other way to exercise "what was here before initThumbzone
+  // ran" from outside the module.
+  // @ts-expect-error — deliberate test hook, not part of the page's own contract.
+  window.__initThumbzone = initThumbzone
 </script>
