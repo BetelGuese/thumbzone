@@ -5,6 +5,30 @@
  * of initThumbzone.
  */
 
+/** Scroll delta (px) below which the trigger ignores movement, to avoid jitter. */
+export const SCROLL_THRESHOLD = 8
+
+/**
+ * Tracks scroll direction, ignoring sub-threshold jitter.
+ * Returns 'show' | 'hide' when the trigger should change state, or null when it should not.
+ * The document start and end always force 'show' so the trigger can never be
+ * stranded off-screen where the user has nowhere left to scroll.
+ * @param {{ threshold?: number }} [options]
+ */
+export function createScrollDirectionTracker({ threshold = SCROLL_THRESHOLD } = {}) {
+  let anchor = 0
+  return function update(scrollY, maxScrollY) {
+    if (scrollY <= 0 || scrollY >= maxScrollY) {
+      anchor = scrollY
+      return 'show'
+    }
+    const delta = scrollY - anchor
+    if (Math.abs(delta) < threshold) return null
+    anchor = scrollY
+    return delta > 0 ? 'hide' : 'show'
+  }
+}
+
 /**
  * Tucks the trigger off-screen on scroll-down and brings it back on
  * scroll-up. Listens on `window`, never on the menu: the menu owns its own
@@ -15,13 +39,18 @@
  * @param {HTMLElement} deps.trigger
  * @param {() => boolean} deps.isOpen Read fresh on every scroll — the
  *   trigger must never tuck while the sheet is open.
- * @param {(scrollY: number, maxScrollY: number) => ('show' | 'hide' | null)} deps.trackScroll
- *   An update function from `createScrollDirectionTracker`, created and
- *   owned by the caller so its jitter-absorbing anchor persists across
- *   scrolls for this sheet's whole lifetime.
- * @returns {{ detach: () => void }}
+ * @returns {{ clearTucked: () => void, detach: () => void }} `clearTucked`
+ *   is exposed so callers never need to know `data-tz-tucked` is this
+ *   module's attribute to manage — thumbzone.js calls it instead of
+ *   reaching past this module to mutate the dataset directly.
  */
-export function attachScrollAwareness({ trigger, isOpen, trackScroll }) {
+export function attachScrollAwareness({ trigger, isOpen }) {
+  const trackScroll = createScrollDirectionTracker()
+
+  function clearTucked() {
+    delete trigger.dataset.tzTucked
+  }
+
   function onScroll() {
     const maxScrollY = document.documentElement.scrollHeight - window.innerHeight
     const next = trackScroll(window.scrollY, maxScrollY)
@@ -34,13 +63,14 @@ export function attachScrollAwareness({ trigger, isOpen, trackScroll }) {
     if (next === 'hide') {
       trigger.dataset.tzTucked = 'true'
     } else {
-      delete trigger.dataset.tzTucked
+      clearTucked()
     }
   }
 
   window.addEventListener('scroll', onScroll, { passive: true })
 
   return {
+    clearTucked,
     detach() {
       window.removeEventListener('scroll', onScroll)
     },
