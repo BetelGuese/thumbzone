@@ -258,21 +258,40 @@ describeForEachSystem('menu order', (system) => {
   // is specifically what makes it possible: a non-element node authored
   // between list items — whitespace or a comment, common in hand-written
   // markup even though this project's own fixtures happen not to have any —
-  // must survive both the init reorder and this destroy() restoration.
-  test('destroy() does not drop non-element nodes from the menu', async ({ page }) => {
+  // must survive the init reorder and the destroy() restoration alike.
+  //
+  // The node is put in place before an instance exists and then re-initialised
+  // over, rather than added to the running page: added afterwards it would only
+  // ever meet the teardown reorder, leaving the init half of that claim
+  // untested — and init is the reorder a consumer's markup actually meets
+  // first.
+  test('keeps non-element nodes in the menu through both the init reorder and destroy()', async ({ page }) => {
     await page.goto(system.route)
+    const commentCount = () =>
+      page.evaluate(
+        () =>
+          Array.from(document.querySelector('[data-tz-menu]')!.childNodes).filter(
+            (n) => n.nodeType === Node.COMMENT_NODE,
+          ).length,
+      )
+
+    await destroyThumbzone(page)
+    // Between two list items, which is where hand-authored markup puts one,
+    // and the position a reorder that rebuilt the child list would lose.
     await page.evaluate(() => {
-      document.querySelector('[data-tz-menu]')!.appendChild(document.createComment('marker'))
+      const menu = document.querySelector('[data-tz-menu]')!
+      menu.insertBefore(document.createComment('marker'), menu.children[1])
     })
+    await reinitThumbzone(page)
+
+    // Counted, not merely detected: the reorder moves every child it is given,
+    // so a node handed back twice is as much a failure to restore the authored
+    // markup as one dropped altogether.
+    expect(await commentCount(), 'the init reorder must not drop or duplicate a non-element node').toBe(1)
 
     await destroyThumbzone(page)
 
-    const hasComment = await page.evaluate(() =>
-      Array.from(document.querySelector('[data-tz-menu]')!.childNodes).some(
-        (n) => n.nodeType === Node.COMMENT_NODE,
-      ),
-    )
-    expect(hasComment).toBe(true)
+    expect(await commentCount(), 'destroy() must not drop or duplicate a non-element node').toBe(1)
   })
 
   // Same constraint, for the other DOM mutation the scroll-aware trigger

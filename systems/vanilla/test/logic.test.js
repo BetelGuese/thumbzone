@@ -33,6 +33,16 @@ describe('dragProgress', () => {
   it('rejects a non-positive height with an actionable message', () => {
     expect(() => dragProgress(rand(0, 100), rand(-500, 0))).toThrow(/sheet height must be positive/)
   })
+
+  // Zero itself, not drawn from a range. "Non-positive" is a boundary, and the
+  // randomised range above reaches its endpoint with vanishing probability, so
+  // a rule loosened from "height <= 0" to "height < 0" would survive it — the
+  // one input that distinguishes them has to be stated. A collapsed sheet is
+  // also the realistic case: a height read before layout is 0, not negative,
+  // and 0 is what turns the progress calculation into a division by zero.
+  it('rejects a zero height at the boundary itself', () => {
+    expect(() => dragProgress(rand(0, 100), 0)).toThrow(/sheet height must be positive/)
+  })
 })
 
 describe('shouldDismiss', () => {
@@ -64,6 +74,15 @@ describe('shouldDismiss', () => {
 
   it('rejects a non-positive height with an actionable message', () => {
     expect(() => shouldDismiss({ offset: rand(0, 100), velocity: 0, height: -rand(0, 500) })).toThrow(/sheet height must be positive/)
+  })
+
+  // The same boundary, and the same reason: the negated range above reaches it
+  // only with the same vanishing probability, and only ever as a negative
+  // zero, so the loosened rule survives it just as easily.
+  it('rejects a zero height at the boundary itself', () => {
+    expect(() => shouldDismiss({ offset: rand(0, 100), velocity: 0, height: 0 })).toThrow(
+      /sheet height must be positive/,
+    )
   })
 })
 
