@@ -25,11 +25,25 @@ export function attachGestures({ sheet, trigger, menu, dragProgress, shouldDismi
   let drag = null
   let swipeOpened = false
 
+  // Returns whether a drag was actually started, so callers only mark the
+  // gesture as in progress (e.g. data-tz-dragging) when it genuinely is.
   function beginDrag(event, source) {
+    // setPointerCapture() throws if this pointerId has no real, currently
+    // active pointer behind it — rare, but reachable (a stray or malformed
+    // event), and used to leave `drag` set regardless (the assignment ran
+    // unconditionally, before this check existed) despite capture never
+    // actually being held. Committing to a drag only once capture has
+    // genuinely succeeded avoids creating that wedge at the source, rather
+    // than leaving it to clearStaleDrag() to notice and clean up later.
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId)
+    } catch {
+      return false
+    }
     const tracker = createVelocityTracker()
     tracker.record(event.clientY, event.timeStamp)
     drag = { source, pointerId: event.pointerId, startY: event.clientY, tracker, capturedBy: event.currentTarget }
-    event.currentTarget.setPointerCapture(event.pointerId)
+    return true
   }
 
   // A pointerup or pointercancel that never reaches us — the tab losing
@@ -77,8 +91,7 @@ export function attachGestures({ sheet, trigger, menu, dragProgress, shouldDismi
     // drag never starts inside it, regardless of scroll position — that is
     // what the menu's own static touch-action actually depends on holding.
     if (menu.contains(event.target)) return
-    beginDrag(event, 'sheet')
-    sheet.dataset.tzDragging = 'true'
+    if (beginDrag(event, 'sheet')) sheet.dataset.tzDragging = 'true'
   }
 
   function onSheetPointerMove(event) {
