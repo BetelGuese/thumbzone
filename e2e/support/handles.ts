@@ -1,4 +1,4 @@
-import { type Page } from '@playwright/test'
+import { expect, type Page } from '@playwright/test'
 
 /** The elements every system's initialiser is handed. */
 interface ThumbzoneRefs {
@@ -22,8 +22,6 @@ declare global {
     __thumbzone?: ThumbzoneHandle
     /** Test hook every demo route exposes — see System.route in the registry. */
     __initThumbzone?: (refs: ThumbzoneRefs) => ThumbzoneHandle
-    /** Test-owned scratch space; see openSheetAndSettle. */
-    __sheetSettled?: Promise<void>
     /** Test-owned scratch space; see scrollAndSettle. */
     __scrollCount?: number
   }
@@ -61,6 +59,13 @@ export async function destroyThumbzone(page: Page): Promise<void> {
  * a later `destroyThumbzone` tears down this instance rather than the dead
  * one it succeeded. Pair with `destroyThumbzone` to exercise anything that
  * only happens at init time.
+ *
+ * Before returning, it proves the new instance actually drives the UI by
+ * opening and closing the sheet from real input. Without that, a port could
+ * satisfy this hook with a shim that returns an inert handle: every later
+ * assertion about "what init did" would then be measuring a page nothing was
+ * wired to, and the suite would happily conform the shim. The sheet is left
+ * closed again, exactly as it was found.
  */
 export async function reinitThumbzone(page: Page): Promise<void> {
   await page.evaluate(() => {
@@ -73,4 +78,13 @@ export async function reinitThumbzone(page: Page): Promise<void> {
       inertRoot: document.querySelector('[data-tz-app]'),
     })
   })
+
+  const sheet = page.locator('[data-tz-sheet]')
+  await page.locator('[data-tz-trigger]').click()
+  await expect(sheet, 're-initialising must produce an instance that drives the live UI').toHaveAttribute(
+    'data-tz-open',
+    'true',
+  )
+  await page.keyboard.press('Escape')
+  await expect(sheet).not.toHaveAttribute('data-tz-open', 'true')
 }
