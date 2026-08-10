@@ -36,7 +36,13 @@
  *   Escape), and a focus trap that owns Tab in both directions.
  * - `data-tz-tucked` on the trigger while a downward document scroll is in
  *   effect, cleared while the sheet is open and at the end of the document.
- * - Thumb-first menu order, with `data-tz-order="dom"` on the menu opting out.
+ * - Thumb-first menu order — the menu's items reordered in the DOM itself,
+ *   not merely re-painted there, with `data-tz-order="dom"` on the menu
+ *   opting out. The suite's positive control re-initialises over the same
+ *   markup with the opt-out absent and asserts the rendered order actually
+ *   changed, so a CSS-only port (`flex-direction: column-reverse` and
+ *   nothing else) fails conformance: focus order has to track visual order
+ *   (WCAG 1.3.2), and that only holds if the reorder is real.
  * - Drag-to-dismiss and swipe-to-open driven by Pointer Events with pointer
  *   capture on the sheet, tracking the finger through an inline `transform`
  *   on the sheet and marking `data-tz-dragging` while in flight. The menu is

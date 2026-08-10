@@ -17,12 +17,17 @@ export const INSTANT_MOTION_MAX_MS = 20
  * Deliberately a range, not the reference implementation's exact 240ms:
  * requiring every design system to abandon its own motion tokens would
  * contradict the goal that a port look native to the system it belongs to.
- * The bounds are what the pattern needs to stay legible. Below the floor the
- * sheet appears already-arrived, so it stops communicating that the menu came
- * up from the trigger the thumb just touched — the whole point of the
- * pattern. Above the ceiling the user is waiting on the interface: a menu is
- * a means to something else, and every platform's own "large" or "expressive"
- * motion tokens land under this.
+ * The bounds are what the pattern needs to stay legible, not a survey of
+ * every design system's motion tokens: below the floor the sheet appears
+ * already-arrived, so it stops communicating that the menu came up from the
+ * trigger the thumb just touched — the whole point of the pattern. Above the
+ * ceiling the user is waiting on the interface: a menu is a means to
+ * something else. 400ms is this pattern's own ceiling regardless of what a
+ * system's own tokens allow elsewhere — it is not a claim that every
+ * platform's "large" or "expressive" motion sits under it (Material 3's
+ * long/expressive tokens run 500–600ms, Carbon's productive motion is
+ * 110ms), so a port is expected to reach for a *faster* token of its own
+ * rather than its slowest one here.
  */
 export const SHEET_MOTION_MIN_MS = 120
 export const SHEET_MOTION_MAX_MS = 400
