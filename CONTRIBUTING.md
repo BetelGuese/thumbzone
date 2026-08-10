@@ -30,6 +30,38 @@ projects and the accessibility gate reports zero violations. Use the target
 system's own components and design tokens: the result should look native to
 that system, not like a foreign widget dropped into it.
 
+### Drag-to-dismiss and the handle
+
+The reference implementation recognises a drag-to-dismiss gesture only on a
+dedicated handle element inside the panel, never on the panel's own
+scrollable content.
+
+This is a deliberate split, not a stylistic choice. No browser engine
+reliably lets one element grant native scrolling in only one direction while
+reserving the other for a custom gesture: Chromium supports
+`touch-action: pan-up`/`pan-down`, but WebKit does not, and silently treats
+them as `auto` (fully permissive) rather than honouring or rejecting them. A
+single element that both scrolls and owns a dismiss-drag therefore either
+blocks the one native-scroll direction that would ever move it away from the
+top — a permanent deadlock once its content is taller than the panel — or
+grants native panning in both directions and loses the dismiss gesture to it.
+Splitting the two apart — a small, static, non-scrolling handle that always
+owns the drag, and a scrollable region with static `touch-action` that
+always permits panning, regardless of scroll position — is the only
+combination that keeps both working on every engine.
+
+A port whose panel can contain a menu taller than the panel itself must
+reproduce this split: a non-scrolling drag target whose `touch-action`
+blocks panning (but not pinch-zoom, per WCAG 1.4.4), and a scrollable region
+with static, panning-permitting `touch-action` that never changes with
+scroll position — changing it with scroll position is exactly what
+reproduces the deadlock. A panel with no scrollable menu, or one guaranteed
+never to overflow, is not required to include a handle; omitting one is not
+an error, and nothing will complain. It simply will not offer a
+drag-to-dismiss gesture that survives real touch input, since there is no
+non-scrolling region left to provide the entry point for it — a stated
+trade-off for that case, not a bug to chase down.
+
 ## Design principles
 
 - **SOLID** — each module has one reason to change; depend on narrow interfaces
