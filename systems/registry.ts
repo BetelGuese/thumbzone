@@ -52,6 +52,13 @@
  *   transition on the sheet collapsed to effectively instant.
  * - `touch-action` on the handle, sheet, scrim and trigger that refuses a
  *   vertical pan, and on the menu that permits one at every scroll position.
+ *   The scrim additionally must keep pinch-zoom available (WCAG 1.4.4): it
+ *   covers the full viewport while the sheet is open, so blocking zoom there
+ *   is a screen-wide regression, not a local one. The handle is held only to
+ *   the panning requirement — the same trade-off confined to one 48px
+ *   control is a negligible impairment, and the handle genuinely needs to
+ *   own the gesture — so `touch-action: none` remains a legitimate choice
+ *   there but not on the scrim.
  */
 
 export interface System {

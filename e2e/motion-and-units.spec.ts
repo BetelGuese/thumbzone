@@ -11,7 +11,7 @@ import {
   transitionEasing,
 } from './support/motion'
 import { describeForEachSystem } from './support/systems'
-import { permitsVerticalPanning } from './support/touch'
+import { permitsPinchZoom, permitsVerticalPanning } from './support/touch'
 
 // Assets a CSS length cannot hide in. Everything else under the two source
 // roots is scanned, rather than an allowlist of extensions: a stylesheet, a
@@ -86,6 +86,21 @@ test.describe('contract predicates', () => {
     expect(permitsVerticalPanning('manipulation')).toBe(true)
     expect(permitsVerticalPanning('pan-y pinch-zoom')).toBe(true)
     expect(permitsVerticalPanning('pan-down')).toBe(true)
+  })
+
+  test('pinch-zoom permission is read from the value, and does not collapse onto panning permission', () => {
+    // Blocking: the value that also blocks panning, and a directional grant
+    // that says nothing about zoom — per the touch-action spec, zoom has to
+    // be named explicitly or a pan-* keyword suppresses it too.
+    expect(permitsPinchZoom('none')).toBe(false)
+    expect(permitsPinchZoom('pan-x')).toBe(false)
+    expect(permitsPinchZoom('pan-y')).toBe(false)
+    // Permissive: the default, the one that only drops double-tap zoom, the
+    // reference implementation's own choice, and zoom named alongside a pan.
+    expect(permitsPinchZoom('auto')).toBe(true)
+    expect(permitsPinchZoom('manipulation')).toBe(true)
+    expect(permitsPinchZoom('pinch-zoom')).toBe(true)
+    expect(permitsPinchZoom('pan-y pinch-zoom')).toBe(true)
   })
 
   test('durations and easings are read across a multi-property transition', () => {

@@ -8,7 +8,7 @@ import { destroyThumbzone, reinitThumbzone } from './support/handles'
 import { INSTANT_MOTION_MAX_MS, maxTransitionDurationMs } from './support/motion'
 import { openSheetAndSettle } from './support/sheet'
 import { describeForEachSystem, describeOverflowFixture } from './support/systems'
-import { cdpTouchDrag, permitsVerticalPanning, skipWithoutRealTouch } from './support/touch'
+import { cdpTouchDrag, permitsPinchZoom, permitsVerticalPanning, skipWithoutRealTouch } from './support/touch'
 
 describeForEachSystem('gestures', (system) => {
   test('dismisses when dragged past the threshold', async ({ page }) => {
@@ -507,7 +507,13 @@ describeForEachSystem('touch-action contract (engine-independent)', (system) => 
   // that page (see the real-touch test in the CDP block below, which
   // proves the actual page-scroll consequence rather than just the
   // declared value).
-  test('the scrim blocks native panning', async ({ page }) => {
+  //
+  // Unlike the handle above, `none` does not satisfy this: the scrim covers
+  // the full viewport while the sheet is open, so a port that reached for
+  // the blunter value would be disabling pinch-to-zoom across the entire
+  // screen rather than over one 48px control — a WCAG 1.4.4 regression that
+  // a check for panning alone would never catch.
+  test('the scrim blocks native panning but keeps pinch-zoom available', async ({ page }) => {
     await page.goto(system.route)
     await openSheetAndSettle(page)
 
@@ -516,6 +522,10 @@ describeForEachSystem('touch-action contract (engine-independent)', (system) => 
       permitsVerticalPanning(scrimTouchAction),
       `the scrim must not hand a vertical pan to the browser (touch-action: ${scrimTouchAction})`,
     ).toBe(false)
+    expect(
+      permitsPinchZoom(scrimTouchAction),
+      `the scrim covers the full viewport, so it must not block pinch-zoom for the whole screen (touch-action: ${scrimTouchAction})`,
+    ).toBe(true)
   })
 })
 
