@@ -253,6 +253,24 @@ test.describe('gestures', () => {
     await expect(page.locator('[data-tz-sheet]')).toHaveAttribute('data-tz-open', 'true')
   })
 
+  // The test above cannot fail if swipe recognition is deleted entirely: a
+  // closed sheet ends up open either way — via the swipe if recognition
+  // works, or via the click-suppression flag staying false and the trailing
+  // synthesized click reaching the ordinary open/close toggle if it does
+  // not. Neither path distinguishes a swipe from a tap on its own. Starting
+  // from an already-open sheet does distinguish them: a swipe must leave it
+  // open, where an unrecognised swipe would fall through to that same
+  // toggle and the trailing click would close it instead.
+  test('swipe-up on the trigger while already open leaves it open, unlike a tap', async ({ page }) => {
+    await page.goto('/demo/vanilla')
+    await page.locator('[data-tz-trigger]').click()
+    await expect(page.locator('[data-tz-sheet]')).toHaveAttribute('data-tz-open', 'true')
+
+    await swipeUpOnTrigger(page, 96)
+
+    await expect(page.locator('[data-tz-sheet]')).toHaveAttribute('data-tz-open', 'true')
+  })
+
   // Resolution: a swipe-up on the trigger is also a tap as far as the
   // browser is concerned, so it fires a native 'click' right after
   // pointerup. An unguarded click handler toggles on that click, closing the
