@@ -14,5 +14,11 @@ export default defineConfig({
     command: 'npm run dev',
     url: 'http://localhost:4321',
     reuseExistingServer: !process.env.CI,
+    // Astro 7 inspects how the dev server was launched and sometimes
+    // silently forks `astro dev` into a background daemon, exiting the
+    // foreground process Playwright is watching before the port ever opens.
+    // Setting this disables only that auto-detection; an explicit
+    // `--background` flag would still work as documented.
+    env: { ASTRO_DEV_BACKGROUND: '1' },
   },
 })
