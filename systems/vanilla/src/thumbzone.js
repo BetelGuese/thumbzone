@@ -3,6 +3,8 @@
  * Zero dependencies, no build step. Every port must match this behaviour.
  */
 
+import { attachGestures } from './gestures.js'
+
 /** Fraction of sheet height a drag must pass to dismiss. */
 export const DISMISS_RATIO = 0.25
 
@@ -127,7 +129,14 @@ export function initThumbzone({ trigger, sheet, scrim, menu, inertRoot }) {
     trigger.focus()
   }
 
+  const gestures = attachGestures({ sheet, trigger, dragProgress, shouldDismiss, open, close })
+
   function onTriggerClick() {
+    // A recognised swipe-open already opened the sheet; the 'click' the
+    // browser synthesizes right after that same gesture must not also be
+    // treated as a fresh tap, or it would toggle the sheet straight back
+    // shut a moment after opening it.
+    if (gestures.consumeSwipeClick()) return
     isOpen ? close() : open()
   }
 
@@ -195,6 +204,7 @@ export function initThumbzone({ trigger, sheet, scrim, menu, inertRoot }) {
       trigger.removeEventListener('click', onTriggerClick)
       scrim.removeEventListener('click', close)
       document.removeEventListener('keydown', onKeydown)
+      gestures.detach()
       // Only tabindex is purely an init-time addition with no markup
       // equivalent to fall back to, so it is the one attribute removed
       // outright rather than reset via setOpen.
