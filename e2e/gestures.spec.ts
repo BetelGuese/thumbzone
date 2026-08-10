@@ -725,6 +725,37 @@ test.describe('real touch input (Chromium only, via CDP)', () => {
     await expect(page.locator('[data-tz-sheet]')).toHaveAttribute('data-tz-open', 'true')
   })
 
+  // Neither test above actually drags the *handle* on this fixture — one
+  // scrolls the menu, the other confirms the menu alone can't dismiss.
+  // Proves both halves of the trade-off hold together, in one session: an
+  // overflowing menu that has already been scrolled by real touch still
+  // dismisses normally from the handle, on the same page.
+  test('the handle still dismisses by real touch after the overflowing menu has been scrolled', async ({
+    page,
+    context,
+    browserName,
+  }) => {
+    test.skip(
+      browserName !== 'chromium',
+      'No CDP (or equivalent) touch-drag simulation is available for WebKit through Playwright; ' +
+        'page.mouse does not exercise real touch-action arbitration on any engine.',
+    )
+    await page.goto('/demo/vanilla-overflow')
+    await openSheetAndSettle(page)
+    const menuBox = (await page.locator('[data-tz-menu]').boundingBox())!
+    const handleBox = (await page.locator('[data-tz-handle]').boundingBox())!
+    const height = (await page.locator('[data-tz-sheet]').boundingBox())!.height
+
+    const client = await context.newCDPSession(page)
+    await cdpTouchDrag(client, menuBox.x + menuBox.width / 2, menuBox.y + menuBox.height / 2, -300)
+    expect(await page.locator('[data-tz-menu]').evaluate((el) => el.scrollTop)).toBeGreaterThan(0)
+    await expect(page.locator('[data-tz-sheet]')).toHaveAttribute('data-tz-open', 'true')
+
+    await cdpTouchDrag(client, handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2, height * (DISMISS_RATIO + 0.2))
+
+    await expect(page.locator('[data-tz-sheet]')).not.toHaveAttribute('data-tz-open', 'true')
+  })
+
   // The scrim has no scroll of its own but sits, visually, over the page
   // behind it; touch-action arbitration follows the DOM ancestor chain, not
   // z-index, so without its own touch-action a pan starting on the scrim
