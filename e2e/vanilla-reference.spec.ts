@@ -42,11 +42,16 @@ test.describe('vanilla reference values', () => {
     expect(await maxTransitionDurationMs(page.locator('[data-tz-sheet]'))).toBe(REDUCED_MOTION_TRANSITION_MS)
   })
 
-  // pinch-zoom rather than none, everywhere panning has to stay ours: a finger
-  // that starts a pinch on the handle or the scrim must still zoom the page
-  // (WCAG 1.4.4). The conformance suite only requires that these surfaces
-  // refuse a vertical pan — which `none` also satisfies — so this is the one
-  // place the accessible choice among the blocking values is pinned.
+  // This pins the *reference implementation's own* choice, not a requirement
+  // the contract places on every port — same reference-exact-versus-port-bounded
+  // split as the sheet's transition duration and easing above. vanilla happens
+  // to use pinch-zoom everywhere panning has to stay ours, including the
+  // handle, so a finger that starts a pinch there still zooms the page (WCAG
+  // 1.4.4). The generic conformance suite holds a port's *scrim* to that same
+  // bar (it is full-viewport, so blocking zoom there is a screen-wide
+  // regression); a port's handle may still legitimately choose the blunter
+  // `none`, since blocking zoom over one 48px control is a negligible,
+  // localised trade-off, and the handle genuinely needs to own the gesture.
   test('touch-action keeps pinch-zoom available on every surface that blocks panning', async ({ page }) => {
     await page.goto(VANILLA_ROUTE)
     await openSheetAndSettle(page)
