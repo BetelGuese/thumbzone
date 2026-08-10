@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   DISMISS_RATIO,
   FLING_VELOCITY,
+  SCROLL_THRESHOLD,
   dragProgress,
   shouldDismiss,
   createScrollDirectionTracker,
@@ -56,7 +57,11 @@ describe('shouldDismiss', () => {
 
   it('never dismisses on an upward drag', () => {
     const height = randHeight()
-    expect(shouldDismiss({ offset: rand(-height, -1), velocity: rand(-10, -1), height })).toBe(false)
+    expect(shouldDismiss({ offset: rand(-height, -1), velocity: rand(FLING_VELOCITY, FLING_VELOCITY * 10), height })).toBe(false)
+  })
+
+  it('rejects a non-positive height with an actionable message', () => {
+    expect(() => shouldDismiss({ offset: rand(0, 100), velocity: 0, height: -rand(0, 500) })).toThrow(/sheet height must be positive/)
   })
 })
 
@@ -65,21 +70,21 @@ describe('createScrollDirectionTracker', () => {
     const update = createScrollDirectionTracker()
     const start = rand(100, 500)
     update(start, Infinity)
-    expect(update(start + rand(9, 200), Infinity)).toBe('hide')
+    expect(update(start + rand(SCROLL_THRESHOLD, 200), Infinity)).toBe('hide')
   })
 
   it('shows on an upward scroll beyond the threshold', () => {
     const update = createScrollDirectionTracker()
     const start = rand(300, 800)
     update(start, Infinity)
-    expect(update(start - rand(9, 200), Infinity)).toBe('show')
+    expect(update(start - rand(SCROLL_THRESHOLD, 200), Infinity)).toBe('show')
   })
 
   it('ignores jitter below the threshold', () => {
     const update = createScrollDirectionTracker()
     const start = rand(100, 500)
     update(start, Infinity)
-    expect(update(start + rand(0, 7), Infinity)).toBeNull()
+    expect(update(start + rand(0, SCROLL_THRESHOLD), Infinity)).toBeNull()
   })
 
   it('always shows at the top of the document', () => {
@@ -93,5 +98,22 @@ describe('createScrollDirectionTracker', () => {
     const max = rand(1000, 5000)
     update(rand(100, 500), max)
     expect(update(max, max)).toBe('show')
+  })
+
+  it('uses SCROLL_THRESHOLD as the default threshold', () => {
+    const update = createScrollDirectionTracker()
+    const start = rand(100, 500)
+    update(start, Infinity)
+    expect(update(start + SCROLL_THRESHOLD - 0.1, Infinity)).toBeNull()
+    expect(update(start + SCROLL_THRESHOLD, Infinity)).toBe('hide')
+  })
+
+  it('accumulates sub-threshold deltas until crossing the threshold', () => {
+    const update = createScrollDirectionTracker()
+    const start = rand(100, 500)
+    update(start, Infinity)
+    const step = SCROLL_THRESHOLD * 0.4
+    update(start + step, Infinity)
+    expect(update(start + step * 3, Infinity)).toBe('hide')
   })
 })
