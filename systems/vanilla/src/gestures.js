@@ -36,13 +36,12 @@ export function attachGestures({ sheet, trigger, menu, dragProgress, shouldDismi
   // Returns whether a drag was actually started, so callers only mark the
   // gesture as in progress (e.g. data-tz-dragging) when it genuinely is.
   function beginDrag(event, source) {
-    // setPointerCapture() throws if this pointerId has no real, currently
-    // active pointer behind it — rare, but reachable (a stray or malformed
-    // event), and used to leave `drag` set regardless (the assignment ran
-    // unconditionally, before this check existed) despite capture never
-    // actually being held. Committing to a drag only once capture has
-    // genuinely succeeded avoids creating that wedge at the source, rather
-    // than leaving it to clearStaleDrag() to notice and clean up later.
+    // setPointerCapture() throws NotFoundError if this pointerId has no real,
+    // currently active pointer behind it (verified on both engines) — rare,
+    // but reachable through a stray or malformed event. Committing to a drag
+    // only once capture has genuinely succeeded keeps `drag` from being set
+    // while no capture is actually held, which every guard below would then
+    // honour until clearStaleDrag() happened to notice.
     try {
       event.currentTarget.setPointerCapture(event.pointerId)
     } catch {
@@ -192,9 +191,7 @@ export function attachGestures({ sheet, trigger, menu, dragProgress, shouldDismi
       // and a stuck data-tz-dragging (which also disables the sheet's CSS
       // transition) would otherwise survive it. The inline transform is
       // restored to its captured pre-init value, not cleared outright — see
-      // the comment where that value was captured. (No inline touch-action
-      // to restore here any more — it now comes entirely from the
-      // stylesheet, never set inline by this module.)
+      // the comment where that value was captured.
       drag = null
       delete sheet.dataset.tzDragging
       sheet.style.transform = initialTransform
