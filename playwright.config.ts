@@ -13,7 +13,14 @@ export default defineConfig({
   webServer: {
     command: 'npm run dev',
     url: 'http://localhost:4321',
-    reuseExistingServer: !process.env.CI,
+    // Always start a fresh, Playwright-managed server. Reusing whatever
+    // already answers on the port would happily adopt a developer's own
+    // `npm run dev` — one started without TZ_E2E below, so its dev toolbar
+    // is still enabled and back to swallowing every click aimed at the
+    // trigger. A stray server left running must not be able to silently
+    // break the suite; failing to bind the port is a louder, clearer
+    // failure than that.
+    reuseExistingServer: false,
     // Astro 7 inspects how the dev server was launched and sometimes
     // silently forks `astro dev` into a background daemon, exiting the
     // foreground process Playwright is watching before the port ever opens.
