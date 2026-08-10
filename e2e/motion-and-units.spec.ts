@@ -1,23 +1,19 @@
 import { test, expect } from '@playwright/test'
-import { readFileSync, globSync } from 'node:fs'
+import { readFileSync, statSync, globSync } from 'node:fs'
 import { describeForEachSystem } from './support/systems'
 
-// Every file that can carry a CSS length: each system's own stylesheets and
-// logic modules (a JS module can write an inline `100vh` just as easily as a
-// stylesheet can), plus every Astro page and layout that renders one, since a
-// length can land in a page's own <style> too. Scoping this to one
-// stylesheet would miss the next violation added anywhere else in either
-// tree.
-//
-// Both globs are deliberately system-agnostic rather than scoped to the one
-// system that exists today: a guard that only ever scanned `vanilla` would
-// keep passing while a new port shipped the very violation it exists to
-// catch. The extension list covers the source languages a design-system port
-// plausibly ships in, for the same reason.
-const SCANNED_FILES = [
-  ...globSync('systems/*/src/**/*.{css,scss,js,jsx,mjs,ts,tsx,vue,svelte}'),
-  ...globSync('site/src/**/*.astro'),
-]
+// Assets a CSS length cannot hide in. Everything else under the two source
+// roots is scanned, rather than an allowlist of extensions: a stylesheet, a
+// logic module (a JS module can write an inline `100vh` just as easily as a
+// stylesheet can), a component file, and an Astro page's own <style> block can
+// each carry one. An allowlist would silently stop covering the first port
+// that shipped a `.less`, `.styl` or `.astro` file inside its own directory —
+// which is the same way a `systems/vanilla/src` root would have stopped
+// covering the twelve systems still to come.
+const BINARY_ASSETS = /\.(png|jpe?g|gif|webp|avif|ico|woff2?|ttf|otf|eot|mp4|webm|mp3|pdf|zip)$/i
+const SCANNED_FILES = [...globSync('systems/*/src/**/*'), ...globSync('site/src/**/*')].filter(
+  (file) => !BINARY_ASSETS.test(file) && statSync(file).isFile(),
+)
 
 // A digit run immediately followed by `vh`, word-bounded on both sides. The
 // leading `\b\d+` is what keeps this from matching the "vh" inside "85dvh":
@@ -46,9 +42,14 @@ test.describe('vh guard', () => {
   })
 
   test('no scanned file uses vh where dvh is required', () => {
-    // Guards the guard: an empty list would make the loop below vacuously
-    // pass no matter what any file contained.
+    // Guards the guard twice over: an empty list would make the loop below
+    // vacuously pass whatever any file contained, and a glob that resolved to
+    // only the Astro pages would still be non-empty while covering no
+    // implementation source at all. The normative system's stylesheet is the
+    // one file guaranteed to exist, so its presence proves the systems glob
+    // reaches real sources.
     expect(SCANNED_FILES.length).toBeGreaterThan(0)
+    expect(SCANNED_FILES).toContain('systems/vanilla/src/thumbzone.css')
     for (const file of SCANNED_FILES) {
       const contents = readFileSync(file, 'utf8')
       expect(contents, `${file} uses vh where dvh is required`).not.toMatch(BARE_VH)
