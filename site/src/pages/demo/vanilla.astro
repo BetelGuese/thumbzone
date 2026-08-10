@@ -11,7 +11,16 @@ const items = ['Home', 'Search', 'Library', 'Profile', 'Settings']
 
   <div class="tz-scrim" data-tz-scrim></div>
 
-  <div id="tz-sheet" class="tz-sheet" data-tz-sheet role="dialog" aria-modal="true" aria-label="Main menu">
+  <div
+    id="tz-sheet"
+    class="tz-sheet"
+    data-tz-sheet
+    data-tz-open="false"
+    role="dialog"
+    aria-modal="true"
+    aria-label="Main menu"
+    inert
+  >
     <ul class="tz-menu" data-tz-menu>
       {items.map((item) => <li><a href="#">{item}</a></li>)}
     </ul>
@@ -31,11 +40,16 @@ const items = ['Home', 'Search', 'Library', 'Profile', 'Settings']
 <script>
   import { initThumbzone } from '../../../../systems/vanilla/src/thumbzone.js'
 
-  initThumbzone({
+  const thumbzone = initThumbzone({
     trigger: document.querySelector('[data-tz-trigger]'),
     sheet: document.querySelector('[data-tz-sheet]'),
     scrim: document.querySelector('[data-tz-scrim]'),
     menu: document.querySelector('[data-tz-menu]'),
     inertRoot: document.querySelector('[data-tz-app]'),
   })
+
+  // Exposed only so e2e tests can drive the imperative API (destroy(), in
+  // particular, has no attribute-driven equivalent to trigger from a test).
+  // @ts-expect-error — deliberate test hook, not part of the page's own contract.
+  window.__thumbzone = thumbzone
 </script>
