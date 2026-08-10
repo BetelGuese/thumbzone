@@ -1,5 +1,4 @@
-import { test, expect, type Page } from '@playwright/test'
-import type { CDPSession } from 'playwright-core'
+import { test, expect, type Page, type CDPSession } from '@playwright/test'
 import { DISMISS_RATIO, FLING_VELOCITY } from '../systems/vanilla/src/thumbzone.js'
 
 // The demo route exposes the initThumbzone() handle on window purely for
@@ -223,6 +222,32 @@ test.describe('gestures', () => {
     await expect(page.locator('[data-tz-sheet]')).not.toHaveAttribute('data-tz-dragging', 'true')
   })
 
+  // Isolates the JS-level gate specifically, decoupled from the CSS
+  // touch-action layer (the real-touch fixture test covers that
+  // separately): page.mouse never engages touch-action arbitration at all,
+  // so this fails only if onSheetPointerDown itself stops excluding the
+  // menu — proving the gate is load-bearing on its own, not merely
+  // redundant with the stylesheet.
+  test('a mouse drag starting on the menu is never recognised as a dismiss gesture', async ({ page }) => {
+    await page.goto('/demo/vanilla-overflow')
+    await openSheetAndSettle(page)
+    const menuBox = (await page.locator('[data-tz-menu]').boundingBox())!
+    const height = (await page.locator('[data-tz-sheet]').boundingBox())!.height
+
+    await page.mouse.move(menuBox.x + menuBox.width / 2, menuBox.y + 20)
+    await page.mouse.down()
+    for (let i = 1; i <= 12; i += 1) {
+      await page.mouse.move(menuBox.x + menuBox.width / 2, menuBox.y + 20 + (height * 0.5 * i) / 12)
+      await page.waitForTimeout(20)
+    }
+    // Never recognised as a drag at all — not even the dragging attribute
+    // appears — which is the direct proof that onSheetPointerDown bailed at
+    // the menu-containment check, before ever calling beginDrag.
+    await expect(page.locator('[data-tz-sheet]')).not.toHaveAttribute('data-tz-dragging', 'true')
+    await page.mouse.up()
+    await expect(page.locator('[data-tz-sheet]')).toHaveAttribute('data-tz-open', 'true')
+  })
+
   // destroy() promises to fully restore the pre-init state; a drag mid-flight
   // at teardown time must not leave data-tz-dragging or an inline transform
   // behind (the former also disables the sheet's CSS transition, so a stray
@@ -304,6 +329,7 @@ test.describe('gestures', () => {
     await page.locator('[data-tz-trigger]').click()
     await expect(page.locator('[data-tz-sheet]')).not.toHaveAttribute('data-tz-open', 'true')
   })
+
 })
 
 // prefers-reduced-motion turns the sheet's open/close animation into an
@@ -351,6 +377,50 @@ test.describe('reduced motion', () => {
       .locator('[data-tz-sheet]')
       .evaluate((el) => getComputedStyle(el).transitionDuration)
     expect(transitionDuration).toBe('0.001s')
+  })
+})
+
+// Pins the touch-action contract that fixes the deadlock: a single
+// scroll-and-drag element cannot let native scrolling win only while
+// resting at the top and not fight a downward dismiss (no engine supports
+// direction-scoped touch-action reliably — verified directly: WebKit
+// silently drops pan-up/pan-down to 'auto' rather than honouring them,
+// while Chromium does support them), so the menu is a separate region with
+// *static*, scroll-position-independent touch-action: it must permit
+// vertical panning both before and after scrolling away from the top,
+// never toggling back to something that would re-deadlock it. This is an
+// adapted, statically-correct version of "does the value change when
+// scrollTop changes" — this implementation deliberately never changes it,
+// which is the fix, not a state machine to toggle.
+test.describe('touch-action contract (engine-independent)', () => {
+  test('the handle blocks native panning; the menu always permits it, before and after scrolling', async ({ page }) => {
+    await page.goto('/demo/vanilla-overflow')
+    await openSheetAndSettle(page)
+
+    const handleTouchAction = await page.locator('[data-tz-handle]').evaluate((el) => getComputedStyle(el).touchAction)
+    expect(handleTouchAction).not.toContain('pan-y')
+
+    const menu = page.locator('[data-tz-menu]')
+    const touchActionBeforeScroll = await menu.evaluate((el) => getComputedStyle(el).touchAction)
+    expect(touchActionBeforeScroll).toContain('pan-y')
+
+    // The deadlock this closes was specifically "touch-action depended on
+    // scrollTop, and scrollTop could never move because of it" — so the
+    // direct regression check is that moving scrollTop away from 0 must
+    // *not* change the value back to something that would block panning.
+    // Dispatches 'scroll' explicitly and synchronously in the same
+    // evaluate() call, rather than relying on the browser's own async
+    // timing for the event that setting scrollTop schedules, so any
+    // listener reacting to it (this implementation has none left, by
+    // design, but a regression could reintroduce one) is guaranteed to
+    // have already run before the check below.
+    await menu.evaluate((el) => {
+      el.scrollTop = 200
+      el.dispatchEvent(new Event('scroll'))
+    })
+    expect(await menu.evaluate((el) => el.scrollTop)).toBeGreaterThan(0)
+    const touchActionAfterScroll = await menu.evaluate((el) => getComputedStyle(el).touchAction)
+    expect(touchActionAfterScroll).toBe(touchActionBeforeScroll)
   })
 })
 
@@ -417,6 +487,60 @@ test.describe('real touch input (Chromium only, via CDP)', () => {
 
     const client = await context.newCDPSession(page)
     await cdpTouchDrag(client, box.x + box.width / 2, box.y + box.height / 2, -96)
+
+    await expect(page.locator('[data-tz-sheet]')).toHaveAttribute('data-tz-open', 'true')
+  })
+
+  // The deadlock this whole round exists to close: a menu taller than the
+  // sheet must still scroll under a real touch, not just under page.mouse
+  // (which never engages the arbitration pipeline the bug lived in at all).
+  // Uses the dedicated overflow fixture (see thumbzone.css's comment on
+  // .tz-menu for why a fixture route rather than a query param).
+  test('a menu taller than the sheet scrolls by real touch instead of deadlocking at the top', async ({
+    page,
+    context,
+    browserName,
+  }) => {
+    test.skip(
+      browserName !== 'chromium',
+      'No CDP (or equivalent) touch-drag simulation is available for WebKit through Playwright; ' +
+        'page.mouse does not exercise real touch-action arbitration on any engine.',
+    )
+    await page.goto('/demo/vanilla-overflow')
+    await openSheetAndSettle(page)
+    const menuBox = (await page.locator('[data-tz-menu]').boundingBox())!
+
+    const client = await context.newCDPSession(page)
+    // Upward: revealing content below, exactly the direction the old
+    // scrollTop-gated touch-action: none blocked forever once at the top.
+    await cdpTouchDrag(client, menuBox.x + menuBox.width / 2, menuBox.y + menuBox.height / 2, -300)
+
+    await expect(page.locator('[data-tz-sheet]')).toHaveAttribute('data-tz-open', 'true')
+    const scrollTop = await page.locator('[data-tz-menu]').evaluate((el) => el.scrollTop)
+    expect(scrollTop).toBeGreaterThan(0)
+  })
+
+  // The necessary trade-off of the fix above: drag-to-dismiss can only ever
+  // be recognised from the sheet's own chrome (the handle) now, never from
+  // inside the always-scrollable menu — otherwise the two would still be
+  // contesting the same touch the way the original bug report described.
+  test('a downward drag starting on the menu does not dismiss, unlike one on the handle', async ({
+    page,
+    context,
+    browserName,
+  }) => {
+    test.skip(
+      browserName !== 'chromium',
+      'No CDP (or equivalent) touch-drag simulation is available for WebKit through Playwright; ' +
+        'page.mouse does not exercise real touch-action arbitration on any engine.',
+    )
+    await page.goto('/demo/vanilla-overflow')
+    await openSheetAndSettle(page)
+    const menuBox = (await page.locator('[data-tz-menu]').boundingBox())!
+    const height = (await page.locator('[data-tz-sheet]').boundingBox())!.height
+
+    const client = await context.newCDPSession(page)
+    await cdpTouchDrag(client, menuBox.x + menuBox.width / 2, menuBox.y + 20, height * (DISMISS_RATIO + 0.2))
 
     await expect(page.locator('[data-tz-sheet]')).toHaveAttribute('data-tz-open', 'true')
   })
