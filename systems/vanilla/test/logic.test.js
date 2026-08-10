@@ -168,11 +168,17 @@ describe('createVelocityTracker', () => {
     expect(Math.abs(tracker.velocityAt(releasePosition, releaseTime))).toBeLessThan(FLING_VELOCITY)
   })
 
-  it('drops samples older than the window so a stale, fast sample cannot dominate a later reading', () => {
+  it('drops samples older than the window so a stale, distant sample cannot dominate a later reading', () => {
     const tracker = createVelocityTracker()
-    // An old, very fast sample, about to age out of the window entirely...
-    tracker.record(0, 0)
-    tracker.record(rand(500, 1000), 1)
+    // The oldest sample sits far from where the drag ends up — velocityAt
+    // only ever reads samples[0], so this is deliberately the *one* sample
+    // that would anchor the whole calculation if pruning did not run.
+    // -800 is chosen so that even the tightest combination of the random
+    // draws below (release position and gap both as small as they can be)
+    // still divides out to comfortably more than FLING_VELOCITY if this
+    // sample is used as the anchor: worst case is roughly
+    // (800 - 100) / (VELOCITY_WINDOW_MS * 3 + VELOCITY_WINDOW_MS - 1) ≈ 2.2.
+    tracker.record(-800, 0)
     // ...followed, well after that sample has fallen outside
     // VELOCITY_WINDOW_MS, by slow movement that should be all that remains.
     // No record() call at the release point itself — see the note above.
