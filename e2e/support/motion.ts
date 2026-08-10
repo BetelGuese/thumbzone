@@ -25,9 +25,9 @@ export const INSTANT_MOTION_MAX_MS = 20
  * something else. 400ms is this pattern's own ceiling regardless of what a
  * system's own tokens allow elsewhere — it is not a claim that every
  * platform's "large" or "expressive" motion sits under it (Material 3's
- * long/expressive tokens run 500–600ms, Carbon's productive motion is
- * 110ms), so a port is expected to reach for a *faster* token of its own
- * rather than its slowest one here.
+ * long/expressive tokens, for instance, run 500–600ms, well past it), so a
+ * port is expected to reach for one of its own *faster* tokens here rather
+ * than its slowest one.
  */
 export const SHEET_MOTION_MIN_MS = 120
 export const SHEET_MOTION_MAX_MS = 400
