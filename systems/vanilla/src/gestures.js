@@ -41,11 +41,28 @@ export function attachGestures({ sheet, trigger, dragProgress, shouldDismiss, cr
   // gesture and cancels our pointer stream — a 'pointercancel' with
   // clientX/Y zeroed out — instead of ever delivering a pointerup, so
   // shouldDismiss never sees a real offset. WebKit does not do this.
-  // Preventing 'dragstart' (it bubbles from the link to the sheet) stops
-  // Chromium from ever committing to that native gesture, regardless of
-  // what interactive content a consumer's menu contains.
+  // Preventing 'dragstart' (it bubbles up from the link/image) stops that
+  // commitment on both the sheet and the trigger, regardless of what
+  // interactive content a consumer's menu or trigger icon contains.
   function preventNativeDrag(event) {
     event.preventDefault()
+  }
+
+  // Chromium decides whether a touch sequence belongs to native scrolling
+  // or to us at the *start* of that sequence, from whatever touch-action is
+  // already in force at that instant. This is a second, independent way a
+  // real touch drag gets cancelled (a 'pointercancel' with zeroed
+  // coordinates, exactly like the native-drag case above) — reachable even
+  // when the press starts on plain, non-draggable sheet content, because
+  // the sheet is itself a scroll container. Setting touch-action reactively
+  // inside the pointerdown handler is a gesture too late for the *current*
+  // sequence; keeping it synced to scroll position ahead of every touch,
+  // rather than reacting to one already under way, is what makes the *next*
+  // touch land correctly: 'none' while resting at the top, where a drag
+  // should dismiss rather than scroll; restored once scrolled away from the
+  // top, where the sheet's own content must still be able to scroll.
+  function syncTouchAction() {
+    sheet.style.touchAction = sheet.scrollTop > 0 ? '' : 'none'
   }
 
   function onSheetPointerDown(event) {
@@ -115,7 +132,10 @@ export function attachGestures({ sheet, trigger, dragProgress, shouldDismiss, cr
     if (wasSheetDrag) resetSheetDragVisuals()
   }
 
+  syncTouchAction()
+  sheet.addEventListener('scroll', syncTouchAction)
   sheet.addEventListener('dragstart', preventNativeDrag)
+  trigger.addEventListener('dragstart', preventNativeDrag)
   sheet.addEventListener('pointerdown', onSheetPointerDown)
   sheet.addEventListener('pointermove', onSheetPointerMove)
   sheet.addEventListener('pointerup', onSheetPointerUp)
@@ -126,7 +146,9 @@ export function attachGestures({ sheet, trigger, dragProgress, shouldDismiss, cr
 
   return {
     detach() {
+      sheet.removeEventListener('scroll', syncTouchAction)
       sheet.removeEventListener('dragstart', preventNativeDrag)
+      trigger.removeEventListener('dragstart', preventNativeDrag)
       sheet.removeEventListener('pointerdown', onSheetPointerDown)
       sheet.removeEventListener('pointermove', onSheetPointerMove)
       sheet.removeEventListener('pointerup', onSheetPointerUp)
@@ -139,6 +161,7 @@ export function attachGestures({ sheet, trigger, dragProgress, shouldDismiss, cr
       // and an inline transform plus a stuck data-tz-dragging (which also
       // disables the sheet's CSS transition) would otherwise survive it.
       drag = null
+      sheet.style.touchAction = ''
       resetSheetDragVisuals()
     },
     // Check-and-clear in one step: a second click shortly after a swipe

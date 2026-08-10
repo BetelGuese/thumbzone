@@ -18,6 +18,12 @@
   background: var(--tz-trigger-bg, #ff5a1f);
   color: var(--tz-trigger-fg, #0e1012);
   cursor: pointer;
+  /* The trigger never scrolls anything itself, so this can be static rather
+     than the sheet's scroll-position-dependent toggle: without it, a real
+     touch swipe-to-open is read as an attempt to pan the page and gets
+     handed to the browser's native scroll, cancelling our pointer stream
+     before it ever reports a full gesture. */
+  touch-action: none;
   transform: translateX(-50%);
   transition: transform 240ms cubic-bezier(0.32, 0.72, 0, 1);
 }

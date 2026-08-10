@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
+import type { CDPSession } from 'playwright-core'
 import { DISMISS_RATIO, FLING_VELOCITY } from '../systems/vanilla/src/thumbzone.js'
 
 // The demo route exposes the initThumbzone() handle on window purely for
@@ -296,5 +297,73 @@ test.describe('gestures', () => {
     // a handler disabled outright.
     await page.locator('[data-tz-trigger]').click()
     await expect(page.locator('[data-tz-sheet]')).not.toHaveAttribute('data-tz-open', 'true')
+  })
+})
+
+/**
+ * Drives a real touch sequence via the Chrome DevTools Protocol rather than
+ * page.mouse. This is the one mechanism available through Playwright that
+ * exercises a browser's actual touch-action/scroll-arbitration pipeline —
+ * page.mouse produces pointer events with pointerType 'mouse' even under
+ * hasTouch, which never engages that pipeline at all, and page.touchscreen
+ * only supports tap(), not a drag. CDP sessions are a Chromium-only
+ * capability; there is no equivalent available for WebKit through
+ * Playwright, which is why this file's real-touch coverage is
+ * mobile-chrome-only (see the skip below).
+ */
+async function cdpTouchDrag(client: CDPSession, x: number, startY: number, distance: number, steps = 12) {
+  const touchPoint = (y: number) => [{ x, y, radiusX: 11, radiusY: 11, id: 0 }]
+  await client.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: touchPoint(startY) })
+  for (let i = 1; i <= steps; i += 1) {
+    await client.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: touchPoint(startY + (distance * i) / steps) })
+  }
+  await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+}
+
+// Real touch input goes through a browser's native touch-action/scroll
+// arbitration before our own pointer listeners ever see it — a mechanism
+// none of the mouse-driven tests above exercise at all. Confirmed directly
+// (throwaway CDP scripts, not committed) that, before the touch-action
+// handling in gestures.js existed, both of the gestures below got cancelled
+// by the browser's own scroll takeover after only a few touchmove samples:
+// a real touch pan is read as "the user wants to scroll", and the pointer
+// stream is cancelled before our code ever sees a full gesture — reachable
+// even starting on plain, non-interactive sheet content, so it is a
+// distinct bug from the native-link-drag cancellation dragstart prevention
+// fixes.
+test.describe('real touch input (Chromium only, via CDP)', () => {
+  test('drag-to-dismiss survives real touch-action arbitration on the sheet', async ({ page, context, browserName }) => {
+    test.skip(
+      browserName !== 'chromium',
+      'No CDP (or equivalent) touch-drag simulation is available for WebKit through Playwright; ' +
+        'page.mouse does not exercise real touch-action arbitration on any engine.',
+    )
+    await page.goto('/demo/vanilla')
+    await openSheetAndSettle(page)
+    const box = (await page.locator('[data-tz-sheet]').boundingBox())!
+    const height = box.height
+
+    const client = await context.newCDPSession(page)
+    // Starting on the sheet's own background, not a link — this exercises
+    // the scroll-arbitration bug specifically, independently of the
+    // separate native-link-drag one dragstart prevention fixes.
+    await cdpTouchDrag(client, box.x + box.width / 2, box.y + 5, height * (DISMISS_RATIO + 0.2))
+
+    await expect(page.locator('[data-tz-sheet]')).not.toHaveAttribute('data-tz-open', 'true')
+  })
+
+  test('swipe-to-open survives real touch-action arbitration on the trigger', async ({ page, context, browserName }) => {
+    test.skip(
+      browserName !== 'chromium',
+      'No CDP (or equivalent) touch-drag simulation is available for WebKit through Playwright; ' +
+        'page.mouse does not exercise real touch-action arbitration on any engine.',
+    )
+    await page.goto('/demo/vanilla')
+    const box = (await page.locator('[data-tz-trigger]').boundingBox())!
+
+    const client = await context.newCDPSession(page)
+    await cdpTouchDrag(client, box.x + box.width / 2, box.y + box.height / 2, -96)
+
+    await expect(page.locator('[data-tz-sheet]')).toHaveAttribute('data-tz-open', 'true')
   })
 })
