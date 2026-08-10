@@ -4,6 +4,7 @@
  */
 
 import { attachGestures } from './gestures.js'
+import { attachScrollAwareness } from './scroll.js'
 
 /** Fraction of sheet height a drag must pass to dismiss. */
 export const DISMISS_RATIO = 0.25
@@ -159,6 +160,10 @@ export function initThumbzone({ trigger, sheet, scrim, menu, inertRoot }) {
   function open() {
     if (isOpen) return
     setOpen(true)
+    // The trigger and an open sheet never compete for the thumb's reach at
+    // once — scroll-driven tucking only means anything while the sheet
+    // itself is off-screen and the trigger is what the thumb needs to find.
+    delete trigger.dataset.tzTucked
     const [first] = focusableWithin(sheet)
     ;(first ?? sheet).focus()
   }
@@ -223,6 +228,22 @@ export function initThumbzone({ trigger, sheet, scrim, menu, inertRoot }) {
   sheet.setAttribute('tabindex', '-1')
   setOpen(false)
 
+  // Authors list the menu most-used-first; the most-used item must land
+  // nearest the thumb, at the bottom of the list. Reordering the DOM rather
+  // than reversing with `flex-direction: column-reverse` keeps the focus
+  // order matching the visual order (WCAG 1.3.2) — the trap above walks
+  // this same DOM order, so getting this right is what makes tabbing
+  // through the menu track what's on screen. menu.children only ever holds
+  // the list items themselves; the drag handle is authored as a sibling of
+  // the menu, not a child, so it is never touched by this.
+  const reordersMenu = menu.dataset.tzOrder !== 'dom'
+  if (reordersMenu) {
+    menu.replaceChildren(...Array.from(menu.children).reverse())
+  }
+
+  const trackScroll = createScrollDirectionTracker()
+  const scrollAwareness = attachScrollAwareness({ trigger, isOpen: () => isOpen, trackScroll })
+
   return {
     open,
     close,
@@ -245,9 +266,18 @@ export function initThumbzone({ trigger, sheet, scrim, menu, inertRoot }) {
       scrim.removeEventListener('click', close)
       document.removeEventListener('keydown', onKeydown)
       gestures.detach()
-      // Only tabindex is purely an init-time addition with no markup
-      // equivalent to fall back to, so it is the one attribute removed
-      // outright rather than reset via setOpen.
+      scrollAwareness.detach()
+      // Neither has a markup equivalent to fall back to — data-tz-tucked is
+      // never authored, and the reorder above has no CSS counterpart — so
+      // both are purely init-time mutations, undone outright here, the same
+      // as the tabindex removal below.
+      delete trigger.dataset.tzTucked
+      if (reordersMenu) {
+        menu.replaceChildren(...Array.from(menu.children).reverse())
+      }
+      // tabindex is the last of this kind: a pure init-time addition with no
+      // markup equivalent to fall back to, removed outright rather than
+      // reset via setOpen — same reasoning as the two lines above it.
       sheet.removeAttribute('tabindex')
       initializedSheets.delete(sheet)
     },
