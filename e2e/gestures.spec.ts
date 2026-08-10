@@ -557,12 +557,19 @@ test.describe('touch-action contract (engine-independent)', () => {
     await page.goto('/demo/vanilla-overflow')
     await openSheetAndSettle(page)
 
+    // Exact computed values, not a substring check: 'auto' (the default a
+    // missing declaration falls back to), 'none', and 'manipulation' would
+    // all equally satisfy "does not contain 'pan-y'" without actually
+    // blocking panning the way 'pinch-zoom' does — a missing declaration on
+    // .tz-handle itself previously passed this exact check while leaving
+    // panning on the handle entirely unblocked on its own computed style
+    // (the ancestor .tz-sheet's touch-action doesn't inherit into it).
     const handleTouchAction = await page.locator('[data-tz-handle]').evaluate((el) => getComputedStyle(el).touchAction)
-    expect(handleTouchAction).not.toContain('pan-y')
+    expect(handleTouchAction).toBe('pinch-zoom')
 
     const menu = page.locator('[data-tz-menu]')
     const touchActionBeforeScroll = await menu.evaluate((el) => getComputedStyle(el).touchAction)
-    expect(touchActionBeforeScroll).toContain('pan-y')
+    expect(touchActionBeforeScroll).toBe('pan-y pinch-zoom')
 
     // The deadlock this closes was specifically "touch-action depended on
     // scrollTop, and scrollTop could never move because of it" — so the
