@@ -15,11 +15,18 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # tsconfig.json includes .astro/types.d.ts, which only exists once
+      # generated — .astro/ is gitignored, and nothing else in this job
+      # would create it, so typecheck would pass here for the wrong reason
+      # (nothing importing from astro:* yet) rather than because the types
+      # genuinely resolve.
+      - run: npx astro sync
       # A typecheck nobody runs is not a guarantee — this is the only place
       # `tsc` runs in CI, so a type error fails the same job unit tests do
       # rather than needing a check of its own that branch protection would
       # also have to know about.
       - run: npm run typecheck
+      - run: npm run build
       - run: npm test
 
   e2e:
