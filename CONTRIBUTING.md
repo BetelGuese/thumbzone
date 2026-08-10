@@ -32,9 +32,10 @@ that system, not like a foreign widget dropped into it.
 
 ### Drag-to-dismiss and the handle
 
-The reference implementation recognises a drag-to-dismiss gesture only on a
-dedicated handle element inside the panel, never on the panel's own
-scrollable content.
+The reference implementation recognises a drag-to-dismiss gesture anywhere on
+the panel *except* inside its scrollable menu. The handle is the panel's
+dedicated, always-present drag target — and once the menu is tall enough to
+fill the panel, the only place a touch can still start one.
 
 This is a deliberate split, not a stylistic choice. No browser engine
 reliably lets one element grant native scrolling in only one direction while
@@ -50,27 +51,35 @@ owns the drag, and a scrollable region with static `touch-action` that
 always permits panning, regardless of scroll position — is the only
 combination that keeps both working on every engine.
 
-A port whose panel can contain a menu taller than the panel itself must
-reproduce this split: a non-scrolling drag target whose `touch-action`
-blocks panning (but not pinch-zoom, per WCAG 1.4.4), and a scrollable region
-with static, panning-permitting `touch-action` that never changes with
-scroll position — changing it with scroll position is exactly what
-reproduces the deadlock. A panel with no scrollable menu, or one guaranteed
-never to overflow, is not required to include a handle; omitting one is not
-an error, and nothing will complain. It simply will not offer a
-drag-to-dismiss gesture that survives real touch input, since there is no
-non-scrolling region left to provide the entry point for it — a stated
-trade-off for that case, not a bug to chase down.
+Every port must reproduce this split: a non-scrolling drag target whose
+`touch-action` blocks panning (but not pinch-zoom, per WCAG 1.4.4), and a
+scrollable region with static, panning-permitting `touch-action` that never
+changes with scroll position — changing it with scroll position is exactly
+what reproduces the deadlock.
+
+The handle is required markup, not an optimisation for tall menus. It is
+listed under "What a port must provide" in `systems/registry.ts`, and the
+conformance suite asserts it on every registered system whether or not that
+system registers an overflowing fixture: its presence, its `aria-hidden`, its
+position above the menu, and its hit target. (Its `touch-action` is checked
+against the overflowing fixture, where the deadlock it exists to avoid is
+observable.) A port whose menu is short today has no guarantee it stays
+short: a consumer's own menu decides that, and the moment it overflows, a
+panel with no handle has nowhere left for a touch-driven dismiss to begin.
 
 ## Design principles
 
 - **SOLID** — each module has one reason to change; depend on narrow interfaces
   rather than concrete implementations.
-- **DRY** — shared gesture and scroll logic lives in one place and is consumed
-  by each system's implementation, never copied.
-- **YAGNI** — build what is needed now. No speculative abstraction: a shared
-  core gets extracted when several implementations prove what actually repeats,
-  not before.
+- **DRY** — within an implementation. Across systems there is deliberately no
+  shared core yet: `systems/vanilla` is normative, and a port reimplements the
+  pattern in its own system's idiom, held to the conformance suite rather than
+  to shared code. What the suite does share is the contract — the tuned
+  constants and the focusable-element definition are imported from the vanilla
+  implementation, so no port can quietly retune them.
+- **YAGNI** — build what is needed now. No speculative abstraction, and the
+  point above is the largest instance of it: a shared core gets extracted when
+  several implementations have proved what actually repeats, not before.
 - **KISS** — the simplest thing that works, then refactor for clarity.
 - **Composition over inheritance.**
 

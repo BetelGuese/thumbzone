@@ -127,7 +127,11 @@ export const SHIPPED_SYSTEMS: readonly System[] = [
   },
 ]
 
-/** Systems awaiting a contributor port. Rendered as open cells in the matrix. */
+/**
+ * Systems awaiting a contributor port. Named here so the roadmap has one
+ * source, and so the id-collision check covers them too; nothing renders them
+ * yet — the showcase lists shipped systems only.
+ */
 export const PLANNED_SYSTEMS: readonly PlannedSystem[] = [
   { id: 'tailwind', label: 'Tailwind CSS' },
   { id: 'bootstrap', label: 'Bootstrap 5' },
