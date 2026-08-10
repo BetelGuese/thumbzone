@@ -589,6 +589,19 @@ test.describe('touch-action contract (engine-independent)', () => {
     const touchActionAfterScroll = await menu.evaluate((el) => getComputedStyle(el).touchAction)
     expect(touchActionAfterScroll).toBe(touchActionBeforeScroll)
   })
+
+  // The scrim has no scroll of its own, but sits over the page behind it;
+  // without its own touch-action, a pan starting there could still scroll
+  // that page (see the real-touch test in the CDP block below, which
+  // proves the actual page-scroll consequence rather than just the
+  // declared value).
+  test('the scrim blocks native panning', async ({ page }) => {
+    await page.goto('/demo/vanilla')
+    await openSheetAndSettle(page)
+
+    const scrimTouchAction = await page.locator('[data-tz-scrim]').evaluate((el) => getComputedStyle(el).touchAction)
+    expect(scrimTouchAction).toBe('pinch-zoom')
+  })
 })
 
 /**
@@ -710,5 +723,42 @@ test.describe('real touch input (Chromium only, via CDP)', () => {
     await cdpTouchDrag(client, menuBox.x + menuBox.width / 2, menuBox.y + 20, height * (DISMISS_RATIO + 0.2))
 
     await expect(page.locator('[data-tz-sheet]')).toHaveAttribute('data-tz-open', 'true')
+  })
+
+  // The scrim has no scroll of its own but sits, visually, over the page
+  // behind it; touch-action arbitration follows the DOM ancestor chain, not
+  // z-index, so without its own touch-action a pan starting on the scrim
+  // could still scroll that page underneath despite the scrim's
+  // pointer-events blocking taps from reaching it.
+  test('a real touch pan on the scrim does not scroll the page behind it', async ({ page, context, browserName }) => {
+    test.skip(
+      browserName !== 'chromium',
+      'No CDP (or equivalent) touch-drag simulation is available for WebKit through Playwright; ' +
+        'page.mouse does not exercise real touch-action arbitration on any engine.',
+    )
+    await page.goto('/demo/vanilla')
+    await openSheetAndSettle(page)
+    const scrollBefore = await page.evaluate(() => document.scrollingElement!.scrollTop)
+
+    // The scrim covers the full viewport, but the open sheet — taller
+    // z-index, and easily over half the viewport height on a real device —
+    // visually overlaps its own lower portion. A touch there would land on
+    // the sheet, not the scrim, and prove nothing about the scrim's own
+    // touch-action (confirmed directly: that exact mistake reported this
+    // test's target as the sheet and passed regardless of whether the
+    // scrim had a touch-action of its own at all). Well above the sheet's
+    // top edge is the part of the scrim a touch can actually reach.
+    const scrimBox = (await page.locator('[data-tz-scrim]').boundingBox())!
+    const sheetBox = (await page.locator('[data-tz-sheet]').boundingBox())!
+    const startY = sheetBox.y / 2
+    const client = await context.newCDPSession(page)
+    const touchTarget = await page.evaluate(
+      ([x, y]) => document.elementFromPoint(x, y)?.getAttribute('data-tz-scrim') !== null,
+      [scrimBox.x + scrimBox.width / 2, startY],
+    )
+    expect(touchTarget).toBe(true)
+    await cdpTouchDrag(client, scrimBox.x + scrimBox.width / 2, startY, -300)
+
+    expect(await page.evaluate(() => document.scrollingElement!.scrollTop)).toBe(scrollBefore)
   })
 })
