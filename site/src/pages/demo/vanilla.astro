@@ -1,0 +1,29 @@
+---
+import DemoLayout from '../../layouts/DemoLayout.astro'
+
+const items = ['Home', 'Search', 'Library', 'Profile', 'Settings']
+---
+<DemoLayout system="vanilla">
+  <main data-tz-app>
+    <h1>thumbzone — vanilla</h1>
+    {Array.from({ length: 40 }, (_, i) => <p>Scrollable content line {i + 1}.</p>)}
+  </main>
+
+  <div class="tz-scrim" data-tz-scrim hidden></div>
+
+  <div id="tz-sheet" class="tz-sheet" data-tz-sheet role="dialog" aria-modal="true" aria-label="Main menu" hidden>
+    <ul class="tz-menu" data-tz-menu>
+      {items.map((item) => <li><a href="#">{item}</a></li>)}
+    </ul>
+  </div>
+
+  <button class="tz-trigger" data-tz-trigger type="button" aria-expanded="false" aria-controls="tz-sheet" aria-label="Open menu">
+    <svg width="20" height="14" viewBox="0 0 20 14" aria-hidden="true">
+      <path d="M0 1h20M0 7h20M0 13h20" stroke="currentColor" stroke-width="2" />
+    </svg>
+  </button>
+</DemoLayout>
+
+<style is:global>
+  @import '../../../../systems/vanilla/src/thumbzone.css';
+</style>
