@@ -330,6 +330,23 @@ test.describe('gestures', () => {
     await expect(page.locator('[data-tz-sheet]')).not.toHaveAttribute('data-tz-open', 'true')
   })
 
+  // Cheap, engine-independent proof that the trigger's own dragstart guard
+  // (not just the sheet's) actually intercepts the event: dispatchEvent()
+  // returns false when a cancelable event had preventDefault() called on
+  // it. A consumer using a natively-draggable <img> icon here, instead of
+  // this demo's inline <svg> (which isn't draggable in the first place, so
+  // it can't exercise this on its own), would otherwise reintroduce the
+  // swipe-to-open cancellation dragstart prevention closes on the sheet.
+  test('dragstart on the trigger is prevented', async ({ page }) => {
+    await page.goto('/demo/vanilla')
+
+    const notCancelled = await page.locator('[data-tz-trigger]').evaluate((el) =>
+      el.dispatchEvent(new Event('dragstart', { bubbles: true, cancelable: true })),
+    )
+
+    expect(notCancelled).toBe(false)
+  })
+
   // A pointerup or pointercancel that never reaches gestures.js — the tab
   // losing focus mid-touch, or any other case the platform doesn't hand us
   // a matching event for — must not wedge every future gesture: since the
