@@ -43,7 +43,7 @@
 // walks. Everything else this port takes from core — the drag maths, the velocity
 // window, the swipe distance, the scroll tracker — is imported by the two modules
 // below, which are the only places that drive it.
-import { FOCUSABLE } from '../../../core/index.js'
+import { FALLBACK_TRIGGER_LABEL_CLOSED, FALLBACK_TRIGGER_LABEL_OPEN, FOCUSABLE } from '../../../core/index.js'
 import { attachGestures } from './gestures'
 import { attachScrollAwareness } from './scroll'
 
@@ -242,7 +242,7 @@ export function initThumbzone(refs: ThumbzoneRefs): ThumbzoneHandle {
     // an English string on every state change loses it silently — while saying
     // nothing that `aria-expanded` above has not already said.
     if (authoredTriggerLabel === null) {
-      trigger.setAttribute('aria-label', next ? 'Close menu' : 'Open menu')
+      trigger.setAttribute('aria-label', next ? FALLBACK_TRIGGER_LABEL_OPEN : FALLBACK_TRIGGER_LABEL_CLOSED)
     }
     inertRoot.toggleAttribute('inert', next)
     // The mirror of the line above. A closed sheet stays fully rendered — only

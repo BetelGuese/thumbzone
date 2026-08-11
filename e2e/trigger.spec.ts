@@ -3,6 +3,7 @@ import { test, expect } from '@playwright/test'
 // and the stylesheet cannot disagree about what the contract is.
 import {
   DESKTOP_BREAKPOINT,
+  FALLBACK_TRIGGER_LABEL_CLOSED,
   MAX_TRIGGER_BOTTOM_GAP,
   MIN_HIT_TARGET,
 } from '../core/index.js'
@@ -13,15 +14,6 @@ import { describeForEachSystem } from './support/systems'
 // the word the suite looks for elsewhere: a label the pattern could have
 // produced on its own would not show that the authored one survived.
 const AUTHORED_TRIGGER_LABEL = 'Navigation'
-
-// The fallback `setOpen()` in every port's behaviour module writes onto an
-// unnamed trigger — see thumbzone.js/thumbzone.ts — for the *closed* state,
-// which is the one page.goto() lands on. It already contains "menu", so it
-// already satisfies the accessible-name check above and reads as a name to
-// axe: neither is positioned to notice a port that ships no name of its own
-// and is silently presenting this English string to every user regardless of
-// the page's own language. Checked directly against this literal instead.
-const FALLBACK_TRIGGER_LABEL = 'Open menu'
 
 describeForEachSystem('trigger', (system) => {
   test('is horizontally centred at the bottom of the viewport', async ({ page }) => {
@@ -90,10 +82,18 @@ describeForEachSystem('trigger', (system) => {
   // above (the fallback matches /menu/i too) and reports zero axe violations
   // (a fallback name is still a name), so this is the one place in the whole
   // suite — and the whole accessibility gate — positioned to catch it.
-  test('authors its own accessible name, rather than the pattern\'s fallback', async ({ page }) => {
+  //
+  // Checked against FALLBACK_TRIGGER_LABEL_CLOSED itself, imported from core
+  // rather than restated here: a local copy could silently drift out of step
+  // with a wording change in either behaviour module, and comparing against
+  // a string that is no longer the actual fallback would make this pass for
+  // the wrong reason — exactly the failure mode this assertion exists to
+  // rule out. FALLBACK_TRIGGER_LABEL_CLOSED specifically, not its open-state
+  // counterpart, because page.goto() lands on the closed state.
+  test("authors its own accessible name, rather than the pattern's fallback", async ({ page }) => {
     await page.goto(system.route)
     const trigger = page.locator('[data-tz-trigger]')
-    await expect(trigger).not.toHaveAccessibleName(FALLBACK_TRIGGER_LABEL)
+    await expect(trigger).not.toHaveAccessibleName(FALLBACK_TRIGGER_LABEL_CLOSED)
   })
 
   // The check above cannot catch a pattern that writes the accessible name

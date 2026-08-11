@@ -5,7 +5,14 @@
 
 import { attachGestures } from './gestures.js'
 import { attachScrollAwareness } from './scroll.js'
-import { FOCUSABLE, dragProgress, shouldDismiss, createVelocityTracker } from '../../../core/index.js'
+import {
+  FALLBACK_TRIGGER_LABEL_CLOSED,
+  FALLBACK_TRIGGER_LABEL_OPEN,
+  FOCUSABLE,
+  dragProgress,
+  shouldDismiss,
+  createVelocityTracker,
+} from '../../../core/index.js'
 
 // scroll.js and gestures.js exist only as internal splits of this module; the
 // values they depend on that are shared across every design system now live
@@ -91,7 +98,7 @@ export function initThumbzone({ trigger, sheet, scrim, menu, inertRoot }) {
     // already carried by aria-expanded above, so nothing is left unsaid by
     // keeping the authored wording in both states.
     if (authoredTriggerLabel === null) {
-      trigger.setAttribute('aria-label', next ? 'Close menu' : 'Open menu')
+      trigger.setAttribute('aria-label', next ? FALLBACK_TRIGGER_LABEL_OPEN : FALLBACK_TRIGGER_LABEL_CLOSED)
     }
     inertRoot.toggleAttribute('inert', next)
     // The mirror of inertRoot above: a closed sheet is still fully rendered

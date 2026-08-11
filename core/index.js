@@ -80,6 +80,9 @@ function assertFiniteNumber(value, name) {
  * @throws {RangeError} If offset is not a finite number, or height is not a positive finite number.
  */
 export function dragProgress(offset, height) {
+  // Checked in parameter order, not by priority: this is not a deliberate
+  // choice about which message should win when both arguments are invalid at
+  // once, so reordering these two lines loses nothing worth preserving.
   assertFiniteNumber(offset, 'offset')
   assertPositiveHeight(height)
   return Math.min(Math.max(offset / height, 0), 1)
@@ -92,6 +95,9 @@ export function dragProgress(offset, height) {
  * @throws {RangeError} If offset or velocity is not a finite number, or height is not a positive finite number.
  */
 export function shouldDismiss({ offset, velocity, height }) {
+  // Same non-priority ordering as dragProgress above — matches the
+  // destructured parameter order above, not a ranking of which invalid
+  // argument's message should surface first when more than one is bad.
   assertFiniteNumber(offset, 'offset')
   assertFiniteNumber(velocity, 'velocity')
   assertPositiveHeight(height)
@@ -142,6 +148,23 @@ export function createVelocityTracker() {
 /** Shared with e2e tests so the "what counts as focusable" definition has one source of truth. */
 export const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])'
+
+/**
+ * The trigger's accessible name when a port's own markup authors none — see
+ * `setOpen` in every behaviour module (`thumbzone.js`, `thumbzone.ts`).
+ * Exported, rather than left as a literal in each module, for the same
+ * reason `FOCUSABLE` is: the reference and every port must write the
+ * identical string, and the conformance suite has to assert against that
+ * same value rather than a copy of its own. A copy left to drift out of step
+ * with a wording change here would not just miss the change — it would make
+ * the suite's "not the fallback" assertion pass for the wrong reason, since
+ * it would then be comparing against a string that is no longer the
+ * fallback a silent, unnamed port actually produces.
+ */
+export const FALLBACK_TRIGGER_LABEL_CLOSED = 'Open menu'
+
+/** The open-state half of the pair above. */
+export const FALLBACK_TRIGGER_LABEL_OPEN = 'Close menu'
 
 /** Scroll delta (px) below which the trigger ignores movement, to avoid jitter. */
 export const SCROLL_THRESHOLD = 8
