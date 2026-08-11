@@ -38,9 +38,21 @@ export const SHEET_MOTION = {
 } as const
 
 /**
- * Motion for the reduced-motion path, expressed through the same MUI helper so
- * that the declaration a reader compares against `SHEET_MOTION` has the same
- * shape. Zero rather than a token: MUI's scale has no "instant" step, and the
- * preference asks for no perceptible movement at all.
+ * How MUI itself cancels a component-owned transition under
+ * `prefers-reduced-motion` — this is the reset `theme.motion.reducedMotion`
+ * applies to MUI's own components, reused verbatim so the port's surfaces
+ * collapse exactly the way every MUI surface around them does, rather than
+ * through a near-zero duration of the port's own invention.
  */
-export const NO_MOTION = { duration: 0 } as const
+export const REDUCED_MOTION_RESET = { transition: 'none' } as const
+
+/**
+ * How much of the viewport the open sheet may occupy.
+ *
+ * A sheet that filled the screen would be a page: leaving a strip of scrim
+ * above it is what keeps "tap outside to dismiss" discoverable and what says
+ * the page is still there behind it. `dvh`, never `vh` — iOS Safari resolves
+ * `vh` against the expanded viewport, so the sheet's top edge would end up
+ * under the collapsing URL bar.
+ */
+export const SHEET_MAX_BLOCK_SIZE = '85dvh'
