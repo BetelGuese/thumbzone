@@ -1,0 +1,13 @@
+---
+import DemoLayout from '../../layouts/DemoLayout.astro'
+import ThumbzoneMenu from '../../../../systems/mui/src/ThumbzoneMenu.tsx'
+
+const items = ['Home', 'Search', 'Library', 'Profile', 'Settings']
+---
+<DemoLayout system="mui">
+  <main data-tz-app>
+    <h1>thumbzone — Material UI</h1>
+    {Array.from({ length: 40 }, (_, i) => <p>Scrollable content line {i + 1}.</p>)}
+  </main>
+  <ThumbzoneMenu items={items} client:load />
+</DemoLayout>
