@@ -30,8 +30,10 @@ const items = ['Home', 'Search', 'Library', 'Profile', 'Settings']
   // server-rendered, so the pattern does not have to wait for React at all. A
   // module script is fetched and run before the document reports itself loaded,
   // which makes "loaded" mean the sheet works. The island then adopts this
-  // instance when it hydrates instead of making a second one — the handle its
-  // hook returns and the one published below are the same object.
+  // instance when it hydrates instead of making a second one, so both reach the
+  // same live instance — the hook's own return value is a thin wrapper that
+  // resolves that instance per call rather than this object itself, which is
+  // what lets a caller keep holding it across a destroy() and re-init.
   //
   // Adopted if it is somehow already wired, rather than initialised blind.
   // Losing this race is not supposed to be possible — a module script runs
