@@ -54,6 +54,14 @@
  * - The open sheet's bottom edge flush with the viewport's bottom edge. A
  *   top-anchored drawer can satisfy every other line in this contract, which
  *   is exactly why this one is stated and asserted.
+ * - The open sheet reserving the trigger's own vertical footprint at its bottom
+ *   edge, so the menu's last row is never underneath it. The trigger floats
+ *   *above* the sheet because tapping it is a close path and it has to stay
+ *   hit-testable there — which makes "floating above" and "covering the last
+ *   row" the same arrangement unless the sheet reserves the space. Asserted on
+ *   the rendered geometry, and against a scrolled-to-the-end overflowing menu
+ *   too where a port registers one: that is the position where the overlap is
+ *   visible, and the one a short fixture cannot reach.
  *
  * Behaviour:
  * - `data-tz-open` on sheet and scrim, `aria-expanded` on the trigger,
@@ -142,16 +150,55 @@ export interface System {
    *   A port built on a framework that hydrates server-rendered markup has two
    *   parties claiming the same DOM: the pattern, wired during load so the sheet
    *   works the moment the document reports itself loaded, and the framework,
-   *   arriving later to adopt the markup it rendered. Hydration walks the menu's
-   *   items as siblings and holds a pointer into that list across the tasks it
-   *   yields between — so the *first* reorder, which happens before the framework
-   *   can have started, is safe, while a later one is not: landing mid-hydration
-   *   it leaves the framework short of the nodes it still expects, and the
-   *   framework answers by discarding its tree and re-rendering it. That replaces
-   *   the elements `__thumbzone` is holding. The page still works, because the
-   *   replacement wires itself over the new nodes — which is what makes it worth
-   *   a contract hook rather than a comment: the symptom is a dead handle behind
-   *   a live UI, and no assertion about the page's behaviour reveals it.
+   *   arriving later to adopt the markup it rendered. The thumb-first reorder is
+   *   what they collide over, in two separate ways — and this hook answers only
+   *   the second of them. A port that implements the hook perfectly and skips the
+   *   first still fails.
+   *
+   *   **The order the framework renders.** The reorder runs at init, so on a
+   *   server-rendered page the served menu is *already* thumb-first before the
+   *   framework looks at it — while the component still describes the authored
+   *   order. Every item's label is then held against the wrong node, off by the
+   *   length of the list. Reordering moves text between nodes without moving any
+   *   element the framework expects, so this surfaces as exactly one kind of
+   *   mismatch: text. Do not assume a mismatch is a warning. React *throws* on an
+   *   unannounced text mismatch and answers by discarding the tree and rendering
+   *   a fresh one — replacing the elements `__thumbzone` is holding, which is the
+   *   same dead-handle failure described below, arriving by a different route.
+   *   Two mitigations, and the first is the one that does the work:
+   *
+   *   - **Render the order the DOM already has.** Ask the DOM once, on the render
+   *     that has to agree with the page, and trust the answer only when it is
+   *     unambiguous — an exact reversal of the items that render was given.
+   *     Anything else (a menu that opted out with `data-tz-order="dom"`, a
+   *     consumer's own order, markup the component did not produce, or a
+   *     client-only render with no server markup to consult) reads as "not
+   *     reordered" and renders the authored order, which is also what the server
+   *     rendered. Capture the *direction* once rather than recomputing it, or a
+   *     later re-render lets the framework write the order back — the wrong way
+   *     round, since the order is the pattern's.
+   *   - **Annotate the moved text, on the node whose text moved.** A framework
+   *     consults its suppression flag at the fiber the mismatch is found at and
+   *     nowhere else, so annotating the menu several levels up does nothing. This
+   *     covers only the residue the point above cannot: a served order that is
+   *     neither the authored one nor an exact reversal, where the render falls
+   *     back to the authored order and some text genuinely differs. On its own it
+   *     silences the report while leaving every label bound to the wrong node,
+   *     which is silent rather than safe — it is never a substitute for
+   *     rendering the DOM's own order.
+   *
+   *   **When the reorder happens.** This is what the hook is for. Hydration walks
+   *   the menu's items as siblings and holds a pointer into that list across the
+   *   tasks it yields between — so the *first* reorder, which happens before the
+   *   framework can have started, is safe, while a later one is not: landing
+   *   mid-hydration it leaves the framework short of the nodes it still expects,
+   *   and the framework answers by discarding its tree and re-rendering it. That
+   *   replaces the elements `__thumbzone` is holding, and no annotation reaches
+   *   it — a node that *moved* is not a text mismatch anything can suppress. The
+   *   page still works, because the replacement wires itself over the new nodes —
+   *   which is what makes it worth a contract hook rather than a comment: the
+   *   symptom is a dead handle behind a live UI, and no assertion about the
+   *   page's behaviour reveals it.
    *
    *   The suite awaits this before every hook-driven `destroy()` and re-init,
    *   which are the only things that reorder the menu after load. A porter using

@@ -7,6 +7,8 @@ major design system. Contributions are judged against that.
 ## Repository layout
 
 ```
+core/               the shared maths, tuned constants and the focusable
+                    selector — no DOM, no framework, no design system
 systems/            one directory per design system
   vanilla/          the reference implementation — no dependencies
 e2e/                Playwright specs, including the conformance suite
@@ -55,12 +57,40 @@ The third one is what a framework-based port needs, and it is worth understandin
 before you write one. If your port renders its markup on the server and hydrates
 it, two parties claim the same DOM: the pattern, wired during load so the sheet
 works as soon as the document is loaded, and the framework, arriving later to
-adopt what it rendered. Hydration walks the menu's items as siblings and holds a
-pointer into that list across the tasks it yields between. The reorder that runs
-at init is safe — the framework cannot have started yet — but a reorder arriving
-mid-hydration leaves the framework short of nodes, and it responds by discarding
-its tree and rendering a fresh one. That replaces the elements `__thumbzone`
-holds, and the page goes on working because the replacement wires itself over the
+adopt what it rendered. The thumb-first reorder is what they collide over, in two
+separate ways — and the hook answers only the second. **Implementing the hook
+perfectly and skipping the first still fails.**
+
+**The order your components render.** The reorder runs at init, so the served
+menu is already thumb-first before your framework looks at it, while your
+component still describes the authored order — every label held against the wrong
+node. Reordering moves text between nodes without moving any element the
+framework expects, so it surfaces as one kind of mismatch: text. Do not assume a
+mismatch is a warning. React *throws* on an unannounced text mismatch, discards
+the tree and renders a fresh one, which replaces the elements `__thumbzone`
+holds. Two mitigations, and the first is the one that does the work:
+
+- **Render the order the DOM already has.** Ask the DOM once, on the render that
+  has to agree with the page, and trust the answer only when it is unambiguous —
+  an exact reversal of the items that render was given. Anything else (an
+  opted-out menu, a consumer's own order, a client-only render with no server
+  markup to consult) renders the authored order, which is what the server
+  rendered too. Capture the direction once rather than recomputing it, or a later
+  re-render lets the framework write the order back — the wrong way round.
+- **Annotate the moved text, on the node whose text moved.** The flag is consulted
+  at the fiber the mismatch is found at and nowhere else, so annotating the menu
+  several levels up does nothing. It covers only the residue the point above
+  cannot — a served order that is neither authored nor an exact reversal. On its
+  own it silences the report while leaving every label bound to the wrong node,
+  so it is never a substitute for rendering the DOM's own order.
+
+**When the reorder happens.** This is what the hook is for. Hydration walks the
+menu's items as siblings and holds a pointer into that list across the tasks it
+yields between. The reorder that runs at init is safe — the framework cannot have
+started yet — but a reorder arriving mid-hydration leaves the framework short of
+nodes, and it responds by discarding its tree and rendering a fresh one. No
+annotation reaches that: a node which *moved* is not a text mismatch anything can
+suppress. The page goes on working because the replacement wires itself over the
 new nodes. A dead handle behind a live UI is not something an assertion about the
 page can see, which is why the hook is part of the contract.
 
@@ -110,15 +140,31 @@ panel with no handle has nowhere left for a touch-driven dismiss to begin.
 
 - **SOLID** — each module has one reason to change; depend on narrow interfaces
   rather than concrete implementations.
-- **DRY** — within an implementation. Across systems there is deliberately no
-  shared core yet: `systems/vanilla` is normative, and a port reimplements the
-  pattern in its own system's idiom, held to the conformance suite rather than
-  to shared code. What the suite does share is the contract — the tuned
-  constants and the focusable-element definition are imported from the vanilla
-  implementation, so no port can quietly retune them.
-- **YAGNI** — build what is needed now. No speculative abstraction, and the
-  point above is the largest instance of it: a shared core gets extracted when
-  several implementations have proved what actually repeats, not before.
+- **DRY** — within an implementation, and across systems for the part that is
+  not a system's to decide. `core/` holds that part: the tuned constants, the
+  drag and velocity maths, the scroll-direction tracker and the
+  focusable-element definition. Every port and the reference implementation
+  import them from there, so no port can quietly retune them. Everything with
+  a DOM in it is still per-system — `systems/vanilla` is normative, and a port
+  reimplements the *behaviour* in its own system's idiom, held to the
+  conformance suite rather than to shared code.
+- **YAGNI** — build what is needed now. `core/` is where that judgement was
+  actually made, and it is worth being honest about which way: the maths and
+  the constants were extracted while there was still only one implementation,
+  because they were separable without a second one to compare against. A
+  number with no DOM and no framework in it — a dismiss ratio, a fling
+  velocity, a hit target — either is the contract or is a port's own styling
+  choice, and the specs already had to import it from *somewhere* to avoid
+  restating it per assertion. Pulling it out of the reference implementation
+  cost nothing but a file, and left the reference importing the same values
+  every port does instead of being the odd one out that owns them.
+  What is deliberately *not* shared is everything that touches the DOM: the
+  focus trap, the attribute sequences, the reorder, the pointer state machine.
+  Those are duplicated per port today, and duplicated on purpose — one port is
+  not enough evidence of what repeats, and a premature shared behaviour layer
+  would bake one framework's assumptions into eleven ports that have not been
+  written yet. Extract that when several ports have proved what actually
+  repeats, not before.
 - **KISS** — the simplest thing that works, then refactor for clarity.
 - **Composition over inheritance.**
 
