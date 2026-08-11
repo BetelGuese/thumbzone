@@ -14,25 +14,13 @@ import {
   createVelocityTracker,
 } from '../../../core/index.js'
 
-// scroll.js and gestures.js exist only as internal splits of this module; the
-// values they depend on that are shared across every design system now live
-// in core/index.js (see the re-export below), and this file keeps the ones
-// that are the reference implementation's own.
-export {
-  DISMISS_RATIO,
-  FLING_VELOCITY,
-  VELOCITY_WINDOW_MS,
-  SCROLL_THRESHOLD,
-  SWIPE_OPEN_DISTANCE,
-  MIN_HIT_TARGET,
-  MAX_TRIGGER_BOTTOM_GAP,
-  DESKTOP_BREAKPOINT,
-  FOCUSABLE,
-  dragProgress,
-  shouldDismiss,
-  createVelocityTracker,
-  createScrollDirectionTracker,
-} from '../../../core/index.js'
+// scroll.js and gestures.js exist only as internal splits of this module. Every
+// value shared across design systems lives in core/index.js and is imported
+// from there by name, here and in every port alike — this module re-exports
+// none of them. Importing a shared constant "from vanilla" would work and be
+// wrong: it reads as though the reference implementation owns the contract,
+// which is the habit `core/` exists to break. What this file does export is
+// only what is genuinely the reference implementation's own.
 
 /** Duration (ms) of the sheet's open/close transition. */
 export const SHEET_TRANSITION_MS = 240

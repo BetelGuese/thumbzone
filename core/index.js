@@ -192,7 +192,8 @@ export function createScrollDirectionTracker({ threshold = SCROLL_THRESHOLD } = 
 
 /**
  * Vertical travel (px) on the trigger that counts as a swipe rather than a tap.
- * Exported (via thumbzone.js, the public surface) so the conformance suite
- * paces its swipes either side of this threshold instead of restating it.
+ * Exported so the conformance suite paces its swipes either side of this
+ * threshold instead of restating it — imported from here, like every other
+ * shared value, rather than through any one system's own module.
  */
 export const SWIPE_OPEN_DISTANCE = 24
