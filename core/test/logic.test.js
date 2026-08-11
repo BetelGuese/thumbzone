@@ -13,6 +13,13 @@ import {
 const rand = (min, max) => min + Math.random() * (max - min)
 const randHeight = () => rand(320, 900)
 
+// The complete set IEEE 754 actually calls non-finite — there is no
+// continuous range to draw a "random" value from the way randHeight() does,
+// so randomness here is which of the three this draw lands on rather than
+// where in a range it falls.
+const NON_FINITE_VALUES = [NaN, Infinity, -Infinity]
+const randNonFinite = () => NON_FINITE_VALUES[Math.floor(Math.random() * NON_FINITE_VALUES.length)]
+
 describe('dragProgress', () => {
   it('reports the fraction of the sheet height dragged', () => {
     const height = randHeight()
@@ -42,6 +49,17 @@ describe('dragProgress', () => {
   // and 0 is what turns the progress calculation into a division by zero.
   it('rejects a zero height at the boundary itself', () => {
     expect(() => dragProgress(rand(0, 100), 0)).toThrow(/sheet height must be positive/)
+  })
+
+  // offset carries a sign (an upward drag is negative, clamped to 0 by the
+  // Math.max below the guard) and height is already covered above, so this is
+  // the one argument that was previously let through unchecked: a NaN or
+  // Infinity here divides out to a NaN or Infinity progress instead of a
+  // clear failure naming which argument was bad.
+  it('rejects a non-finite offset with an actionable message naming it', () => {
+    const height = randHeight()
+    const offset = randNonFinite()
+    expect(() => dragProgress(offset, height)).toThrow(/offset must be a finite number/)
   })
 })
 
@@ -83,6 +101,28 @@ describe('shouldDismiss', () => {
     expect(() => shouldDismiss({ offset: rand(0, 100), velocity: 0, height: 0 })).toThrow(
       /sheet height must be positive/,
     )
+  })
+
+  // offset and velocity were previously unchecked here too — a NaN offset
+  // would fail the "offset <= 0" guard silently (NaN <= 0 is false) and fall
+  // straight through to a comparison against DISMISS_RATIO that is also
+  // always false, so the gesture would spring back regardless of how it was
+  // actually released, with nothing pointing at why.
+  it('rejects a non-finite offset with an actionable message naming it', () => {
+    const height = randHeight()
+    const velocity = rand(-FLING_VELOCITY, FLING_VELOCITY)
+    const offset = randNonFinite()
+    expect(() => shouldDismiss({ offset, velocity, height })).toThrow(/offset must be a finite number/)
+  })
+
+  // Likewise for velocity: a non-finite reading would compare against
+  // FLING_VELOCITY and (for NaN) always lose, or (for Infinity) always win —
+  // either way silently, rather than surfacing the bad input.
+  it('rejects a non-finite velocity with an actionable message naming it', () => {
+    const height = randHeight()
+    const offset = rand(0, height)
+    const velocity = randNonFinite()
+    expect(() => shouldDismiss({ offset, velocity, height })).toThrow(/velocity must be a finite number/)
   })
 })
 

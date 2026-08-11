@@ -12,7 +12,7 @@ import SvgIcon from '@mui/material/SvgIcon'
 import { ThemeProvider, alpha } from '@mui/material/styles'
 import { DESKTOP_BREAKPOINT, MAX_TRIGGER_BOTTOM_GAP, MIN_HIT_TARGET } from '../../../core/index.js'
 import type { ContractAttributes } from '../../contract'
-import { REDUCED_MOTION_RESET, SHEET_MAX_BLOCK_SIZE, SHEET_MOTION, thumbzoneTheme } from './theme'
+import { FAB_SIZE_PX, REDUCED_MOTION_RESET, SHEET_MAX_BLOCK_SIZE, SHEET_MOTION, thumbzoneTheme } from './theme'
 import type { ThumbzoneHandle } from './thumbzone'
 import { useThumbzone } from './useThumbzone'
 
@@ -77,7 +77,14 @@ const sheetSlotProps: PaperProps & ContractAttributes = {
     // so that a menu taller than the sheet keeps scrolling by touch while the
     // sheet's own chrome stays a drag surface.
     overflow: 'hidden',
-    paddingBlockEnd: 'env(safe-area-inset-bottom, 0px)',
+    // Reserves the trigger's own vertical footprint — its fixed size plus the
+    // same spacing token that places it above the viewport's bottom edge (see
+    // the Fab's own `bottom` below) — so the menu's last row never ends up
+    // underneath it. The safe-area inset is added on top rather than folded
+    // into the Fab's own (ceiling-clamped) offset: this only has to be at
+    // least as large as the Fab's real clearance, and adding the inset
+    // outright can only make that truer, never fall short of it.
+    paddingBlockEnd: `calc(${FAB_SIZE_PX}px + ${theme.spacing(2)} + env(safe-area-inset-bottom, 0px))`,
     // Two artefacts of the docked variant, both of which assume a drawer sitting
     // against page content rather than floating over a scrim: elevation is
     // forced to 0, and the edge facing the content gets a divider hairline. The
