@@ -30,6 +30,20 @@ declare global {
 }
 
 /**
+ * How long `__thumbzoneReady` may take to resolve before this gives up on it.
+ *
+ * Generous relative to what the hook actually waits on — a framework effect
+ * firing after commit, ordinarily well under a second — because the very
+ * first navigation against a freshly started dev server pays a one-time cost
+ * that sits in front of it: esbuild/Vite transforming an island's framework,
+ * component-library and styling chunks on demand before any of them can run.
+ * Still bounded well short of Playwright's own 30s per-test default, so a
+ * hook that never resolves fails with a message naming the hook rather than a
+ * bare test-timeout that names nothing.
+ */
+const THUMBZONE_READY_TIMEOUT_MS = 8_000
+
+/**
  * Waits until the route reports the pattern fully settled: wired, and with
  * anything that arrives after the wiring — a framework hydrating over the same
  * server-rendered markup — finished with it.
@@ -46,12 +60,36 @@ declare global {
  *
  * Costs nothing for a system with nothing to wait for: those routes publish an
  * already-resolved promise.
+ *
+ * Races the hook against `THUMBZONE_READY_TIMEOUT_MS` and *rejects*, naming the
+ * hook, if it loses. A port whose readiness promise never resolves — because it
+ * was built from a condition that never becomes true, say — would otherwise hang
+ * this wait, and every caller here awaits it before an assertion of its own runs.
+ * Left unbounded, that is not one clear failure but roughly twenty bare Playwright
+ * timeouts with nothing in them pointing at the hook, which is the worst failure
+ * mode this suite can hand a porter. A rejection fails the awaiting test outright
+ * instead of letting it proceed past a hook that was never actually ready — which
+ * would reopen exactly the hydration race this hook exists to close.
  */
 export async function awaitThumbzoneReady(page: Page): Promise<void> {
-  await page.evaluate(async () => {
+  await page.evaluate(async (timeoutMs) => {
     if (!window.__thumbzoneReady) throw new Error('the demo route must expose window.__thumbzoneReady')
-    await window.__thumbzoneReady
-  })
+    // Definite-assignment: the Promise executor below runs synchronously, so
+    // this is set before anything else in this function can run — TypeScript's
+    // control-flow analysis just cannot see that through the executor.
+    let timer!: ReturnType<typeof setTimeout>
+    const timedOut = new Promise<never>((_, reject) => {
+      timer = setTimeout(
+        () => reject(new Error(`window.__thumbzoneReady did not resolve within ${timeoutMs}ms`)),
+        timeoutMs,
+      )
+    })
+    try {
+      await Promise.race([window.__thumbzoneReady, timedOut])
+    } finally {
+      clearTimeout(timer)
+    }
+  }, THUMBZONE_READY_TIMEOUT_MS)
 }
 
 /**

@@ -117,9 +117,20 @@ export interface System {
    *   init-time-only behaviour such as the menu reorder from outside the module.
    * - `__thumbzoneReady` — a promise that resolves once the route's instance is
    *   wired *and* anything arriving after it has finished with the same markup.
-   *   For a route where nothing arrives later this is
-   *   `Promise.resolve()`; it is published all the same, so the suite never has
-   *   to ask which systems have one.
+   *   For a route where nothing arrives later this is `Promise.resolve()`, and
+   *   that is the *only* case it is correct for: a route where something does
+   *   arrive later and reaches for it anyway is not caught by the suite in the
+   *   act, because the awaited promise still resolves and every assertion after
+   *   it still runs — the violation this hides is the same dead-handle-behind-
+   *   a-live-UI failure the hook exists to prevent, and it resurfaces later as
+   *   an intermittent flake rather than the clean failure a genuine readiness
+   *   promise would produce. It is published all the same either way, so the
+   *   suite never has to ask which systems have one — and published no later
+   *   than the document's own `load` event, the one `page.goto` resolves on: a
+   *   route that only assigns it from inside an async chunk, rather than from a
+   *   synchronous script that runs before `load`, can lose that race and throw
+   *   the suite's "must expose" error against a port that was never actually
+   *   missing the hook, only late publishing it.
    *
    *   It exists for the ports that need it, and the need is not hypothetical.
    *   A port built on a framework that hydrates server-rendered markup has two
