@@ -146,6 +146,12 @@ export const SHIPPED_SYSTEMS: readonly System[] = [
     authoredMenuOrder: ['Home', 'Search', 'Library', 'Profile', 'Settings'],
     overflowRoute: '/demo/vanilla-overflow',
   },
+  {
+    id: 'mui',
+    label: 'Material UI',
+    route: '/demo/mui',
+    authoredMenuOrder: ['Home', 'Search', 'Library', 'Profile', 'Settings'],
+  },
 ]
 
 /**
@@ -156,7 +162,6 @@ export const SHIPPED_SYSTEMS: readonly System[] = [
 export const PLANNED_SYSTEMS: readonly PlannedSystem[] = [
   { id: 'tailwind', label: 'Tailwind CSS' },
   { id: 'bootstrap', label: 'Bootstrap 5' },
-  { id: 'mui', label: 'Material UI' },
   { id: 'shadcn', label: 'shadcn/ui' },
   { id: 'chakra', label: 'Chakra UI' },
   { id: 'antd', label: 'Ant Design' },

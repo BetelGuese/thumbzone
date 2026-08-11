@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import Box from '@mui/material/Box'
 import Drawer from '@mui/material/Drawer'
 import Fab from '@mui/material/Fab'
@@ -11,6 +12,7 @@ import { ThemeProvider, alpha } from '@mui/material/styles'
 import { DESKTOP_BREAKPOINT, MAX_TRIGGER_BOTTOM_GAP, MIN_HIT_TARGET } from '../../../core/index.js'
 import type { ContractAttributes } from '../../contract'
 import { REDUCED_MOTION_RESET, SHEET_MAX_BLOCK_SIZE, SHEET_MOTION, thumbzoneTheme } from './theme'
+import { useThumbzone } from './useThumbzone'
 
 /** Target of the trigger's `aria-controls`, and the sheet's own `id`. */
 const SHEET_ID = 'tz-mui-sheet'
@@ -53,6 +55,16 @@ const sheetSlotProps: PaperProps & ContractAttributes = {
   // Authored closed and inert, and rendered either way: this is also what a
   // reader gets before hydration, or with the bundle blocked entirely.
   inert: true,
+  // Focusable only as the fallback a menu with nothing focusable in it needs,
+  // and never a stop in the tab sequence. Authored rather than left to the
+  // behaviour so that the served markup already matches what React renders —
+  // MUI authors the same tabIndex on its temporary drawer's paper.
+  tabIndex: -1,
+  // The state attributes above are the pattern's from load onward, and by the
+  // time this island hydrates the sheet may well have been opened already. React
+  // would report that as a hydration mismatch on attributes it does not in fact
+  // own; this says so, for this element only.
+  suppressHydrationWarning: true,
   'data-tz-sheet': '',
   'data-tz-open': 'false',
   sx: (theme) => ({
@@ -97,14 +109,22 @@ const sheetSlotProps: PaperProps & ContractAttributes = {
 }
 
 /**
- * The pattern's markup, in Material UI's components.
+ * The pattern's markup, in Material UI's components, wired to its behaviour.
  *
  * Attributes are authored explicitly rather than derived from styling hooks:
  * Emotion generates the class names, so nothing the contract is expressed in
- * can ride on them. Everything here renders the sheet's **closed** state; the
- * attributes it authors are the ones the behaviour reads and rewrites.
+ * can ride on them. Everything in the JSX renders the sheet's **closed** state
+ * — which is also what a reader gets before hydration — and the behaviour takes
+ * those same attributes over from there.
  */
 export default function ThumbzoneMenu({ items }: { items: string[] }) {
+  const trigger = useRef<HTMLButtonElement>(null)
+  const sheet = useRef<HTMLDivElement>(null)
+  const scrim = useRef<HTMLDivElement>(null)
+  const menu = useRef<HTMLUListElement>(null)
+
+  useThumbzone({ trigger, sheet, scrim, menu })
+
   return (
     <ThemeProvider theme={thumbzoneTheme}>
       {/* MUI's `Backdrop` fades through `Fade`, which writes its opacity
@@ -112,6 +132,8 @@ export default function ThumbzoneMenu({ items }: { items: string[] }) {
           `data-tz-open` on the element itself, so it is built from `Box` and
           MUI's own backdrop colour instead of fighting that. */}
       <Box
+        ref={scrim}
+        suppressHydrationWarning
         data-tz-scrim=""
         data-tz-open="false"
         sx={(theme) => ({
@@ -136,7 +158,7 @@ export default function ThumbzoneMenu({ items }: { items: string[] }) {
         })}
       />
 
-      <Drawer variant="permanent" anchor="bottom" slotProps={{ paper: sheetSlotProps }}>
+      <Drawer variant="permanent" anchor="bottom" slotProps={{ paper: { ...sheetSlotProps, ref: sheet } }}>
         {/* A sibling of the menu and authored above it: the menu owns the
             sheet's scrolling, so this is the one place a dismiss drag can
             start. aria-hidden because it says nothing the dialog's own name
@@ -171,6 +193,12 @@ export default function ThumbzoneMenu({ items }: { items: string[] }) {
         </Box>
 
         <List
+          ref={menu}
+          // The order opt-out the pattern honours is read from this element's
+          // own attributes rather than passed as a prop, so a consumer who sets
+          // it before the island hydrates has not created a mismatch for React
+          // to report.
+          suppressHydrationWarning
           data-tz-menu=""
           sx={{
             flex: '1 1 auto',
@@ -208,6 +236,8 @@ export default function ThumbzoneMenu({ items }: { items: string[] }) {
           aria-expanded reports open or closed, so a name that changed with it
           would say the same thing twice. */}
       <Fab
+        ref={trigger}
+        suppressHydrationWarning
         data-tz-trigger=""
         color="primary"
         aria-label="Browse menu"
