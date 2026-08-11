@@ -2,7 +2,7 @@ import { test, expect, type Page } from '@playwright/test'
 // The focusable-element selector comes from core so that the suite's
 // definition of "focusable" and the implementations' cannot drift apart.
 import { FOCUSABLE } from '../core/index.js'
-import { destroyThumbzone, openThumbzone, reinitThumbzone } from './support/handles'
+import { awaitThumbzoneReady, destroyThumbzone, openThumbzone, reinitThumbzone } from './support/handles'
 import { openSheetAndSettle } from './support/sheet'
 import { describeForEachSystem } from './support/systems'
 
@@ -205,28 +205,28 @@ describeForEachSystem('open and close', (system) => {
 
   // Every other test here interacts as soon as the DOM is there, which is the
   // right default — the pattern is supposed to work that early. But a port whose
-  // demo route wires the sheet before a framework mounts over the same markup
-  // has a second, later moment to survive: whatever arrives afterwards must not
+  // demo route wires the sheet before a framework mounts over the same markup has
+  // a second, later moment to survive: whatever arrives afterwards must not
   // replace the elements the published handle is holding.
   //
-  // React does exactly that if it finds the served markup changed underneath it:
-  // it throws, discards the island and re-renders it, and a *new* instance then
-  // wires itself over the new nodes. The page looks entirely correct afterwards
-  // — the attributes are all there, the sheet opens on a tap, the menu is in
-  // thumb-first order — because the replacement instance is doing all of it. What
-  // is broken is only the handle the route published: it still drives the
-  // detached nodes it was given. Nothing else in this suite would notice, since
-  // every hook-driven test here runs before the framework arrives.
+  // A framework doing its own hydration does exactly that if it decides the
+  // served markup no longer matches what it expected: it discards its tree and
+  // re-renders it, and a *new* instance then wires itself over the new nodes. The
+  // page looks entirely correct afterwards — the attributes are all there, the
+  // sheet opens on a tap, the menu is in thumb-first order — because the
+  // replacement instance is doing all of it. What is broken is only the handle the
+  // route published: it still drives the detached nodes it was given.
   //
-  // So this one deliberately waits until the page has finished fetching
-  // everything it is going to fetch (a framework island is a lazily-imported
-  // bundle, which is precisely what makes it late) and only then drives the
-  // handle — against the sheet the *document* currently contains, so a handle
-  // pointing at a replaced node fails rather than quietly opening something
-  // nobody can see.
-  test('the published handle still drives the live page once loading has finished', async ({ page }) => {
+  // So this one waits on the route's own readiness hook, which is exactly the
+  // "everything that was going to arrive has arrived" signal, and only then drives
+  // the handle — against the sheet the *document* currently contains, so a handle
+  // pointing at a replaced node fails rather than quietly opening something nobody
+  // can see. Nothing else in the suite is placed to notice: every other
+  // hook-driven check either runs before a framework could have arrived or waits
+  // on the same hook to avoid provoking this in the first place.
+  test('the published handle still drives the live page once everything has settled', async ({ page }) => {
     await page.goto(system.route)
-    await page.waitForLoadState('networkidle')
+    await awaitThumbzoneReady(page)
 
     await openThumbzone(page)
 

@@ -71,6 +71,14 @@
  *   accessible name and an authored `hidden` included, and anything the
  *   pattern added itself removed again), menu order (including non-element
  *   nodes), and any inline transform that was there before.
+ * - The handle the route published still driving the page once everything has
+ *   settled — asserted for every system, not just the ones with a framework in
+ *   them. A port whose markup something else adopts after load can end up with
+ *   the published handle on elements that were replaced, and the failure is
+ *   invisible from the page's behaviour: the replacement drives the live UI
+ *   perfectly while `__thumbzone` talks to detached nodes. Nothing else in the
+ *   suite is positioned to catch that, so this is stated here as the requirement
+ *   it is rather than left as an implementation note against one port.
  *
  * Motion and touch:
  * - The sheet's travel declared as a CSS transition on `transform`, within the
@@ -100,13 +108,40 @@ export interface System {
    * Route serving the standalone demo the conformance suite drives.
    *
    * It must meet everything under "What a port must provide" above, and expose
-   * two test hooks on `window`:
-   * `__thumbzone` (the live handle, for `open()`/`destroy()`, which have no
-   * attribute-driven equivalent a test could reach from the DOM alone) and
-   * `__initThumbzone` (the initialiser itself, so a test can tear an
-   * instance down and re-create it over the same elements — the only way to
-   * exercise init-time-only behaviour such as the menu reorder from
-   * outside the module).
+   * three test hooks on `window`:
+   *
+   * - `__thumbzone` — the live handle, for `open()`/`destroy()`, which have no
+   *   attribute-driven equivalent a test could reach from the DOM alone.
+   * - `__initThumbzone` — the initialiser itself, so a test can tear an instance
+   *   down and re-create it over the same elements: the only way to exercise
+   *   init-time-only behaviour such as the menu reorder from outside the module.
+   * - `__thumbzoneReady` — a promise that resolves once the route's instance is
+   *   wired *and* anything arriving after it has finished with the same markup.
+   *   For a route where nothing arrives later this is
+   *   `Promise.resolve()`; it is published all the same, so the suite never has
+   *   to ask which systems have one.
+   *
+   *   It exists for the ports that need it, and the need is not hypothetical.
+   *   A port built on a framework that hydrates server-rendered markup has two
+   *   parties claiming the same DOM: the pattern, wired during load so the sheet
+   *   works the moment the document reports itself loaded, and the framework,
+   *   arriving later to adopt the markup it rendered. Hydration walks the menu's
+   *   items as siblings and holds a pointer into that list across the tasks it
+   *   yields between — so the *first* reorder, which happens before the framework
+   *   can have started, is safe, while a later one is not: landing mid-hydration
+   *   it leaves the framework short of the nodes it still expects, and the
+   *   framework answers by discarding its tree and re-rendering it. That replaces
+   *   the elements `__thumbzone` is holding. The page still works, because the
+   *   replacement wires itself over the new nodes — which is what makes it worth
+   *   a contract hook rather than a comment: the symptom is a dead handle behind
+   *   a live UI, and no assertion about the page's behaviour reveals it.
+   *
+   *   The suite awaits this before every hook-driven `destroy()` and re-init,
+   *   which are the only things that reorder the menu after load. A porter using
+   *   such a framework has to resolve it from something that genuinely runs after
+   *   the framework has committed — an effect, typically. Island markers report
+   *   when hydration was *scheduled*, and timers, microtasks and animation frames
+   *   all run between the framework's own tasks, so none of those is a barrier.
    */
   readonly route: string
   /**

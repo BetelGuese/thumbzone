@@ -5,6 +5,7 @@
 
 import { useEffect, useMemo, useRef } from 'react'
 import type { RefObject } from 'react'
+import { markMounted } from './mounted'
 import { hasThumbzoneOwner, initThumbzone, liveThumbzone, type ThumbzoneHandle } from './thumbzone'
 
 /**
@@ -41,15 +42,20 @@ export interface ThumbzoneRefObjects {
  * page rather than incidental. Initialising reorders the menu's items in the DOM,
  * and React's hydration walks those same items as siblings, holding a pointer
  * into the list across the tasks it splits its work over: a reorder that lands
- * mid-hydration leaves it short of the nodes it still expects, which it treats
- * as a failed hydration and answers by re-rendering the whole tree — replacing
- * the very elements the instance was wired over. Running here, after the commit,
+ * mid-hydration leaves it short of the nodes it still expects, which it treats as
+ * a failed hydration and answers by re-rendering the whole tree — replacing the
+ * very elements the instance was wired over. Running here, after the commit,
  * means hydration is finished before the pattern touches anything, and every
- * later reorder (a `destroy()`, a re-init) is equally safe because React does not
- * walk siblings again once it has hydrated them. A page that cannot wait for
- * this — one whose behaviour must be live before the framework arrives, as the
- * demo route's is — has to keep the framework off the client instead; there is no
- * third option, and no hydration annotation that makes one.
+ * later reorder (a `destroy()`, a re-init) is equally safe, because React does not
+ * walk siblings again once it has hydrated them.
+ *
+ * A page that wires the pattern earlier than this — before the framework has
+ * arrived, so that the sheet works the moment the document reports itself loaded
+ * — gets the *first* reorder in before hydration can start, which is safe and
+ * needs only the text mismatch it leaves annotated (see `ThumbzoneMenu`). What it
+ * must not do is reorder again while hydration is in flight, and this effect is
+ * where such a page learns that it is over: it marks the latch in `mounted.ts`
+ * unconditionally, and the page publishes that as its readiness hook.
  *
  * @param refs Refs to the trigger, sheet, scrim and menu the component renders.
  * @returns A handle that reaches whichever instance is live on the sheet.
@@ -62,6 +68,13 @@ export function useThumbzone(refs: ThumbzoneRefObjects): ThumbzoneHandle {
   const wiredHere = useRef(false)
 
   useEffect(() => {
+    // Announced before any of the branches below, and unconditionally: this says
+    // "the framework has finished claiming these nodes", which is true the moment
+    // an effect runs whether this mount went on to wire the sheet, adopt someone
+    // else's instance or leave it alone. A page that wired the pattern during
+    // load awaits this before making any further structural change to the menu —
+    // see `mounted.ts` for what goes wrong without it.
+    markMounted()
     // Someone got here first and is still running: adopt it, and leave the
     // teardown to whoever owns it.
     if (liveThumbzone(sheet.current)) return

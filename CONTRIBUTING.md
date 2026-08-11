@@ -30,6 +30,38 @@ projects and the accessibility gate reports zero violations. Use the target
 system's own components and design tokens: the result should look native to
 that system, not like a foreign widget dropped into it.
 
+### Test hooks the demo route must expose
+
+Three, on `window`. The doc comment on `System.route` in `systems/registry.ts` is
+the normative version; this is the summary.
+
+- `__thumbzone` — the live handle. `open()` and `destroy()` have no
+  attribute-driven equivalent a test could reach from the DOM.
+- `__initThumbzone` — the initialiser itself, so a test can tear an instance down,
+  edit the markup it left behind, and re-create an instance over it. This is the
+  only way to exercise init-time-only behaviour, the menu reorder included.
+- `__thumbzoneReady` — a promise resolving once the instance is wired *and*
+  anything that arrives after it has finished with the same markup.
+  `Promise.resolve()` if nothing does; publish it either way.
+
+The third one is what a framework-based port needs, and it is worth understanding
+before you write one. If your port renders its markup on the server and hydrates
+it, two parties claim the same DOM: the pattern, wired during load so the sheet
+works as soon as the document is loaded, and the framework, arriving later to
+adopt what it rendered. Hydration walks the menu's items as siblings and holds a
+pointer into that list across the tasks it yields between. The reorder that runs
+at init is safe — the framework cannot have started yet — but a reorder arriving
+mid-hydration leaves the framework short of nodes, and it responds by discarding
+its tree and rendering a fresh one. That replaces the elements `__thumbzone`
+holds, and the page goes on working because the replacement wires itself over the
+new nodes. A dead handle behind a live UI is not something an assertion about the
+page can see, which is why the hook is part of the contract.
+
+Resolve it from something that genuinely runs after the framework has committed —
+an effect. Island markers tell you when hydration was *scheduled*; timers,
+microtasks and animation frames all run between the framework's own tasks. None of
+those is a barrier.
+
 ### Drag-to-dismiss and the handle
 
 The reference implementation recognises a drag-to-dismiss gesture anywhere on
