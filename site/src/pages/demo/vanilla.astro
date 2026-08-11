@@ -63,4 +63,12 @@ const items = ['Home', 'Search', 'Library', 'Profile', 'Settings']
   // ran" from outside the module.
   // @ts-expect-error — deliberate test hook, not part of the page's own contract.
   window.__initThumbzone = initThumbzone
+  // The readiness hook the contract asks every route for: nothing on this page
+  // arrives after the script that wired it, so by the time this line runs the
+  // instance above is already the finished article and there is nothing to wait
+  // for. Published all the same, and resolved, rather than left out as a
+  // special case — a suite that had to ask which systems have one would be back
+  // to knowing about systems.
+  // @ts-expect-error — deliberate test hook, not part of the page's own contract.
+  window.__thumbzoneReady = Promise.resolve()
 </script>

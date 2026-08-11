@@ -1,4 +1,4 @@
-import { useImperativeHandle, useRef } from 'react'
+import { useImperativeHandle, useRef, useState } from 'react'
 import type { Ref } from 'react'
 import Box from '@mui/material/Box'
 import Drawer from '@mui/material/Drawer'
@@ -111,6 +111,40 @@ const sheetSlotProps: PaperProps & ContractAttributes = {
 }
 
 /**
+ * Whether the menu already stands reordered in the DOM, exactly reversed against
+ * `items`.
+ *
+ * The pattern owns the menu's order, and on a server-rendered page it takes it
+ * before this component renders on the client at all: the page wires the
+ * behaviour during load, so the thumb-first reorder is already in the served DOM
+ * by the time React comes to hydrate it. Rendering the authored order into that
+ * would leave React holding every item's label against the wrong node — its own
+ * idea of which `<span>` says "Home" would be off by the length of the list — and
+ * while nothing re-renders these items today, a component that quietly disagrees
+ * with the DOM about which node is which is a trap rather than a steady state.
+ *
+ * So the render asks. One boolean, read once, and only trusted when the answer is
+ * unambiguous: an exact reversal of the items this render was given. Anything else
+ * — a menu that opted out, a consumer's own order, markup this component did not
+ * produce, or a client render with no server markup to look at — reads as false
+ * and renders the authored order, which is also what the server renders.
+ *
+ * (A client-only render has no DOM to consult and initialises from an effect
+ * instead, so the reorder lands after the commit. React's idea of the order is
+ * then the authored one for the rest of the tree's life. That is the pattern
+ * owning the DOM, which is the arrangement everywhere else too, and no hydration
+ * is involved for it to break.)
+ */
+function menuIsReversed(items: string[]): boolean {
+  if (typeof document === 'undefined') return false
+  const menu = document.querySelector('[data-tz-menu]')
+  if (!menu) return false
+  const rendered = Array.from(menu.querySelectorAll('a')).map((link) => link.textContent?.trim())
+  if (rendered.length !== items.length) return false
+  return items.every((item, index) => rendered[items.length - 1 - index] === item)
+}
+
+/**
  * The pattern's markup, in Material UI's components, wired to its behaviour.
  *
  * Attributes are authored explicitly rather than derived from styling hooks:
@@ -142,6 +176,15 @@ export default function ThumbzoneMenu({
 
   const thumbzone = useThumbzone({ trigger, sheet, scrim, menu })
   useImperativeHandle(ref, () => thumbzone, [thumbzone])
+
+  // Read once, on the first render, because that is the render that has to agree
+  // with what is already on the page. Recomputing it later would let a re-render
+  // reorder the DOM back to whatever the DOM happened to say at that moment —
+  // React writing the pattern's order, which is the wrong way round. The
+  // direction is captured rather than the list itself, so a consumer who does
+  // change `items` still gets all of the current items, thumb-first.
+  const [reversed] = useState(() => menuIsReversed(items))
+  const order = reversed ? [...items].reverse() : items
 
   return (
     <ThemeProvider theme={thumbzoneTheme}>
@@ -237,41 +280,47 @@ export default function ThumbzoneMenu({
             overscrollBehavior: 'contain',
           }}
         >
-          {items.map((item) => (
+          {order.map((item) => (
             <ListItem key={item} disablePadding>
               <ListItemButton
                 component="a"
                 href="#"
                 sx={{ minBlockSize: `${MIN_HIT_TARGET}px` }}
               >
-                {/* The menu's order is the pattern's, not React's, and the item
-                    label is where that shows up in a hydration diff.
+                {/* The last resort of the three things that keep the pattern's
+                    order and React's hydration out of each other's way, and the
+                    one that does the least.
 
-                    Reordering the items into thumb-first order moves the text
-                    inside each `<span>` without moving any element type React
-                    expects, so hydrating over an already-reordered menu reports
-                    exactly one kind of mismatch: text. Left unannounced that is
-                    a *thrown* mismatch rather than a warning — React discards
-                    the whole tree and re-renders it — so the flag has to go on
-                    the fiber whose `children` is the string that moved. React
-                    consults it there and nowhere else: the `<ul>` is several
-                    levels up and annotating it does nothing, while
+                    Reordering the items moves the text inside each `<span>`
+                    without moving any element type React expects, so hydrating
+                    over a reordered menu reports exactly one kind of mismatch:
+                    text. Left unannounced that is a *thrown* mismatch rather than
+                    a warning — React discards the whole tree and re-renders it,
+                    replacing nodes the page has already wired — and the flag has
+                    to sit on the fiber whose `children` is the string that moved.
+                    React consults it there and nowhere else: the `<ul>` is
+                    several levels up and annotating it does nothing, while
                     `ListItemText` renders its primary text as the children of a
                     `Typography` (`component: 'span'`), which is what the
                     `primary` slot reaches.
 
-                    Necessary, and on its own not sufficient — which is the more
-                    important half. It says nothing about the items having
-                    *moved*, and React's hydration holds a live pointer into that
-                    sibling list across the tasks it splits its work over, so a
-                    reorder arriving mid-hydration still leaves it short of the
-                    nodes it expects. There is no annotation for that. The rule
-                    it leaves behind is simply that nothing may reorder the menu
-                    while React is part-way through claiming it: `useThumbzone`
-                    wires from an effect, after the commit, which satisfies that
-                    by construction, and the demo route keeps React off the
-                    client altogether because it wires the pattern before any
-                    framework could have arrived. */}
+                    What it is *not* is a licence to disagree with the DOM. On its
+                    own it suppresses the report and leaves React binding every
+                    label to the wrong node, which is silent rather than safe —
+                    so `menuIsReversed` above is what actually resolves the
+                    ordinary case, by rendering the order the DOM already has. And
+                    it says nothing about the items having *moved*: React's
+                    hydration holds a pointer into that sibling list across the
+                    tasks it yields between, so a reorder arriving mid-hydration
+                    still leaves it short of nodes, and nothing can annotate that
+                    — which is why a page that wires the pattern early publishes a
+                    readiness hook and waits on it before reordering again.
+
+                    That leaves this covering only what the other two cannot: a
+                    served menu whose order is neither the authored one nor an
+                    exact reversal of it, so the render falls back to the authored
+                    order and some text genuinely differs. Suppressed, because the
+                    order was never React's to arbitrate. */}
                 <ListItemText primary={item} slotProps={{ primary: { suppressHydrationWarning: true } }} />
               </ListItemButton>
             </ListItem>
