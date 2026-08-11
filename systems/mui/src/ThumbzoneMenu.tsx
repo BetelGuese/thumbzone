@@ -9,18 +9,11 @@ import type { PaperProps } from '@mui/material/Paper'
 import SvgIcon from '@mui/material/SvgIcon'
 import { ThemeProvider, alpha } from '@mui/material/styles'
 import { DESKTOP_BREAKPOINT, MAX_TRIGGER_BOTTOM_GAP, MIN_HIT_TARGET } from '../../../core/index.js'
-import { NO_MOTION, SHEET_MOTION, thumbzoneTheme } from './theme'
+import type { ContractAttributes } from '../../contract'
+import { REDUCED_MOTION_RESET, SHEET_MAX_BLOCK_SIZE, SHEET_MOTION, thumbzoneTheme } from './theme'
 
 /** Target of the trigger's `aria-controls`, and the sheet's own `id`. */
 const SHEET_ID = 'tz-mui-sheet'
-
-/**
- * `data-*` attributes are legal on every element but appear in no React prop
- * type, and TypeScript only waives that for hyphenated names written directly
- * as JSX attributes — not for the object a `slotProps` entry takes. The sheet
- * is reached through `slotProps`, so its contract attributes need this.
- */
-type ContractAttributes = { [attribute: `data-tz-${string}`]: string }
 
 /**
  * The sheet: MUI's `Drawer`, but its **docked** variant rather than the
@@ -63,23 +56,21 @@ const sheetSlotProps: PaperProps & ContractAttributes = {
   'data-tz-sheet': '',
   'data-tz-open': 'false',
   sx: (theme) => ({
-    // MUI anchors a bottom drawer with `left: 0` alone, sizing it to its
-    // content; the pattern's sheet spans the viewport.
-    insetInline: 0,
     display: 'flex',
     flexDirection: 'column',
-    // dvh, never vh: iOS Safari resolves vh against the expanded viewport, so
-    // the sheet's top edge would sit under the collapsing URL bar.
-    maxBlockSize: '85dvh',
+    maxBlockSize: SHEET_MAX_BLOCK_SIZE,
     // `MuiDrawer-paper` scrolls its own overflow. Here the menu does instead,
     // so that a menu taller than the sheet keeps scrolling by touch while the
     // sheet's own chrome stays a drag surface.
     overflow: 'hidden',
     paddingBlockEnd: 'env(safe-area-inset-bottom, 0px)',
-    // A docked drawer is forced to elevation 0, having nothing to float over.
-    // This one floats over the scrim, so it takes the elevation its temporary
-    // counterpart defaults to.
+    // Two artefacts of the docked variant, both of which assume a drawer sitting
+    // against page content rather than floating over a scrim: elevation is
+    // forced to 0, and the edge facing the content gets a divider hairline. The
+    // elevation the temporary variant defaults to is the right one here, and
+    // the hairline reads as a stray line above a floating sheet.
     boxShadow: theme.shadows[16],
+    borderBlockStart: 'none',
     // Static and explicit, not inherited: an ancestor's touch-action does not
     // change this element's own computed value, which is what a test reads and
     // what a pan starting here is arbitrated against. pinch-zoom rather than
@@ -95,11 +86,11 @@ const sheetSlotProps: PaperProps & ContractAttributes = {
     [theme.breakpoints.up(DESKTOP_BREAKPOINT)]: { display: 'none' },
     '@media (prefers-reduced-motion: reduce)': {
       // No travel at all under the preference — the sheet stays where it rests
-      // and only its opacity changes.
+      // and only its opacity changes, instantly.
+      ...REDUCED_MOTION_RESET,
       transform: 'none',
       opacity: 0,
       pointerEvents: 'none',
-      transition: theme.transitions.create(['opacity', 'transform'], NO_MOTION),
       '&[data-tz-open="true"]': { opacity: 1, pointerEvents: 'auto' },
     },
   }),
@@ -141,9 +132,7 @@ export default function ThumbzoneMenu({ items }: { items: string[] }) {
           transition: theme.transitions.create('opacity', SHEET_MOTION),
           '&[data-tz-open="true"]': { opacity: 1, pointerEvents: 'auto' },
           [theme.breakpoints.up(DESKTOP_BREAKPOINT)]: { display: 'none' },
-          '@media (prefers-reduced-motion: reduce)': {
-            transition: theme.transitions.create('opacity', NO_MOTION),
-          },
+          '@media (prefers-reduced-motion: reduce)': REDUCED_MOTION_RESET,
         })}
       />
 
@@ -246,14 +235,20 @@ export default function ThumbzoneMenu({ items }: { items: string[] }) {
           // pointer stream is cancelled before the gesture completes.
           touchAction: 'pinch-zoom',
           transform: 'translateX(-50%)',
-          transition: theme.transitions.create('transform', SHEET_MOTION),
+          // Composed, not replaced: a bare `transform` declaration would drop
+          // the Fab's own colour and elevation transitions, since one element
+          // has a single transition list. MUI's half keeps its tokens.
+          transition: [
+            theme.transitions.create(['background-color', 'box-shadow', 'border-color'], {
+              duration: theme.transitions.duration.short,
+            }),
+            theme.transitions.create('transform', SHEET_MOTION),
+          ].join(', '),
           '&[data-tz-tucked="true"]': {
             transform: `translateX(-50%) translateY(calc(100% + ${theme.spacing(4)} + env(safe-area-inset-bottom, 0px)))`,
           },
           [theme.breakpoints.up(DESKTOP_BREAKPOINT)]: { display: 'none' },
-          '@media (prefers-reduced-motion: reduce)': {
-            transition: theme.transitions.create('transform', NO_MOTION),
-          },
+          '@media (prefers-reduced-motion: reduce)': REDUCED_MOTION_RESET,
         })}
       >
         {/* The Material "menu" glyph, drawn with SvgIcon rather than pulled
