@@ -1,4 +1,5 @@
 import { defineConfig } from 'astro/config'
+import react from '@astrojs/react'
 
 export default defineConfig({
   srcDir: './site/src',
@@ -11,4 +12,5 @@ export default defineConfig({
   // toolbar (its Audit panel has real value during normal development on
   // an accessibility-focused project); only the automated e2e server disables it.
   devToolbar: { enabled: !process.env.TZ_E2E },
+  integrations: [react()],
 })
