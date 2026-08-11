@@ -37,6 +37,20 @@ export interface ThumbzoneRefObjects {
  * competing for the same listeners. In an application that just renders the
  * component, nothing else claims it and the mount is what wires it.
  *
+ * An effect, specifically, and that timing is load-bearing on a server-rendered
+ * page rather than incidental. Initialising reorders the menu's items in the DOM,
+ * and React's hydration walks those same items as siblings, holding a pointer
+ * into the list across the tasks it splits its work over: a reorder that lands
+ * mid-hydration leaves it short of the nodes it still expects, which it treats
+ * as a failed hydration and answers by re-rendering the whole tree — replacing
+ * the very elements the instance was wired over. Running here, after the commit,
+ * means hydration is finished before the pattern touches anything, and every
+ * later reorder (a `destroy()`, a re-init) is equally safe because React does not
+ * walk siblings again once it has hydrated them. A page that cannot wait for
+ * this — one whose behaviour must be live before the framework arrives, as the
+ * demo route's is — has to keep the framework off the client instead; there is no
+ * third option, and no hydration annotation that makes one.
+ *
  * @param refs Refs to the trigger, sheet, scrim and menu the component renders.
  * @returns A handle that reaches whichever instance is live on the sheet.
  */
