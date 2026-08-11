@@ -1,12 +1,11 @@
 import { test, expect } from '@playwright/test'
-// Every value comes from the normative implementation rather than being
-// restated here, so the suite and the stylesheet cannot disagree about what
-// the contract is.
+// Every value comes from core rather than being restated here, so the suite
+// and the stylesheet cannot disagree about what the contract is.
 import {
   DESKTOP_BREAKPOINT,
   MAX_TRIGGER_BOTTOM_GAP,
   MIN_HIT_TARGET,
-} from '../systems/vanilla/src/thumbzone.js'
+} from '../core/index.js'
 import { destroyThumbzone, reinitThumbzone } from './support/handles'
 import { describeForEachSystem } from './support/systems'
 

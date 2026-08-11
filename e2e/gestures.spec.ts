@@ -1,8 +1,9 @@
 import { test, expect } from '@playwright/test'
-// The tuned thresholds and the hit-target floor come from the normative
-// implementation: a port that retuned any of them would no longer be the same
-// interaction, so every system's gestures are measured against the one set.
-import { DISMISS_RATIO, MIN_HIT_TARGET, SWIPE_OPEN_DISTANCE } from '../systems/vanilla/src/thumbzone.js'
+// The tuned thresholds and the hit-target floor come from core, the
+// system-agnostic module every implementation builds on: a port that retuned
+// any of them would no longer be the same interaction, so every system's
+// gestures are measured against the one set.
+import { DISMISS_RATIO, MIN_HIT_TARGET, SWIPE_OPEN_DISTANCE } from '../core/index.js'
 import { FAST_VELOCITY, SLOW_VELOCITY, beginDragSheet, dragSheet, swipeUpOnTrigger } from './support/drag'
 import { destroyThumbzone, reinitThumbzone } from './support/handles'
 import { INSTANT_MOTION_MAX_MS, maxTransitionDurationMs } from './support/motion'

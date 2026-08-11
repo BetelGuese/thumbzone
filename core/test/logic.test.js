@@ -8,7 +8,7 @@ import {
   shouldDismiss,
   createScrollDirectionTracker,
   createVelocityTracker,
-} from '../src/thumbzone.js'
+} from '../index.js'
 
 const rand = (min, max) => min + Math.random() * (max - min)
 const randHeight = () => rand(320, 900)

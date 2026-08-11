@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
-// The jitter threshold comes from the normative implementation, so the
-// scenarios below stay derived from the value every system must honour.
-import { SCROLL_THRESHOLD } from '../systems/vanilla/src/thumbzone.js'
+// The jitter threshold comes from core, so the scenarios below stay derived
+// from the value every system must honour.
+import { SCROLL_THRESHOLD } from '../core/index.js'
 import { destroyThumbzone, openThumbzone, reinitThumbzone } from './support/handles'
 import { scrollAndSettle, scrollDocument } from './support/scroll'
 import { openSheetAndSettle } from './support/sheet'
