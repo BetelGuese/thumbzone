@@ -28,16 +28,43 @@ system without looking foreign in any of them.
 
 ## Status
 
-**Foundation complete.** One reference implementation and the conformance suite
-that every future port must pass.
+**Two systems shipped**, both held to the same conformance suite.
 
 | Design system | State |
 | --- | --- |
 | Vanilla (no dependencies) | shipped — normative reference |
-| Tailwind CSS, Bootstrap 5, Material UI, shadcn/ui | planned |
+| Material UI | shipped |
+| Tailwind CSS, Bootstrap 5, shadcn/ui | planned |
 | Chakra UI, Ant Design, Mantine, Radix/Ark, Bulma, Vuetify, Quasar, Ionic | planned |
 
-There is no showcase site yet. The demo routes below run locally.
+Each runs 124 conformance instances — the same groups, across two mobile device
+profiles, against materially different implementations. There is no showcase site
+yet; the demo routes below run locally.
+
+## What the first port changed
+
+Material UI went first because it stresses the contract hardest, and it did. Four
+things about the pattern are only known because a real design system disagreed
+with it:
+
+- **A drawer that animates itself cannot own this gesture.** MUI's temporary
+  `Drawer` writes its transform imperatively, hides siblings — including the
+  trigger, which must stay reachable to close the sheet — and resolves to
+  `visibility: hidden` while closed, which would make `inert` decorative. The port
+  uses the docked variant and owns the transform itself.
+- **Hydration is a contract concern, not an implementation detail.** A framework
+  that hydrates after the page's `load` event cannot have wired the pattern in
+  time, so the contract now requires a readiness signal any port must publish.
+- **Reordering the menu before hydration makes React discard the tree**, taking
+  the live handle with it. Two mitigations are documented for any hydrating port.
+- **A framework's server-rendered styles can land inside the markup the pattern
+  owns.** Emotion put `<style>` elements between menu items, so "the menu's
+  children are its items" is an assumption a port has to defend.
+
+The port also found a defect in the reference it was being measured against — the
+sheet reserved no clearance for the floating trigger, so the last menu row sat
+under it on short viewports. Both are fixed, and the check now runs against every
+system.
 
 ## The pattern
 
@@ -77,6 +104,15 @@ Every port must satisfy, on both a WebKit and a Chromium mobile profile:
   deliberately exempt, because freezing direct manipulation reads as broken.
 - Zero axe violations across WCAG 2.0/2.1/2.2 A and AA, with the sheet both
   closed and open.
+- The trigger carries an accessible name the **port** authored, not the fallback
+  the pattern supplies — otherwise a non-English port silently ships English, and
+  neither the suite nor axe would notice.
+- The open sheet reserves clearance for the floating trigger, so the last menu row
+  is never underneath it.
+
+The suite refuses to be quietly narrowed. Where a check depends on a fixture a port
+has not supplied, it is registered and **skipped by name** rather than omitted, so
+missing coverage shows up in the report instead of vanishing.
 
 ## Why drag-to-dismiss needs a handle
 
@@ -98,8 +134,9 @@ npm install
 npm run dev            # http://localhost:4321
 ```
 
-Demo routes: `/demo/vanilla` and `/demo/vanilla-overflow` (a tall menu, for
-testing internal scrolling against the drag gesture).
+Demo routes: `/demo/vanilla` and `/demo/mui`, each with an `-overflow` variant
+carrying a menu taller than the sheet, for testing internal scrolling against the
+drag gesture.
 
 ```bash
 npm test               # unit
@@ -113,6 +150,13 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). In short: build it with the target
 system's own components and tokens so it looks native there, add a demo route,
 add one entry to `systems/registry.ts`, and run the suite. Use the target
 system's own sheet or drawer primitive — most already have one.
+
+Import the gesture maths and the tuned thresholds from `core/`; every port and the
+reference implementation do. What a port reimplements is the part that is genuinely
+its own: the markup, the styling, the ARIA lifecycle, and — if the system hydrates
+— the strategy for wiring the pattern before the page finishes loading. That split
+is why the gesture *feel* is identical across systems without anyone copying the
+arithmetic.
 
 ## Licence
 
