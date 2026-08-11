@@ -1,8 +1,11 @@
 /**
  * The behaviour half of the Material UI port: opening, closing, focus, `inert`,
- * the drag and swipe gestures, scroll-aware tucking and the thumb-first menu
- * order. It imports no framework, deliberately — see `useThumbzone` for the
- * React binding that mounts it. Framework-*agnostic* it is not: it knows what
+ * the thumb-first menu order and teardown, with the gesture engine and the
+ * scroll-aware tucking in `gestures.ts` and `scroll.ts` beside it — split out the
+ * way the reference splits its own, and wired from here.
+ *
+ * It imports no framework, deliberately — see `useThumbzone` for the React
+ * binding that mounts it. Framework-*agnostic* it is not: it knows what
  * rendering MUI to a string leaves in the markup (see
  * `hoistServerRenderedStyles`), which is the price of running before the
  * framework does.
@@ -35,21 +38,14 @@
  *   leaves the pattern's writes alone.
  */
 
-// Everything the pattern, every other port and the conformance suite share: the
-// one definition of "focusable" (so the trap cannot drift from what the suite
-// walks), and all of the gesture and scroll arithmetic. None of it is restated
-// here — a port that retuned the dismiss ratio, the fling velocity, the
-// velocity window, the swipe distance or the scroll threshold would no longer be
-// the same interaction, which is why the maths lives in one system-agnostic
-// module and every port merely drives it from its own pointer handling.
-import {
-  FOCUSABLE,
-  SWIPE_OPEN_DISTANCE,
-  createScrollDirectionTracker,
-  createVelocityTracker,
-  dragProgress,
-  shouldDismiss,
-} from '../../../core/index.js'
+// The one definition of "focusable" that the pattern, every other port and the
+// conformance suite all share, so the trap cannot drift from what the suite
+// walks. Everything else this port takes from core — the drag maths, the velocity
+// window, the swipe distance, the scroll tracker — is imported by the two modules
+// below, which are the only places that drive it.
+import { FOCUSABLE } from '../../../core/index.js'
+import { attachGestures } from './gestures'
+import { attachScrollAwareness } from './scroll'
 
 /**
  * The elements an instance is wired over, as the contract's `__initThumbzone`
@@ -82,23 +78,6 @@ interface ThumbzoneElements {
   scrim: HTMLElement
   menu: HTMLElement
   inertRoot: HTMLElement
-}
-
-/**
- * A gesture in flight.
- *
- * `source` is what the pointer went down on, and it is what every later event
- * is matched against: a drag on the sheet and a swipe on the trigger are
- * different gestures with different outcomes, and only one of them can be live
- * at a time. `capturedBy` is the element holding the pointer capture, which is
- * how an abandoned drag is recognised — see `clearStaleDrag`.
- */
-interface Drag {
-  source: 'sheet' | 'trigger'
-  pointerId: number
-  startY: number
-  tracker: ReturnType<typeof createVelocityTracker>
-  capturedBy: HTMLElement
 }
 
 function missingElements(refs: ThumbzoneRefs): string[] {
@@ -275,40 +254,13 @@ export function initThumbzone(refs: ThumbzoneRefs): ThumbzoneHandle {
     sheet.toggleAttribute('inert', !next)
   }
 
-  // Left at its default threshold rather than handed one: core's own default
-  // *is* the shared jitter threshold, so passing it back in would be this port
-  // restating a tuned value it does not own.
-  const trackScroll = createScrollDirectionTracker()
-
-  function clearTucked(): void {
-    delete trigger.dataset.tzTucked
-  }
-
-  // Document scroll only. The menu is the sheet's scroll container, and a
-  // scroll event does not bubble past the element that scrolled — so listening
-  // on `window` is blind to the menu's own scrolling by construction rather
-  // than by a filter that could be got wrong: reading through an overflowing
-  // menu must never tuck the trigger.
-  function onDocumentScroll(): void {
-    const maxScrollY = document.documentElement.scrollHeight - window.innerHeight
-    const next = trackScroll(window.scrollY, maxScrollY)
-    // The tracker keeps running while the sheet is open so that its anchor
-    // still reflects wherever the page ended up by the time the sheet closes;
-    // skipping the call outright would leave a stale anchor and read the first
-    // post-close scroll as a far larger jump than the user actually made. Only
-    // the visible mutation is gated on the open state.
-    if (next === null || isOpen) return
-    if (next === 'hide') trigger.dataset.tzTucked = 'true'
-    else clearTucked()
-  }
-
   function open(): void {
     if (isOpen) return
     setOpen(true)
     // The trigger and an open sheet never compete for the thumb's reach at
     // once: tucking only means anything while the sheet is off-screen and the
     // trigger is what the thumb has to find.
-    clearTucked()
+    scrollAwareness.clearTucked()
     // Focused after `inert` came off above: an inert subtree refuses
     // programmatic focus too, so the order here is load-bearing rather than
     // stylistic. The sheet itself is the fallback for a menu with nothing
@@ -326,153 +278,13 @@ export function initThumbzone(refs: ThumbzoneRefs): ThumbzoneHandle {
     trigger.focus()
   }
 
-  let drag: Drag | null = null
-  // Set by a recognised swipe-open so the `click` the browser synthesizes from
-  // the very same gesture can be consumed once, instead of being read as a
-  // fresh tap that toggles the sheet straight back shut.
-  let swipeOpened = false
-
-  // Returns whether a drag was actually started, so a caller only marks the
-  // gesture in progress when it genuinely is.
-  //
-  // setPointerCapture() throws NotFoundError if this pointerId has no real,
-  // currently active pointer behind it — rare, but reachable through a stray or
-  // malformed event. Committing to a drag only once capture has genuinely
-  // succeeded keeps `drag` from being set while no capture is held, which every
-  // guard below would then honour until clearStaleDrag() happened to notice.
-  function beginDrag(target: HTMLElement, event: PointerEvent, source: Drag['source']): boolean {
-    try {
-      target.setPointerCapture(event.pointerId)
-    } catch {
-      return false
-    }
-    const tracker = createVelocityTracker()
-    tracker.record(event.clientY, event.timeStamp)
-    drag = { source, pointerId: event.pointerId, startY: event.clientY, tracker, capturedBy: target }
-    return true
-  }
-
-  function resetDragVisuals(): void {
-    delete sheet.dataset.tzDragging
-    // Cleared, not restored to the authored value: mid-lifecycle this hands
-    // control back to the style rule that animates open and closed, which is
-    // what performs the spring-back or the dismiss. destroy() is the one place
-    // that puts the authored value back instead.
-    sheet.style.transform = ''
-  }
-
-  // A pointerup or pointercancel that never reaches us — the tab losing focus
-  // mid-touch, or any other case the platform hands us no matching event for —
-  // would otherwise leave `drag` set forever, and every later pointerdown is
-  // unconditionally rejected while a drag is live: the whole gesture surface
-  // would go dead until a reload. The browser's own capture bookkeeping tracks
-  // the pointer's real lifecycle whether or not its events reached us, so a
-  // `drag` whose capture has already been released is exactly the abandoned
-  // state to recover from.
-  function clearStaleDrag(): void {
-    if (!drag || drag.capturedBy.hasPointerCapture(drag.pointerId)) return
-    const wasSheetDrag = drag.source === 'sheet'
-    drag = null
-    if (wasSheetDrag) resetDragVisuals()
-  }
-
-  // A menu link (or an image in a trigger's icon) is natively draggable in
-  // Chromium; once a press on one moves far enough, Chromium commits to its own
-  // drag-and-drop gesture and cancels our pointer stream — a 'pointercancel'
-  // with the coordinates zeroed — instead of ever delivering a pointerup, so
-  // the release is never evaluated at all. WebKit does not do this. Preventing
-  // 'dragstart' (it bubbles up from the link or image) stops that commitment on
-  // the sheet and the trigger alike, whatever content a consumer puts in either.
-  function preventNativeDrag(event: Event): void {
-    event.preventDefault()
-  }
-
-  function onSheetPointerDown(event: PointerEvent): void {
-    clearStaleDrag()
-    // A second finger landing mid-drag would otherwise re-enter beginDrag and
-    // silently overwrite the first finger's start position, so the first
-    // finger's own release would be measured against the interloper's — and a
-    // gesture deliberately stopped short would dismiss anyway. Non-primary
-    // pointers are ignored for the same reason: an accidental second touch is
-    // common on a bottom sheet worked with a thumb while the hand rests nearby.
-    if (drag || !event.isPrimary) return
-    // The menu is the sheet's own scroll container and stays pannable at every
-    // scroll position, so a drag never starts inside it regardless of where it
-    // happens to be scrolled — which leaves the handle, authored as the menu's
-    // sibling above it, as the one surface a dismiss drag can begin on. That is
-    // what the menu's static touch-action actually depends on holding.
-    if (event.target instanceof Node && menu.contains(event.target)) return
-    if (beginDrag(sheet, event, 'sheet')) sheet.dataset.tzDragging = 'true'
-  }
-
-  function onSheetPointerMove(event: PointerEvent): void {
-    if (!drag || drag.source !== 'sheet' || event.pointerId !== drag.pointerId) return
-    const offset = Math.max(event.clientY - drag.startY, 0)
-    drag.tracker.record(event.clientY, event.timeStamp)
-    // This inline transform outranks the sheet's own reduced-motion rule
-    // (`transform: none`) on specificity, so the sheet tracks the finger 1:1
-    // even under the preference — deliberately: the preference is about motion
-    // the interface imposes on its own, not motion the user is driving with a
-    // finger, and freezing direct manipulation would read as broken rather than
-    // calmer. The release below clears the override and hands the settle back to
-    // the stylesheet, whose transitions the preference does collapse.
-    sheet.style.transform = `translateY(${dragProgress(offset, sheet.offsetHeight) * 100}%)`
-  }
-
-  function onSheetPointerUp(event: PointerEvent): void {
-    if (!drag || drag.source !== 'sheet' || event.pointerId !== drag.pointerId) return
-    const offset = Math.max(event.clientY - drag.startY, 0)
-    // Measured against the real release moment rather than the last recorded
-    // sample, so a finger held still before lifting decays toward zero instead
-    // of dismissing on however fast it was moving before it stopped.
-    const velocity = drag.tracker.velocityAt(event.clientY, event.timeStamp)
-    const dismiss = shouldDismiss({ offset, velocity, height: sheet.offsetHeight })
-    drag = null
-    resetDragVisuals()
-    if (dismiss) close()
-  }
-
-  function onTriggerPointerDown(event: PointerEvent): void {
-    clearStaleDrag()
-    if (drag || !event.isPrimary) return
-    beginDrag(trigger, event, 'trigger')
-  }
-
-  function onTriggerPointerUp(event: PointerEvent): void {
-    if (!drag || drag.source !== 'trigger' || event.pointerId !== drag.pointerId) return
-    const travelled = drag.startY - event.clientY
-    drag = null
-    // Short of the threshold this was a tap that rolled a few pixels, which is
-    // what a thumb pressing a button does — leave it to the click handler.
-    if (travelled < SWIPE_OPEN_DISTANCE) return
-    swipeOpened = true
-    open()
-  }
-
-  // A cancelled gesture is not a completed one, and must never reach the
-  // dismiss decision. The spec does not guarantee a cancelled pointer's
-  // coordinates: Chromium happens to zero them, which today makes a cancelled
-  // drag's offset clamp to 0 and fall through shouldDismiss's own "offset <= 0"
-  // guard by coincidence — but an engine that retained the last real
-  // coordinates would hand it a positive offset and a stale velocity and
-  // dismiss a gesture the browser aborted rather than one the user released. So
-  // this resets the same state a release does and always springs back, on the
-  // trigger as well as the sheet: a swipe cancelled by the platform must not
-  // leave `drag` permanently set either.
-  function onPointerCancel(event: PointerEvent): void {
-    if (!drag || event.pointerId !== drag.pointerId) return
-    const wasSheetDrag = drag.source === 'sheet'
-    drag = null
-    if (wasSheetDrag) resetDragVisuals()
-  }
+  const gestures = attachGestures({ sheet, trigger, menu, open, close })
 
   function onTriggerClick(): void {
-    // Check-and-clear in one step: a genuine follow-up tap shortly after a
-    // swipe is the ordinary tap it is, not a second click to eat.
-    if (swipeOpened) {
-      swipeOpened = false
-      return
-    }
+    // A recognised swipe-open has already opened the sheet, and the browser
+    // synthesizes a 'click' from that same gesture — treated as a fresh tap it
+    // would toggle the sheet straight back shut a moment after opening it.
+    if (gestures.consumeSwipeClick()) return
     if (isOpen) close()
     else open()
   }
@@ -523,16 +335,6 @@ export function initThumbzone(refs: ThumbzoneRefs): ThumbzoneHandle {
   // On the document rather than the sheet: Escape has to work with focus
   // anywhere, including on <body> after something focused was removed.
   document.addEventListener('keydown', onKeydown)
-  sheet.addEventListener('dragstart', preventNativeDrag)
-  trigger.addEventListener('dragstart', preventNativeDrag)
-  sheet.addEventListener('pointerdown', onSheetPointerDown)
-  sheet.addEventListener('pointermove', onSheetPointerMove)
-  sheet.addEventListener('pointerup', onSheetPointerUp)
-  sheet.addEventListener('pointercancel', onPointerCancel)
-  trigger.addEventListener('pointerdown', onTriggerPointerDown)
-  trigger.addEventListener('pointerup', onTriggerPointerUp)
-  trigger.addEventListener('pointercancel', onPointerCancel)
-  window.addEventListener('scroll', onDocumentScroll, { passive: true })
 
   // Focusable only as the fallback an empty menu needs, and never a stop in the
   // tab sequence itself. Authored in the markup as well as set here: the markup
@@ -563,6 +365,10 @@ export function initThumbzone(refs: ThumbzoneRefs): ThumbzoneHandle {
   const reordersMenu = menu.dataset.tzOrder !== 'dom'
   if (reordersMenu) menu.append(...Array.from(menu.children).reverse())
 
+  // Last, so that `isOpen` below is read against a fully initialised instance
+  // rather than one still being assembled.
+  const scrollAwareness = attachScrollAwareness({ trigger, isOpen: () => isOpen })
+
   const handle: ThumbzoneHandle = {
     open,
     close,
@@ -590,27 +396,13 @@ export function initThumbzone(refs: ThumbzoneRefs): ThumbzoneHandle {
       trigger.removeEventListener('click', onTriggerClick)
       scrim.removeEventListener('click', onScrimClick)
       document.removeEventListener('keydown', onKeydown)
-      sheet.removeEventListener('dragstart', preventNativeDrag)
-      trigger.removeEventListener('dragstart', preventNativeDrag)
-      sheet.removeEventListener('pointerdown', onSheetPointerDown)
-      sheet.removeEventListener('pointermove', onSheetPointerMove)
-      sheet.removeEventListener('pointerup', onSheetPointerUp)
-      sheet.removeEventListener('pointercancel', onPointerCancel)
-      trigger.removeEventListener('pointerdown', onTriggerPointerDown)
-      trigger.removeEventListener('pointerup', onTriggerPointerUp)
-      trigger.removeEventListener('pointercancel', onPointerCancel)
-      window.removeEventListener('scroll', onDocumentScroll)
-
-      // A drag or a tuck in flight at teardown must not survive it. Both are
-      // written by this instance and neither has an authored default to fall
-      // back to, so both are removed outright — and a stray data-tz-dragging
-      // would also leave the sheet's own transition disabled, killing every
-      // future open and close animation until the next drag cleared it.
-      drag = null
-      delete sheet.dataset.tzDragging
-      clearTucked()
-      // The reorder likewise has no CSS counterpart to defer to, so it is undone
-      // by the same in-place move that applied it.
+      // Each of these releases a pointer capture or a tucked attribute of its
+      // own, so neither a drag nor a tuck in flight at teardown survives it.
+      gestures.detach()
+      scrollAwareness.detach()
+      scrollAwareness.clearTucked()
+      // The reorder has no CSS counterpart to defer to, so it is undone by the
+      // same in-place move that applied it.
       if (reordersMenu) menu.append(...Array.from(menu.children).reverse())
 
       if (authoredSheetTabIndex === null) sheet.removeAttribute('tabindex')
