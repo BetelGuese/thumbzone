@@ -278,6 +278,15 @@ export function initThumbzone(refs: ThumbzoneRefs): ThumbzoneHandle {
     trigger.focus()
   }
 
+  // Before anything that can reach open() — the gesture listeners below, the
+  // click handler, the published handle. open() clears the tucked state through
+  // this binding, so a swipe arriving while it was still uninitialised would
+  // throw on the temporal dead zone rather than open the sheet. `isOpen` is
+  // passed as a closure precisely so that this ordering constraint runs one way
+  // only: the tracker reads the flag when a scroll happens, never at attach
+  // time, so it does not care what is or is not initialised here yet.
+  const scrollAwareness = attachScrollAwareness({ trigger, isOpen: () => isOpen })
+
   const gestures = attachGestures({ sheet, trigger, menu, open, close })
 
   function onTriggerClick(): void {
@@ -364,10 +373,6 @@ export function initThumbzone(refs: ThumbzoneRefs): ThumbzoneHandle {
   // among them, which is why hoistServerRenderedStyles above runs first.
   const reordersMenu = menu.dataset.tzOrder !== 'dom'
   if (reordersMenu) menu.append(...Array.from(menu.children).reverse())
-
-  // Last, so that `isOpen` below is read against a fully initialised instance
-  // rather than one still being assembled.
-  const scrollAwareness = attachScrollAwareness({ trigger, isOpen: () => isOpen })
 
   const handle: ThumbzoneHandle = {
     open,
