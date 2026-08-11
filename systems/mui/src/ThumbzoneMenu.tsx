@@ -1,4 +1,4 @@
-import { useImperativeHandle, useRef, useState } from 'react'
+import { useImperativeHandle, useMemo, useRef, useState } from 'react'
 import type { Ref } from 'react'
 import Box from '@mui/material/Box'
 import Drawer from '@mui/material/Drawer'
@@ -9,10 +9,10 @@ import ListItemButton from '@mui/material/ListItemButton'
 import ListItemText from '@mui/material/ListItemText'
 import type { PaperProps } from '@mui/material/Paper'
 import SvgIcon from '@mui/material/SvgIcon'
-import { ThemeProvider, alpha } from '@mui/material/styles'
+import { ThemeProvider, alpha, useTheme } from '@mui/material/styles'
 import { DESKTOP_BREAKPOINT, MAX_TRIGGER_BOTTOM_GAP, MIN_HIT_TARGET } from '../../../core/index.js'
 import type { ContractAttributes } from '../../contract'
-import { FAB_SIZE_PX, REDUCED_MOTION_RESET, SHEET_MAX_BLOCK_SIZE, SHEET_MOTION, thumbzoneTheme } from './theme'
+import { FAB_SIZE_PX, REDUCED_MOTION_RESET, SHEET_MAX_BLOCK_SIZE, extendThemeForThumbzone, sheetMotion } from './theme'
 import type { ThumbzoneHandle } from './thumbzone'
 import { useThumbzone } from './useThumbzone'
 
@@ -99,7 +99,7 @@ const sheetSlotProps: PaperProps & ContractAttributes = {
     // panning is what has to stay ours.
     touchAction: 'pinch-zoom',
     transform: 'translateY(100%)',
-    transition: theme.transitions.create('transform', SHEET_MOTION),
+    transition: theme.transitions.create('transform', sheetMotion(theme)),
     '&[data-tz-open="true"]': { transform: 'none' },
     // A drag is direct manipulation: the sheet has to sit under the finger,
     // not chase it a transition-duration behind.
@@ -184,6 +184,13 @@ export default function ThumbzoneMenu({
   const thumbzone = useThumbzone({ trigger, sheet, scrim, menu })
   useImperativeHandle(ref, () => thumbzone, [thumbzone])
 
+  // The application's own theme, extended rather than replaced — see
+  // `extendThemeForThumbzone`. `useTheme()` answers with MUI's defaults where an
+  // application provides no theme at all, so there is one code path rather than a
+  // themed one and an unthemed one.
+  const outerTheme = useTheme()
+  const theme = useMemo(() => extendThemeForThumbzone(outerTheme), [outerTheme])
+
   // Read once, on the first render, because that is the render that has to agree
   // with what is already on the page. Recomputing it later would let a re-render
   // reorder the DOM back to whatever the DOM happened to say at that moment —
@@ -194,7 +201,7 @@ export default function ThumbzoneMenu({
   const order = reversed ? [...items].reverse() : items
 
   return (
-    <ThemeProvider theme={thumbzoneTheme}>
+    <ThemeProvider theme={theme}>
       {/* MUI's `Backdrop` fades through `Fade`, which writes its opacity
           inline from a React prop. The pattern's scrim is driven by
           `data-tz-open` on the element itself, so it is built from `Box` and
@@ -219,7 +226,7 @@ export default function ThumbzoneMenu({
           // open, so blocking zoom here is a screen-wide regression
           // (WCAG 1.4.4).
           touchAction: 'pinch-zoom',
-          transition: theme.transitions.create('opacity', SHEET_MOTION),
+          transition: theme.transitions.create('opacity', sheetMotion(theme)),
           '&[data-tz-open="true"]': { opacity: 1, pointerEvents: 'auto' },
           [theme.breakpoints.up(DESKTOP_BREAKPOINT)]: { display: 'none' },
           '@media (prefers-reduced-motion: reduce)': REDUCED_MOTION_RESET,
@@ -376,7 +383,7 @@ export default function ThumbzoneMenu({
             theme.transitions.create(['background-color', 'box-shadow', 'border-color'], {
               duration: theme.transitions.duration.short,
             }),
-            theme.transitions.create('transform', SHEET_MOTION),
+            theme.transitions.create('transform', sheetMotion(theme)),
           ].join(', '),
           '&[data-tz-tucked="true"]': {
             transform: `translateX(-50%) translateY(calc(100% + ${theme.spacing(4)} + env(safe-area-inset-bottom, 0px)))`,
