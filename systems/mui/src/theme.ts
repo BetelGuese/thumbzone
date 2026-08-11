@@ -1,8 +1,8 @@
 import { createTheme } from '@mui/material/styles'
+import type { Theme, ThemeOptions } from '@mui/material/styles'
 
 /**
- * The theme this port renders under, and the motion tokens the sheet's travel
- * is declared with.
+ * What this port asks of the theme it renders under — and the whole of it.
  *
  * `reducedMotion: 'system'` is MUI 9's own switch for honouring
  * `prefers-reduced-motion`: with it set, MUI's transition components collapse
@@ -11,31 +11,75 @@ import { createTheme } from '@mui/material/styles'
  * one of those components (see ThumbzoneMenu), so it carries its own
  * reduced-motion rule too — this setting is what keeps everything else in the
  * port (a ripple, a focus ripple) consistent with it.
+ *
+ * Imposed rather than merely defaulted, which is the one place this port
+ * overrules the application around it: honouring the preference is a
+ * requirement of the pattern, not a taste of the port's, so it also holds in an
+ * application that turned MUI's own handling off. It applies to the port's own
+ * subtree and says nothing about anything outside it.
  */
-export const thumbzoneTheme = createTheme({ motion: { reducedMotion: 'system' } })
+const THUMBZONE_THEME_OPTIONS: ThemeOptions = { motion: { reducedMotion: 'system' } }
 
 /**
- * The sheet's transition, as a pair of tokens off MUI's own motion scale
- * rather than a duration tuned by hand.
+ * The theme the port renders under: the application's own, extended — never
+ * replaced.
  *
- * `enteringScreen` (225ms) is Material's recommendation for a surface arriving
- * on screen, and is what MUI's `Drawer` already passes to its own enter
- * transition — so this sheet moves at the speed every other MUI surface does.
- * The pattern's bounds are 120–400ms (`e2e/support/motion.ts`): under the floor
- * the sheet reads as already-arrived and stops saying it came up from the
- * trigger the thumb just touched, over the ceiling the user is waiting on a
- * menu. Nothing here retunes MUI's scale to land inside them — every duration
- * on it already does, so picking the semantically right token is the whole
- * exercise, which is the point of the bound being a range.
+ * Everything the port's styling reads comes from whichever theme is in effect:
+ * the palette the trigger and sheet are coloured from, the typography the menu's
+ * labels inherit, the spacing scale the trigger is placed on, the elevation, the
+ * stacking layers and the motion durations. A theme of the port's own would make
+ * this menu the one surface in a themed application that ignores the
+ * application's tokens — a foreign widget dropped into it, which is precisely
+ * what a port is judged on not being.
+ *
+ * Merged here and handed to `ThemeProvider` as a finished object, rather than as
+ * the callback MUI also accepts for extending an outer theme. The callback is the
+ * documented way to do this and is the wrong tool in a *component*: it is only
+ * legal where an outer theme exists, and MUI logs an error when there is none —
+ * which is the ordinary case for an application that has not adopted MUI's
+ * theming at all, and for this project's own demo route. Resolving the outer
+ * theme with `useTheme()` instead removes the distinction: it answers with the
+ * application's theme where there is one and with MUI's defaults where there is
+ * not, so this receives a complete theme either way and the no-theme case needs
+ * no fallback rather than needing one at every call site.
+ *
+ * @param outerTheme The theme in effect above the port; MUI's defaults if none is.
+ * @returns That theme with the port's own requirement merged over it.
+ */
+export function extendThemeForThumbzone(outerTheme: Theme): Theme {
+  return createTheme(outerTheme, THUMBZONE_THEME_OPTIONS)
+}
+
+/**
+ * The sheet's transition, as a pair of tokens off the active theme's own motion
+ * scale rather than a duration tuned by hand.
+ *
+ * `enteringScreen` (225ms on MUI's default scale) is Material's recommendation
+ * for a surface arriving on screen, and is what MUI's `Drawer` already passes to
+ * its own enter transition — so this sheet moves at the speed every other
+ * surface in the same application does. The pattern's bounds are 120–400ms
+ * (`e2e/support/motion.ts`): under the floor the sheet reads as already-arrived
+ * and stops saying it came up from the trigger the thumb just touched, over the
+ * ceiling the user is waiting on a menu. Nothing here retunes the scale to land
+ * inside them — every duration on MUI's already does, so picking the
+ * semantically right token is the whole exercise, which is the point of the
+ * bound being a range.
  *
  * `easeOut` is the curve Material pairs with an entering surface, and its
  * deceleration is what gives the sheet weight; a linear ramp would fail the
  * pattern's non-linearity requirement as well as looking mechanical.
+ *
+ * Read from the theme each time rather than captured once at module scope: an
+ * application that tuned its own motion scale has tuned this sheet's travel with
+ * it, which is the same reason the palette and typography are not the port's to
+ * fix either.
  */
-export const SHEET_MOTION = {
-  duration: thumbzoneTheme.transitions.duration.enteringScreen,
-  easing: thumbzoneTheme.transitions.easing.easeOut,
-} as const
+export function sheetMotion(theme: Theme): { duration: number; easing: string } {
+  return {
+    duration: theme.transitions.duration.enteringScreen,
+    easing: theme.transitions.easing.easeOut,
+  }
+}
 
 /**
  * How MUI itself cancels a component-owned transition under
