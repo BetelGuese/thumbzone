@@ -1,4 +1,5 @@
-import { useRef } from 'react'
+import { useImperativeHandle, useRef } from 'react'
+import type { Ref } from 'react'
 import Box from '@mui/material/Box'
 import Drawer from '@mui/material/Drawer'
 import Fab from '@mui/material/Fab'
@@ -12,6 +13,7 @@ import { ThemeProvider, alpha } from '@mui/material/styles'
 import { DESKTOP_BREAKPOINT, MAX_TRIGGER_BOTTOM_GAP, MIN_HIT_TARGET } from '../../../core/index.js'
 import type { ContractAttributes } from '../../contract'
 import { REDUCED_MOTION_RESET, SHEET_MAX_BLOCK_SIZE, SHEET_MOTION, thumbzoneTheme } from './theme'
+import type { ThumbzoneHandle } from './thumbzone'
 import { useThumbzone } from './useThumbzone'
 
 /** Target of the trigger's `aria-controls`, and the sheet's own `id`. */
@@ -117,13 +119,29 @@ const sheetSlotProps: PaperProps & ContractAttributes = {
  * — which is also what a reader gets before hydration — and the behaviour takes
  * those same attributes over from there.
  */
-export default function ThumbzoneMenu({ items }: { items: string[] }) {
+export default function ThumbzoneMenu({
+  items,
+  ref,
+}: {
+  /** The menu's items, authored most-used-first. */
+  items: string[]
+  /**
+   * Receives the sheet's `open`, `close` and `destroy`.
+   *
+   * The pattern is driven from the DOM — a tap, a swipe, a key — so nothing here
+   * needs this; it is for the application around it, which may have its own
+   * reason to open or dismiss the menu and no element of the pattern's to
+   * dispatch through.
+   */
+  ref?: Ref<ThumbzoneHandle>
+}) {
   const trigger = useRef<HTMLButtonElement>(null)
   const sheet = useRef<HTMLDivElement>(null)
   const scrim = useRef<HTMLDivElement>(null)
   const menu = useRef<HTMLUListElement>(null)
 
-  useThumbzone({ trigger, sheet, scrim, menu })
+  const thumbzone = useThumbzone({ trigger, sheet, scrim, menu })
+  useImperativeHandle(ref, () => thumbzone, [thumbzone])
 
   return (
     <ThemeProvider theme={thumbzoneTheme}>
