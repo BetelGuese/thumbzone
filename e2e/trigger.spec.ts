@@ -14,6 +14,15 @@ import { describeForEachSystem } from './support/systems'
 // produced on its own would not show that the authored one survived.
 const AUTHORED_TRIGGER_LABEL = 'Navigation'
 
+// The fallback `setOpen()` in every port's behaviour module writes onto an
+// unnamed trigger — see thumbzone.js/thumbzone.ts — for the *closed* state,
+// which is the one page.goto() lands on. It already contains "menu", so it
+// already satisfies the accessible-name check above and reads as a name to
+// axe: neither is positioned to notice a port that ships no name of its own
+// and is silently presenting this English string to every user regardless of
+// the page's own language. Checked directly against this literal instead.
+const FALLBACK_TRIGGER_LABEL = 'Open menu'
+
 describeForEachSystem('trigger', (system) => {
   test('is horizontally centred at the bottom of the viewport', async ({ page }) => {
     await page.goto(system.route)
@@ -73,6 +82,18 @@ describeForEachSystem('trigger', (system) => {
     const trigger = page.locator('[data-tz-trigger]')
     await expect(trigger).toHaveAttribute('aria-expanded', 'false')
     await expect(trigger).toHaveAccessibleName(/menu/i)
+  })
+
+  // The carried follow-up: the pattern's fallback exists for a *consumer's*
+  // unnamed markup, not as a name a port is entitled to ship with. A port
+  // that simply never authors an aria-label of its own passes every check
+  // above (the fallback matches /menu/i too) and reports zero axe violations
+  // (a fallback name is still a name), so this is the one place in the whole
+  // suite — and the whole accessibility gate — positioned to catch it.
+  test('authors its own accessible name, rather than the pattern\'s fallback', async ({ page }) => {
+    await page.goto(system.route)
+    const trigger = page.locator('[data-tz-trigger]')
+    await expect(trigger).not.toHaveAccessibleName(FALLBACK_TRIGGER_LABEL)
   })
 
   // The check above cannot catch a pattern that writes the accessible name

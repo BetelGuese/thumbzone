@@ -30,7 +30,13 @@
  * - The trigger's accessible name is the port's to author, in its own words
  *   and language. The pattern names an unnamed trigger and otherwise leaves
  *   an authored name alone in both states: `aria-expanded` reports open or
- *   closed, so the name does not have to.
+ *   closed, so the name does not have to. The suite checks this directly,
+ *   not just that some name exists: the fallback the pattern supplies to an
+ *   unnamed trigger already reads as a name and already contains "menu", so
+ *   it would otherwise pass every other check — including axe — while
+ *   silently presenting an English string to a port that never authored one.
+ *   A port fails conformance if the trigger's accessible name is exactly that
+ *   fallback.
  * - The sheet authored `inert` and `data-tz-open="false"`, and still fully
  *   rendered while closed — moved out of view, never `hidden` or
  *   `display: none`, or there is nothing for the open transition to animate

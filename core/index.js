@@ -55,13 +55,32 @@ function assertPositiveHeight(height) {
   }
 }
 
+// offset and velocity carry a sign (a drag can run either direction, and a
+// release can be measured mid-flick or long after the finger stopped), so
+// unlike height there is no positive/negative split to reject — only
+// non-finite is ever wrong. Both callers (every port's gestures module) build
+// these from real pointer coordinates and a velocity tracker that already
+// guards its own division, so neither should ever produce one in normal
+// operation; this exists for the same reason height's own guard does — a
+// public function with no author in sight should not let a NaN or an
+// Infinity silently propagate into the maths and come out the other side as
+// a wrong-but-plausible-looking number instead of a clear failure naming
+// which argument was bad.
+function assertFiniteNumber(value, name) {
+  if (!Number.isFinite(value)) {
+    throw new RangeError(`thumbzone: ${name} must be a finite number, received ${value}`)
+  }
+}
+
 /**
  * Fraction of the sheet that has been dragged away, clamped to 0–1.
  * @param {number} offset Pixels dragged downward from rest.
  * @param {number} height Sheet height in pixels.
  * @returns {number}
+ * @throws {RangeError} If offset is not a finite number, or height is not a positive finite number.
  */
 export function dragProgress(offset, height) {
+  assertFiniteNumber(offset, 'offset')
   assertPositiveHeight(height)
   return Math.min(Math.max(offset / height, 0), 1)
 }
@@ -70,8 +89,11 @@ export function dragProgress(offset, height) {
  * Whether a released drag should dismiss the sheet.
  * @param {{ offset: number, velocity: number, height: number }} gesture
  * @returns {boolean}
+ * @throws {RangeError} If offset or velocity is not a finite number, or height is not a positive finite number.
  */
 export function shouldDismiss({ offset, velocity, height }) {
+  assertFiniteNumber(offset, 'offset')
+  assertFiniteNumber(velocity, 'velocity')
   assertPositiveHeight(height)
   if (offset <= 0) return false
   return offset >= height * DISMISS_RATIO || velocity >= FLING_VELOCITY

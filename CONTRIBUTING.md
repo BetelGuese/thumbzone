@@ -141,7 +141,12 @@ panel with no handle has nowhere left for a touch-driven dismiss to begin.
 Non-negotiable, because it is the point of the project:
 
 - The trigger is a real `<button>` with an accessible name, `aria-expanded` and
-  `aria-controls`.
+  `aria-controls`. Author that name yourself, in your own words and language.
+  The pattern's own fallback name exists only for a *consumer's* unnamed
+  markup — a port that relies on it is caught directly: the suite fails a
+  trigger whose accessible name is exactly that fallback string, since axe and
+  every other check here would otherwise wave it through as a name that
+  happens to be in English.
 - The panel is a `role="dialog"` with `aria-modal="true"` and an accessible name.
 - Focus moves into the panel on open, is trapped while open, and returns to the
   trigger on close.

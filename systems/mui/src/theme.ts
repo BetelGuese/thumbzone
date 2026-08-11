@@ -47,6 +47,21 @@ export const SHEET_MOTION = {
 export const REDUCED_MOTION_RESET = { transition: 'none' } as const
 
 /**
+ * MUI's own fixed footprint for the default "circular" `Fab` (`@mui/material`'s
+ * `Fab.js`; not published as a theme token, so it is pinned here from the
+ * library's own source rather than eyeballed off a screenshot).
+ *
+ * The trigger is a `Fab` that floats *above* the open sheet by design —
+ * tapping it is a close path, so it has to stay hit-testable over the sheet
+ * rather than sliding beneath it (see the trigger's own `zIndex` in
+ * `ThumbzoneMenu`). That only reads as "floating above" rather than
+ * "covering" if the sheet's own last row never ends up underneath it, which
+ * is what this is for: reserving that much clearance at the sheet's bottom
+ * edge, rather than a bare pixel count with no traceable origin.
+ */
+export const FAB_SIZE_PX = 56
+
+/**
  * How much of the viewport the open sheet may occupy.
  *
  * A sheet that filled the screen would be a page: leaving a strip of scrim
