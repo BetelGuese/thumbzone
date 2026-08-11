@@ -1,14 +1,41 @@
-/* Sizes are in rem so the trigger scales with the user's font preference;
-   3.5rem = 56px at default root size, comfortably above the 48px floor. */
+/* The trigger's geometry, named once and read by both the elements it governs.
+   The trigger floats *above* the open sheet by design — tapping it is a close
+   path, so it has to stay hit-testable over the sheet rather than sliding
+   beneath it — and that only reads as "floating above" rather than "covering"
+   if the sheet reserves the trigger's own footprint at its bottom edge. Two
+   rules therefore depend on the same two lengths, and a size or an offset
+   changed in one of them alone is exactly how the menu's last row ends up
+   underneath the trigger.
+
+   Sizes are in rem so the trigger scales with the user's font preference;
+   3.5rem = 56px at default root size, comfortably above the 48px floor.
+
+   --tz-trigger-max-bottom-gap restates MAX_TRIGGER_BOTTOM_GAP from
+   core/index.js, which a stylesheet cannot import. The conformance suite
+   asserts the rendered position against the constant itself, so a value that
+   drifted from it fails a test rather than quietly moving the trigger out of
+   the thumb zone. */
+.tz-trigger,
+.tz-sheet {
+  --tz-trigger-size: 3.5rem;
+  --tz-trigger-gap: 1rem;
+  --tz-trigger-max-bottom-gap: 96px;
+}
+
 .tz-trigger {
   position: fixed;
   left: 50%;
-  bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+  /* Placed a gap above the bottom edge, then clamped by the pattern's own
+     ceiling on how far a thumb-reachable trigger may sit from it — so neither
+     a larger gap nor a tall home-indicator inset can push it out of the thumb
+     zone. The MUI port clamps the same way; the reference must not be the
+     less defensive of the two. */
+  bottom: min(calc(var(--tz-trigger-gap) + env(safe-area-inset-bottom, 0px)), var(--tz-trigger-max-bottom-gap));
   z-index: 30;
   display: grid;
   place-items: center;
-  inline-size: 3.5rem;
-  block-size: 3.5rem;
+  inline-size: var(--tz-trigger-size);
+  block-size: var(--tz-trigger-size);
   /* The 48px minimum hit target is a stated project constraint, not an
      accident of UA form-control defaults — make border-box explicit so the
      box model can't shift under us if that default ever changes. */
@@ -77,7 +104,14 @@
   /* The menu, not the sheet, scrolls its own overflow now (see above). */
   overflow: hidden;
   touch-action: pinch-zoom;
-  padding-block-end: env(safe-area-inset-bottom, 0px);
+  /* Reserves the trigger's own vertical footprint — its size plus the gap that
+     places it above the viewport's bottom edge — so the menu's last row never
+     ends up under the trigger floating over the sheet. The safe-area inset is
+     added on top rather than folded into the trigger's own (ceiling-clamped)
+     offset: this only has to be *at least* as large as the trigger's real
+     clearance, and adding the inset outright can only make that truer, never
+     fall short of it. */
+  padding-block-end: calc(var(--tz-trigger-size) + var(--tz-trigger-gap) + env(safe-area-inset-bottom, 0px));
   border-start-start-radius: 1rem;
   border-start-end-radius: 1rem;
   background: var(--tz-sheet-bg, #16191c);
