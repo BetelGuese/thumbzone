@@ -1,7 +1,10 @@
 /**
  * The behaviour half of the Material UI port: opening, closing, focus and
- * `inert`. Framework-free, and deliberately so — see `useThumbzone` for the
- * React binding that mounts it.
+ * `inert`. It imports no framework, deliberately — see `useThumbzone` for the
+ * React binding that mounts it. Framework-*agnostic* it is not: it knows what
+ * rendering MUI to a string leaves in the markup (see
+ * `hoistServerRenderedStyles`), which is the price of running before the
+ * framework does.
  *
  * Material UI supplies none of this here, and that is a consequence of the
  * markup rather than a gap in the library. The services a porter reaches for —
@@ -12,7 +15,7 @@
  * port's own. MUI still owns everything it can: the components, the theme, the
  * motion tokens, and the `Fab` that is a real `<button>` for the trigger to be.
  *
- * Keeping this module free of React is what lets the pattern be live before the
+ * Importing no framework is what lets the pattern be live before the
  * island's framework has finished downloading: the sheet's markup is
  * server-rendered, so a page can wire it from a module script during load and
  * the component adopts that instance on mount. It is also why the state lives in
@@ -69,14 +72,26 @@ interface ThumbzoneElements {
   inertRoot: HTMLElement
 }
 
-function requireElements(refs: ThumbzoneRefs): ThumbzoneElements {
-  const missing = Object.entries(refs)
+function missingElements(refs: ThumbzoneRefs): string[] {
+  return Object.entries(refs)
     .filter(([, element]) => !(element instanceof HTMLElement))
     .map(([name]) => name)
-  if (missing.length > 0) {
-    throw new TypeError(`thumbzone: initThumbzone is missing required element(s): ${missing.join(', ')}`)
+}
+
+// A predicate rather than a cast: the check and the narrowing are then the same
+// statement, so a member added to the refs cannot be narrowed without also being
+// checked.
+function isWireable(refs: ThumbzoneRefs): refs is ThumbzoneElements {
+  return missingElements(refs).length === 0
+}
+
+function requireElements(refs: ThumbzoneRefs): ThumbzoneElements {
+  if (!isWireable(refs)) {
+    throw new TypeError(
+      `thumbzone: initThumbzone is missing required element(s): ${missingElements(refs).join(', ')}`,
+    )
   }
-  return refs as ThumbzoneElements
+  return refs
 }
 
 /**
@@ -91,18 +106,31 @@ function requireElements(refs: ThumbzoneRefs): ThumbzoneElements {
  * Both would be wrong for the pattern to read — the menu's children are its
  * items, and an item's text is its name.
  *
- * Emotion does this itself, with the same selector, the moment its client cache
- * is created, precisely to get the elements out of React's way before hydration.
- * All this does is bring that forward to before the pattern's first look at the
- * DOM, because on a server-rendered page the pattern can be running well before
- * the framework arrives. `:not([data-s])` is Emotion's own marker for a rule it
- * inserted client-side, which is already in the head and not ours to move.
+ * Emotion does this itself, the moment its client cache is created, precisely to
+ * get the elements out of React's way before hydration. All this does is bring
+ * that forward to before the pattern's first look at the DOM, because on a
+ * server-rendered page the pattern can be running well before the framework
+ * arrives — so it copies Emotion's pass exactly rather than approximating it:
+ *
+ * - the same selector, queried against the document so the nodes are visited in
+ *   document order and their order relative to each other survives the move;
+ * - the same requirement of a space in `data-emotion`, which is what marks a
+ *   rule as Emotion 11's server output rather than Emotion 10's client output;
+ * - the same destination, `document.head`;
+ * - the same `data-s` stamp on the way out, which is how Emotion records that a
+ *   node has already been hoisted — without it, Emotion's own pass would move
+ *   these nodes a second time and reorder them against anything hoisted since.
+ *
+ * Only nodes inside the pattern's own elements are touched. The rest of the
+ * page's rules are Emotion's business, and moving them would be this module
+ * reaching outside what it was handed.
  */
 function hoistServerRenderedStyles(roots: HTMLElement[]): void {
-  for (const root of roots) {
-    for (const style of root.querySelectorAll('style[data-emotion]:not([data-s])')) {
-      document.head.append(style)
-    }
+  for (const style of document.querySelectorAll('style[data-emotion]:not([data-s])')) {
+    if (!roots.some((root) => root.contains(style))) continue
+    if (!style.getAttribute('data-emotion')?.includes(' ')) continue
+    document.head.append(style)
+    style.setAttribute('data-s', '')
   }
 }
 

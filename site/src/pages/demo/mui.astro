@@ -13,7 +13,7 @@ const items = ['Home', 'Search', 'Library', 'Profile', 'Settings']
 </DemoLayout>
 
 <script>
-  import { initThumbzone } from '../../../../systems/mui/src/thumbzone'
+  import { initThumbzone, liveThumbzone } from '../../../../systems/mui/src/thumbzone'
 
   // Wired here, from the page, rather than left to the island's own mount.
   //
@@ -31,13 +31,23 @@ const items = ['Home', 'Search', 'Library', 'Profile', 'Settings']
   // which makes "loaded" mean the sheet works. The island then adopts this
   // instance when it hydrates instead of making a second one — the handle its
   // hook returns and the one published below are the same object.
-  const thumbzone = initThumbzone({
-    trigger: document.querySelector('[data-tz-trigger]'),
-    sheet: document.querySelector('[data-tz-sheet]'),
-    scrim: document.querySelector('[data-tz-scrim]'),
-    menu: document.querySelector('[data-tz-menu]'),
-    inertRoot: document.querySelector('[data-tz-app]'),
-  })
+  // Adopted if it is somehow already wired, rather than initialised blind.
+  // Losing this race is not supposed to be possible — a module script runs
+  // before the document is loaded, and the island cannot hydrate that early —
+  // but "not supposed to be possible" is the wrong thing to stake the whole page
+  // on: initialising a sheet that already has an instance throws, and a throw
+  // here would abort this script with neither hook published, which is the exact
+  // failure this script exists to prevent.
+  const sheet = document.querySelector('[data-tz-sheet]')
+  const thumbzone =
+    liveThumbzone(sheet) ??
+    initThumbzone({
+      sheet,
+      trigger: document.querySelector('[data-tz-trigger]'),
+      scrim: document.querySelector('[data-tz-scrim]'),
+      menu: document.querySelector('[data-tz-menu]'),
+      inertRoot: document.querySelector('[data-tz-app]'),
+    })
 
   // Exposed only so e2e tests can drive the imperative API (destroy(), in
   // particular, has no attribute-driven equivalent to trigger from a test).
