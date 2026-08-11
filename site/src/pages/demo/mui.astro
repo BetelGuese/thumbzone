@@ -11,3 +11,41 @@ const items = ['Home', 'Search', 'Library', 'Profile', 'Settings']
   </main>
   <ThumbzoneMenu items={items} client:load />
 </DemoLayout>
+
+<script>
+  import { initThumbzone } from '../../../../systems/mui/src/thumbzone'
+
+  // Wired here, from the page, rather than left to the island's own mount.
+  //
+  // `client:load` hydrates from a dynamic `import()`, and the document's load
+  // event does not wait for one: it fires while the island is still fetching
+  // React, MUI and Emotion, leaving a window in which the whole pattern is on
+  // screen with nothing listening to it. Nothing about that window is fixable
+  // from inside the island — it exists because the framework arrives late — and
+  // it is not a rounding error: a caller that starts interacting the moment
+  // loading finishes spends it pressing a trigger that cannot answer.
+  //
+  // The behaviour module imports no framework, and the markup is
+  // server-rendered, so the pattern does not have to wait for React at all. A
+  // module script is fetched and run before the document reports itself loaded,
+  // which makes "loaded" mean the sheet works. The island then adopts this
+  // instance when it hydrates instead of making a second one — the handle its
+  // hook returns and the one published below are the same object.
+  const thumbzone = initThumbzone({
+    trigger: document.querySelector('[data-tz-trigger]'),
+    sheet: document.querySelector('[data-tz-sheet]'),
+    scrim: document.querySelector('[data-tz-scrim]'),
+    menu: document.querySelector('[data-tz-menu]'),
+    inertRoot: document.querySelector('[data-tz-app]'),
+  })
+
+  // Exposed only so e2e tests can drive the imperative API (destroy(), in
+  // particular, has no attribute-driven equivalent to trigger from a test).
+  // @ts-expect-error — deliberate test hook, not part of the page's own contract.
+  window.__thumbzone = thumbzone
+  // Exposed so a test can destroy() this instance and re-initThumbzone() the
+  // same elements after editing them — there is no other way to exercise "what
+  // was here before initThumbzone ran" from outside the module.
+  // @ts-expect-error — deliberate test hook, not part of the page's own contract.
+  window.__initThumbzone = initThumbzone
+</script>
