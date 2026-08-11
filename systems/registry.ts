@@ -8,10 +8,11 @@
  *
  * `vanilla` is normative. The shared constants the suite asserts against
  * (dismiss ratio, fling velocity, scroll threshold, hit target, breakpoint,
- * the focusable-element selector) are imported from that implementation rather
- * than restated per system, so a port cannot pass conformance while quietly
- * retuning them. Its own exact motion and touch-action values are pinned
- * separately, as the reference point they are — a port is held to the
+ * the focusable-element selector) live in `core/`, the system-agnostic module
+ * every port and the reference implementation both build on, rather than
+ * being restated per system — so a port cannot pass conformance while quietly
+ * retuning them. Vanilla's own exact motion and touch-action values are
+ * pinned separately, as the reference point they are — a port is held to the
  * semantics, not to those numbers.
  *
  * ## What a port must provide

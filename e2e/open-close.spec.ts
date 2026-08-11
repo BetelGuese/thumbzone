@@ -1,8 +1,7 @@
 import { test, expect, type Page } from '@playwright/test'
-// The focusable-element selector comes from the normative implementation so
-// that the suite's definition of "focusable" and the implementations' cannot
-// drift apart.
-import { FOCUSABLE } from '../systems/vanilla/src/thumbzone.js'
+// The focusable-element selector comes from core so that the suite's
+// definition of "focusable" and the implementations' cannot drift apart.
+import { FOCUSABLE } from '../core/index.js'
 import { destroyThumbzone, reinitThumbzone } from './support/handles'
 import { openSheetAndSettle } from './support/sheet'
 import { describeForEachSystem } from './support/systems'

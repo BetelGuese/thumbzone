@@ -1,8 +1,8 @@
 import { type Page } from '@playwright/test'
-// Imported from the normative system rather than restated per port: a system
-// that retuned the fling threshold would no longer be the same pattern, so
-// every registered system is paced against the one set of constants.
-import { FLING_VELOCITY } from '../../systems/vanilla/src/thumbzone.js'
+// Imported from core rather than restated per port: a system that retuned
+// the fling threshold would no longer be the same pattern, so every
+// registered system is paced against the one set of constants.
+import { FLING_VELOCITY } from '../../core/index.js'
 
 // Playwright dispatches each synthetic pointer event only a couple of
 // milliseconds apart in real time. Left unpaced, even a drag meant to be

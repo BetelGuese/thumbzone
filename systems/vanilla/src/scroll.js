@@ -5,29 +5,7 @@
  * of initThumbzone.
  */
 
-/** Scroll delta (px) below which the trigger ignores movement, to avoid jitter. */
-export const SCROLL_THRESHOLD = 8
-
-/**
- * Tracks scroll direction, ignoring sub-threshold jitter.
- * Returns 'show' | 'hide' when the trigger should change state, or null when it should not.
- * The document start and end always force 'show' so the trigger can never be
- * stranded off-screen where the user has nowhere left to scroll.
- * @param {{ threshold?: number }} [options]
- */
-export function createScrollDirectionTracker({ threshold = SCROLL_THRESHOLD } = {}) {
-  let anchor = 0
-  return function update(scrollY, maxScrollY) {
-    if (scrollY <= 0 || scrollY >= maxScrollY) {
-      anchor = scrollY
-      return 'show'
-    }
-    const delta = scrollY - anchor
-    if (Math.abs(delta) < threshold) return null
-    anchor = scrollY
-    return delta > 0 ? 'hide' : 'show'
-  }
-}
+import { createScrollDirectionTracker } from '../../../core/index.js'
 
 /**
  * Tucks the trigger off-screen on scroll-down and brings it back on
