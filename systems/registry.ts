@@ -186,6 +186,7 @@ export const SHIPPED_SYSTEMS: readonly System[] = [
     label: 'Material UI',
     route: '/demo/mui',
     authoredMenuOrder: ['Home', 'Search', 'Library', 'Profile', 'Settings'],
+    overflowRoute: '/demo/mui-overflow',
   },
 ]
 
