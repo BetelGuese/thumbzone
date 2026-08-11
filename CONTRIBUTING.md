@@ -42,7 +42,14 @@ the normative version; this is the summary.
   only way to exercise init-time-only behaviour, the menu reorder included.
 - `__thumbzoneReady` — a promise resolving once the instance is wired *and*
   anything that arrives after it has finished with the same markup.
-  `Promise.resolve()` if nothing does; publish it either way.
+  `Promise.resolve()` if nothing does — and only if nothing does: a hydrating
+  port that reaches for it regardless is not caught by the suite in the act,
+  since the promise resolves anyway, and the violation it hides resurfaces
+  later as an intermittent flake rather than a clean failure. Publish it
+  either way, and publish it no later than the document's own `load` event —
+  the one `page.goto` resolves on — rather than from inside an async chunk,
+  or the suite's wait for it can throw a "must expose" error against a port
+  that was only ever late, not missing it.
 
 The third one is what a framework-based port needs, and it is worth understanding
 before you write one. If your port renders its markup on the server and hydrates
