@@ -9,34 +9,66 @@ const items = ['Home', 'Search', 'Library', 'Profile', 'Settings']
     <h1>thumbzone — Material UI</h1>
     {Array.from({ length: 40 }, (_, i) => <p>Scrollable content line {i + 1}.</p>)}
   </main>
-  <ThumbzoneMenu items={items} client:load />
+  {/* Rendered by Material UI on the server and driven from the module script
+      below — deliberately with no `client:` directive, so React never hydrates
+      over this markup. The reason is the menu order, and it is not a
+      preference:
+
+      The pattern reorders the menu's items in the DOM itself (thumb-first,
+      WCAG 1.3.2), it does so at init, and init happens before a framework
+      island could possibly have downloaded. React hydrates by walking the
+      served nodes in document order, holding a live pointer into the very
+      sibling list the pattern reorders — and it can yield between two of
+      those nodes, because hydration is concurrent work split across tasks.
+      A reorder landing in one of those gaps leaves React short of the
+      siblings it still expects, which is a *thrown* mismatch: it discards
+      the whole island and re-renders it, replacing the nodes this script
+      already wired. The page still looks right afterwards, because the
+      replacement island wires a second instance over the new nodes — what is
+      broken is the handle published here, left driving detached elements.
+
+      There is no annotation for that. `suppressHydrationWarning` covers the
+      *text* that moved (see ThumbzoneMenu, which carries it) and nothing
+      about nodes having moved, so it makes the common case work and leaves a
+      race behind. Wiring later instead — from the component's own effect,
+      after React commits — is safe, and is exactly what `useThumbzone` does
+      for an application that renders this component itself. It is only this
+      route that cannot afford to wait: the conformance suite starts
+      interacting the moment loading finishes.
+
+      So the two are separated rather than reconciled. This route takes MUI's
+      markup and the pattern's own framework-free behaviour, and hands React
+      nothing to hydrate; a React application takes the component and lets
+      `useThumbzone` wire it after the commit. Both get the same DOM and the
+      same behaviour. What neither may do is reorder the DOM while React is
+      part-way through claiming it. */}
+  <ThumbzoneMenu items={items} />
 </DemoLayout>
 
 <script>
   import { initThumbzone, liveThumbzone } from '../../../../systems/mui/src/thumbzone'
 
-  // Wired here, from the page, rather than left to the island's own mount.
+  // Wired here, from the page, rather than from a mounting component.
   //
-  // `client:load` hydrates from a dynamic `import()`, and the document's load
-  // event does not wait for one: it fires while the island is still fetching
-  // React, MUI and Emotion, leaving a window in which the whole pattern is on
-  // screen with nothing listening to it. Nothing about that window is fixable
-  // from inside the island — it exists because the framework arrives late — and
-  // it is not a rounding error: a caller that starts interacting the moment
-  // loading finishes spends it pressing a trigger that cannot answer.
+  // A framework island hydrates from a dynamic `import()`, and the document's
+  // load event does not wait for one: it fires while the island is still
+  // fetching React, MUI and Emotion, leaving a window in which the whole
+  // pattern is on screen with nothing listening to it. Nothing about that
+  // window is fixable from inside the island — it exists because the framework
+  // arrives late — and it is not a rounding error: a caller that starts
+  // interacting the moment loading finishes spends it pressing a trigger that
+  // cannot answer.
   //
   // The behaviour module imports no framework, and the markup is
   // server-rendered, so the pattern does not have to wait for React at all. A
   // module script is fetched and run before the document reports itself loaded,
-  // which makes "loaded" mean the sheet works. The island then adopts this
-  // instance when it hydrates instead of making a second one — the handle its
-  // hook returns and the one published below are the same object.
-  // Adopted if it is somehow already wired, rather than initialised blind.
-  // Losing this race is not supposed to be possible — a module script runs
-  // before the document is loaded, and the island cannot hydrate that early —
-  // but "not supposed to be possible" is the wrong thing to stake the whole page
-  // on: initialising a sheet that already has an instance throws, and a throw
-  // here would abort this script with neither hook published, which is the exact
+  // which makes "loaded" mean the sheet works. See the note above the component
+  // for why this route then keeps React off the client entirely rather than
+  // letting an island hydrate over what this has already reordered.
+  //
+  // Adopted if it is somehow already wired, rather than initialised blind:
+  // initialising a sheet that already has an instance throws, and a throw here
+  // would abort this script with neither hook published, which is the exact
   // failure this script exists to prevent.
   const sheet = document.querySelector('[data-tz-sheet]')
   const thumbzone =

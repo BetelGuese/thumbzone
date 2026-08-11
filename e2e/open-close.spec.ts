@@ -2,7 +2,7 @@ import { test, expect, type Page } from '@playwright/test'
 // The focusable-element selector comes from core so that the suite's
 // definition of "focusable" and the implementations' cannot drift apart.
 import { FOCUSABLE } from '../core/index.js'
-import { destroyThumbzone, reinitThumbzone } from './support/handles'
+import { destroyThumbzone, openThumbzone, reinitThumbzone } from './support/handles'
 import { openSheetAndSettle } from './support/sheet'
 import { describeForEachSystem } from './support/systems'
 
@@ -201,6 +201,41 @@ describeForEachSystem('open and close', (system) => {
 
     await expect(sheet).toHaveAttribute('hidden')
     await expect(scrim).toHaveAttribute('hidden')
+  })
+
+  // Every other test here interacts as soon as the DOM is there, which is the
+  // right default — the pattern is supposed to work that early. But a port whose
+  // demo route wires the sheet before a framework mounts over the same markup
+  // has a second, later moment to survive: whatever arrives afterwards must not
+  // replace the elements the published handle is holding.
+  //
+  // React does exactly that if it finds the served markup changed underneath it:
+  // it throws, discards the island and re-renders it, and a *new* instance then
+  // wires itself over the new nodes. The page looks entirely correct afterwards
+  // — the attributes are all there, the sheet opens on a tap, the menu is in
+  // thumb-first order — because the replacement instance is doing all of it. What
+  // is broken is only the handle the route published: it still drives the
+  // detached nodes it was given. Nothing else in this suite would notice, since
+  // every hook-driven test here runs before the framework arrives.
+  //
+  // So this one deliberately waits until the page has finished fetching
+  // everything it is going to fetch (a framework island is a lazily-imported
+  // bundle, which is precisely what makes it late) and only then drives the
+  // handle — against the sheet the *document* currently contains, so a handle
+  // pointing at a replaced node fails rather than quietly opening something
+  // nobody can see.
+  test('the published handle still drives the live page once loading has finished', async ({ page }) => {
+    await page.goto(system.route)
+    await page.waitForLoadState('networkidle')
+
+    await openThumbzone(page)
+
+    await expect(page.locator('[data-tz-sheet]')).toHaveAttribute('data-tz-open', 'true')
+    // The sharper half: focus is only observable on an element the document
+    // actually contains, so this cannot be satisfied by a detached sheet however
+    // faithfully its attributes were updated.
+    const focusedInSheet = await page.evaluate(() => !!document.activeElement?.closest('[data-tz-sheet]'))
+    expect(focusedInSheet, 'open() through the published handle must focus into the rendered sheet').toBe(true)
   })
 
   test.describe('closing', () => {

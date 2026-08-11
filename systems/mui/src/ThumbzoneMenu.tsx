@@ -215,7 +215,9 @@ export default function ThumbzoneMenu({
           // The order opt-out the pattern honours is read from this element's
           // own attributes rather than passed as a prop, so a consumer who sets
           // it before the island hydrates has not created a mismatch for React
-          // to report.
+          // to report. This covers the `<ul>`'s own attributes and nothing
+          // below it — React consults the flag on the fiber a mismatch is found
+          // at, so the reordered items each carry their own (see ListItemText).
           suppressHydrationWarning
           data-tz-menu=""
           sx={{
@@ -242,7 +244,35 @@ export default function ThumbzoneMenu({
                 href="#"
                 sx={{ minBlockSize: `${MIN_HIT_TARGET}px` }}
               >
-                <ListItemText primary={item} />
+                {/* The menu's order is the pattern's, not React's, and the item
+                    label is where that shows up in a hydration diff.
+
+                    Reordering the items into thumb-first order moves the text
+                    inside each `<span>` without moving any element type React
+                    expects, so hydrating over an already-reordered menu reports
+                    exactly one kind of mismatch: text. Left unannounced that is
+                    a *thrown* mismatch rather than a warning — React discards
+                    the whole tree and re-renders it — so the flag has to go on
+                    the fiber whose `children` is the string that moved. React
+                    consults it there and nowhere else: the `<ul>` is several
+                    levels up and annotating it does nothing, while
+                    `ListItemText` renders its primary text as the children of a
+                    `Typography` (`component: 'span'`), which is what the
+                    `primary` slot reaches.
+
+                    Necessary, and on its own not sufficient — which is the more
+                    important half. It says nothing about the items having
+                    *moved*, and React's hydration holds a live pointer into that
+                    sibling list across the tasks it splits its work over, so a
+                    reorder arriving mid-hydration still leaves it short of the
+                    nodes it expects. There is no annotation for that. The rule
+                    it leaves behind is simply that nothing may reorder the menu
+                    while React is part-way through claiming it: `useThumbzone`
+                    wires from an effect, after the commit, which satisfies that
+                    by construction, and the demo route keeps React off the
+                    client altogether because it wires the pattern before any
+                    framework could have arrived. */}
+                <ListItemText primary={item} slotProps={{ primary: { suppressHydrationWarning: true } }} />
               </ListItemButton>
             </ListItem>
           ))}
