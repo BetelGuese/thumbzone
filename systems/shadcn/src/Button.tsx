@@ -22,9 +22,9 @@ const buttonVariants = cva(
       },
       size: {
         default: 'h-9 px-4 py-2 rounded-md',
-        // The contract's minimum hit target in both axes. Named for what it is
-        // rather than given a t-shirt size, so it cannot be swapped for a
-        // smaller one by someone tidying the variants.
+        // Clears the contract's 48px minimum hit target with headroom in both
+        // axes. Named for what it is rather than given a t-shirt size, so it
+        // cannot be swapped for a smaller one by someone tidying the variants.
         target: 'h-14 w-14 rounded-full',
       },
     },

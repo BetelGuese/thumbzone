@@ -1,12 +1,13 @@
 /*
  * The shadcn/ui port's styling entry point.
  *
- * Tailwind's preflight is a global reset, and this repository serves four demo
- * routes that must stay visually independent of one another — a reset leaking
- * out of here would silently restyle the reference implementation, which is the
- * thing every other system is measured against. Astro bundles styles per page,
- * so importing this from the shadcn routes alone is what keeps it contained;
- * it must never be imported from DemoLayout.astro, which every demo shares.
+ * Tailwind's preflight is a global reset, and this repository serves demo
+ * routes for multiple design systems that must stay visually independent of
+ * one another — a reset leaking out of here would silently restyle the
+ * reference implementation, which is the thing every other system is
+ * measured against. Astro bundles styles per page, so importing this from
+ * the shadcn routes alone is what keeps it contained; it must never be
+ * imported from DemoLayout.astro, which every demo shares.
  *
  * The tokens below are shadcn/ui's own convention: HSL channel triplets in CSS
  * variables, consumed through Tailwind's theme. Keeping them as variables
