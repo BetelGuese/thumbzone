@@ -20,6 +20,27 @@ export const SLOW_VELOCITY = FLING_VELOCITY / 3
 export const FAST_VELOCITY = FLING_VELOCITY * 8
 
 /**
+ * Steps a fling is driven in — deliberately few, and the reason is arithmetic
+ * rather than taste.
+ *
+ * What the pattern actually measures on release is the distance and time
+ * spanned by the samples still inside its velocity window, which works out at
+ * roughly `(distance / steps) / Δ`, where Δ is however long the driver really
+ * takes to deliver one move. Δ is not ours to set: under parallel load a
+ * synthetic move can take tens of milliseconds regardless of what delay was
+ * requested. Steps *are* ours, and every extra one shrinks the distance each
+ * Δ has to pay for — so a fling driven in many small moves reads as slower
+ * than the same fling driven in few large ones, and can fall under
+ * FLING_VELOCITY on a loaded machine while being nominally identical.
+ *
+ * Two rather than one, so a sample still lands between press and release and
+ * the gesture is a drag rather than a teleport; two rather than four, because
+ * halving the steps doubles the per-move budget before the measured velocity
+ * drops under the threshold.
+ */
+export const FLING_STEPS = 2
+
+/**
  * Presses and drags the sheet down by `distance` px (without releasing),
  * paced to land at roughly `velocity` px/ms so the gesture's real elapsed
  * time — not just its pixel distance — matches what the caller means to
@@ -36,7 +57,16 @@ export async function beginDragSheet(page: Page, distance: number, velocity: num
   await page.mouse.down()
   for (let i = 1; i <= steps; i += 1) {
     await page.mouse.move(startX, startY + (distance * i) / steps)
-    await page.waitForTimeout(stepDelayMs)
+    // Paced *between* moves, never after the last one. A release measures
+    // velocity against however stale the sample window has become, so a wait
+    // following the final move adds elapsed time while adding no distance to
+    // pay for it — decaying the gesture's measured velocity by design. That
+    // is exactly right for a finger held still before lifting, and exactly
+    // wrong here, where the release is meant to land on the drag. Under
+    // parallel load the requested delay stretches well past what was asked
+    // for, and that stretch applied after the final move is what can make a
+    // deliberately fast fling read as slow.
+    if (i < steps) await page.waitForTimeout(stepDelayMs)
   }
 }
 
