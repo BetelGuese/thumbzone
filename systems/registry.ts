@@ -6,14 +6,21 @@
  * needs in order to be held to the whole suite: there is no per-system spec
  * file to write, and no way to quietly opt a port out of a check.
  *
- * `vanilla` is normative. The shared constants the suite asserts against
- * (dismiss ratio, fling velocity, scroll threshold, hit target, breakpoint,
- * the focusable-element selector) live in `core/`, the system-agnostic module
- * every port and the reference implementation both build on, rather than
- * being restated per system — so a port cannot pass conformance while quietly
- * retuning them. Vanilla's own exact motion and touch-action values are
- * pinned separately, as the reference point they are — a port is held to the
- * semantics, not to those numbers.
+ * `vanilla` is normative. The behaviour itself is shared rather than restated
+ * per system: `core/behaviour.js` and the two modules beside it hold the
+ * lifecycle, the focus trap, the pointer state machine, the thumb-first
+ * reorder and the teardown, and `core/index.js` holds the tuned constants and
+ * the maths (dismiss ratio, fling velocity, scroll threshold, hit target,
+ * breakpoint, the focusable-element selector). A port drives them; it does not
+ * reimplement them, and it cannot quietly retune them. Vanilla's own exact
+ * motion and touch-action values are pinned separately, as the reference point
+ * they are — a port is held to the semantics, not to those numbers.
+ *
+ * The "Behaviour" section below is therefore what conformance requires, not a
+ * list of what a porter must write. A port that drives the shared behaviour
+ * gets all of it; the section stays stated in full because it is what
+ * conformance means, and because a port is free to implement it another way so
+ * long as it holds.
  *
  * ## What a port must provide
  *
@@ -82,9 +89,10 @@
  *   on the sheet and marking `data-tz-dragging` while in flight. The menu is
  *   the scroll container, and no drag may begin inside it.
  * - `destroy()` restoring the pre-init DOM exactly: attributes (an authored
- *   accessible name and an authored `hidden` included, and anything the
- *   pattern added itself removed again), menu order (including non-element
- *   nodes), and any inline transform that was there before.
+ *   accessible name, an authored `hidden` and the sheet's own authored
+ *   `tabindex` included, and anything the pattern added itself removed
+ *   again), menu order (including non-element nodes), and any inline
+ *   transform that was there before.
  * - The handle the route published still driving the page once everything has
  *   settled — asserted for every system, not just the ones with a framework in
  *   them. A port whose markup something else adopts after load can end up with
