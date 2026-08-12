@@ -3,25 +3,18 @@
  * Zero dependencies, no build step. Every port must match this behaviour.
  */
 
-import { attachGestures } from './gestures.js'
+import { attachGestures } from '../../../core/gestures.js'
 import { attachScrollAwareness } from '../../../core/scroll.js'
-import {
-  FALLBACK_TRIGGER_LABEL_CLOSED,
-  FALLBACK_TRIGGER_LABEL_OPEN,
-  FOCUSABLE,
-  dragProgress,
-  shouldDismiss,
-  createVelocityTracker,
-} from '../../../core/index.js'
+import { FALLBACK_TRIGGER_LABEL_CLOSED, FALLBACK_TRIGGER_LABEL_OPEN, FOCUSABLE } from '../../../core/index.js'
 
-// gestures.js exists only as an internal split of this module; scroll-aware
-// tucking now lives in core/scroll.js, shared by every port. Every value
-// shared across design systems lives in core/index.js and is imported from
-// there by name, here and in every port alike — this module re-exports none
-// of them. Importing a shared constant "from vanilla" would work and be
-// wrong: it reads as though the reference implementation owns the contract,
-// which is the habit `core/` exists to break. What this file does export is
-// only what is genuinely the reference implementation's own.
+// The pointer state machine and scroll-aware tucking both now live in core/
+// (gestures.js and scroll.js), shared by every port. Every value shared
+// across design systems lives in core/index.js and is imported from there by
+// name, here and in every port alike — this module re-exports none of them.
+// Importing a shared constant "from vanilla" would work and be wrong: it
+// reads as though the reference implementation owns the contract, which is
+// the habit `core/` exists to break. What this file does export is only what
+// is genuinely the reference implementation's own.
 
 /** Duration (ms) of the sheet's open/close transition. */
 export const SHEET_TRANSITION_MS = 240
@@ -70,6 +63,12 @@ export function initThumbzone({ trigger, sheet, scrim, menu, inertRoot }) {
   const authoredTriggerLabel = trigger.getAttribute('aria-label')
   const authoredSheetHidden = sheet.hasAttribute('hidden')
   const authoredScrimHidden = scrim.hasAttribute('hidden')
+  // Captured here rather than inside the gesture module: mid-lifecycle a drag
+  // clears this to '' on release, handing control back to the class rule that
+  // animates open and closed, but at teardown there is no later class-driven
+  // transform of ours left to defer to — so clearing it unconditionally would
+  // silently discard a value that was never this module's to take.
+  const authoredSheetTransform = sheet.style.transform
 
   let isOpen = false
 
@@ -116,7 +115,7 @@ export function initThumbzone({ trigger, sheet, scrim, menu, inertRoot }) {
     trigger.focus()
   }
 
-  const gestures = attachGestures({ sheet, trigger, menu, dragProgress, shouldDismiss, createVelocityTracker, open, close })
+  const gestures = attachGestures({ sheet, trigger, menu, open, close })
 
   function onTriggerClick() {
     // A recognised swipe-open already opened the sheet; the 'click' the
@@ -229,6 +228,12 @@ export function initThumbzone({ trigger, sheet, scrim, menu, inertRoot }) {
       // where the markup authored none — so restoring it means removing it,
       // and an authored name needs no restoring because nothing overwrote it.
       if (authoredTriggerLabel === null) trigger.removeAttribute('aria-label')
+      // Whatever the markup had inline, back verbatim. The empty string is the
+      // honest restoration of "nothing inline": assigning it drops the
+      // declaration rather than leaving `transform: ;` behind, so a sheet that
+      // was never dragged ends up with the class-declared transform back in
+      // charge.
+      sheet.style.transform = authoredSheetTransform
       // setOpen() above has just stripped `hidden` again on its way out, so
       // these come last.
       sheet.toggleAttribute('hidden', authoredSheetHidden)
