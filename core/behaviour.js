@@ -48,7 +48,7 @@ import { attachScrollAwareness } from './scroll.js'
  * @param {HTMLElement} root
  * @returns {HTMLElement[]}
  */
-export function focusableWithin(root) {
+function focusableWithin(root) {
   return Array.from(root.querySelectorAll(FOCUSABLE)).filter(
     (el) => el.offsetParent !== null || el === document.activeElement,
   )
