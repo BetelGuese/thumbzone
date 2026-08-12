@@ -66,6 +66,49 @@ system's own rendering leaves in the markup before the pattern reads it — the
 Material UI port's hoist of Emotion's server-rendered `<style>` elements out of
 the menu is the worked example.
 
+### Expect to reach past your system's drawer component
+
+Both shipped ports had to, for the same structural reason, so a porter may as
+well know it before starting rather than halfway through.
+
+Material UI's temporary `Drawer` could not work: `Slide` writes the transform
+imperatively and occupies the inline style the drag needs, and `Modal` sets
+`aria-hidden` on its siblings — *including the trigger*, which has to stay
+reachable, because tapping it is one of the close paths. The port uses
+`variant="permanent"`, the only entry point to a drawer `Paper` with neither.
+
+shadcn/ui's `Drawer` is Vaul, and the outcome was the same for a different
+reason. The convergence deserves stating first, because it is the strongest
+independent evidence this pattern has: Vaul arrives at the same 0.25 dismiss
+ratio, the same `cubic-bezier(0.32, 0.72, 0, 1)` release curve, ships
+handle-only dragging as a first-class prop, and carries an attribute
+(`data-vaul-no-drag`) for the regions a drag must not begin in. Two
+implementations reached those four decisions without consulting each other,
+which says more for them than either could say alone. The divergence is a
+single constant: Vaul flings at 0.4 where this contract's threshold is 0.5,
+hard-coded with no way to configure it.
+
+That constant is why this port drives `core/behaviour.js` rather than Vaul's
+gesture engine — and it is worth being exact about what conformance would have
+done about it, which is nothing. The suite asserts that a fast downward fling
+dismisses the sheet; it does not assert the velocity at which one starts to,
+and it has no way to ask whether a port's release went through the shared maths
+at all rather than through a threshold of its own. The lower bound is pinned in
+`core/test/logic.test.js`, against the maths, with no browser involved. Pinning
+it at the port level was attempted and dropped: synthetic pointer input cannot
+be paced finely enough to land inside a 0.4–0.5 window — a run targeting
+0.3 px/ms measured between 0.19 and 0.28 px/ms across instances, a spread wider
+than the window it needed to sit in. So a Vaul-based port would have passed
+every assertion here while running a retuned feel, and `core/` is the only
+thing standing in its way.
+
+The pattern is not being awkward. A design system's drawer owns open/close,
+focus management and motion; this pattern already owns those, and two owners of
+one lifecycle is not a thing that can be made to work. Take the system's
+surface, its tokens and its components, and let `core/behaviour.js` drive.
+**Reaching past the drawer primitive is the expected shape of a port, not a
+sign that one has failed.**
+
 ### Test hooks the demo route must expose
 
 Three, on `window`. The doc comment on `System.route` in `systems/registry.ts` is
@@ -86,6 +129,34 @@ the normative version; this is the summary.
   the one `page.goto` resolves on — rather than from inside an async chunk,
   or the suite's wait for it can throw a "must expose" error against a port
   that was only ever late, not missing it.
+
+### A CSS reset can leave your demo route too short to scroll
+
+This symptom points squarely at the wrong place, so it is worth recognising by
+shape. The scroll-aware tuck never engages: `data-tz-tucked` is never set, and
+the scroll assertions fail against your system while passing against every
+other one. It reads as broken tuck logic. It is usually a fixture that cannot
+scroll far enough.
+
+The suite scrolls a fixed distance and expects to land mid-document.
+`e2e/scroll-and-order.spec.ts` documents the underlying rule in a comment on
+the constant: a scroll that lands on the document's actual end trips the
+tracker's "always visible at the end" behaviour, which untucks the trigger for
+a reason that has nothing to do with the scroll under test. What the shadcn
+port added is the name of the thing that causes it. Tailwind's preflight zeroes
+the user-agent block margins on ordinary prose, so a demo route authoring the
+same 40 paragraphs as the other two systems rendered 456px shorter — leaving
+`maxScrollY` at 145 where vanilla's is 601, under the scroll the suite
+performs. Every scroll landed at the end of the document, and the first
+conformance run produced six failures that all looked like a broken tuck and
+were none of them in the pattern.
+
+Bootstrap 5 ships Reboot, which resets the same margins, so this will come
+round again. The fix belongs in the demo route's own content: restore the block
+spacing the reset removed, scoped to the route's prose so it cannot reach the
+port's markup, which styles itself. Not in the pattern, and not in the suite. A
+demo route is a fixture as much as a demonstration, and it owes the suite the
+same scrollable range every other route gives it.
 
 The third one is what a framework-based port needs, and it is worth understanding
 before you write one. If your port renders its markup on the server and hydrates

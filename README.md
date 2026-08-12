@@ -28,19 +28,21 @@ system without looking foreign in any of them.
 
 ## Status
 
-**Two systems shipped**, both held to the same conformance suite.
+**Three systems shipped**, all held to the same conformance suite.
 
 | Design system | State |
 | --- | --- |
 | Vanilla (no dependencies) | shipped — normative reference |
 | Material UI | shipped |
-| Tailwind CSS, Bootstrap 5, shadcn/ui | planned |
+| shadcn/ui | shipped |
+| Tailwind CSS, Bootstrap 5 | planned |
 | Chakra UI, Ant Design, Mantine, Radix/Ark, Bulma, Vuetify, Quasar, Ionic | planned |
 
-Each is held to 130 conformance instances — the same groups, across two mobile
-device profiles, against materially different implementations. Six of them per
-system drive real touch through Chromium's debug protocol and report as skipped
-on WebKit. There is no showcase site yet; the demo routes below run locally.
+Each is held to 130 conformance instances — 65 per mobile device profile, the
+same groups across two of them, against materially different implementations.
+Six per system drive real touch through Chromium's debug protocol and report as
+skipped on WebKit. There is no showcase site yet; the demo routes below run
+locally.
 
 ## What the first port changed
 
@@ -66,6 +68,36 @@ The port also found a defect in the reference it was being measured against — 
 sheet reserved no clearance for the floating trigger, so the last menu row sat
 under it on short viewports. Both are fixed, and the check now runs against every
 system.
+
+## What the second port confirmed
+
+shadcn/ui is components copied into a repository rather than a package installed
+into it, so the port had more latitude over the markup than the Material UI one
+did. It found two things anyway.
+
+- **A gesture library built independently agrees with the pattern.** shadcn's
+  `Drawer` is Vaul, and Vaul arrives at the same 0.25 dismiss ratio, the same
+  `cubic-bezier(0.32, 0.72, 0, 1)` release curve, handle-only dragging as a
+  first-class prop, and an attribute for the regions a drag must not begin in.
+  That is the strongest outside evidence the pattern has. It differs in one
+  hard-coded constant — it flings at 0.4 where this contract's threshold is
+  0.5 — and conformance could not have caught the difference, because it asserts
+  that a fling dismisses rather than the speed at which one starts to. So the
+  port drives the shared maths instead of Vaul's gesture engine, and the
+  convergence stands as corroboration rather than as a dependency.
+- **A CSS reset can leave a demo route too short to test.** Tailwind's preflight
+  removes the browser's default paragraph margins, so identical fixture content
+  rendered 456px shorter than the other systems' — short enough that every
+  scroll the suite performs landed on the end of the document, which is exactly
+  where the trigger is deliberately untucked. Six failures that read as broken
+  tuck logic were a fixture with nothing left to scroll. Bootstrap 5's Reboot
+  resets the same margins, so the next port is likely to meet it.
+
+Both ports also had to reach past their design system's own drawer component,
+for the same structural reason: a drawer owns open/close, focus and motion, and
+so does this pattern. Two owners of one lifecycle cannot be made to work, so
+that is now written down as the expected shape of a port rather than a surprise
+each porter meets alone.
 
 ## The pattern
 
@@ -135,9 +167,9 @@ npm install
 npm run dev            # http://localhost:4321
 ```
 
-Demo routes: `/demo/vanilla` and `/demo/mui`, each with an `-overflow` variant
-carrying a menu taller than the sheet, for testing internal scrolling against the
-drag gesture.
+Demo routes: `/demo/vanilla`, `/demo/mui` and `/demo/shadcn`, each with an
+`-overflow` variant carrying a menu taller than the sheet, for testing internal
+scrolling against the drag gesture.
 
 ```bash
 npm test               # unit
@@ -149,8 +181,10 @@ npm run typecheck
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). In short: build it with the target
 system's own components and tokens so it looks native there, add a demo route,
-add one entry to `systems/registry.ts`, and run the suite. Use the target
-system's own sheet or drawer primitive — most already have one.
+add one entry to `systems/registry.ts`, and run the suite. Expect to reach past
+the system's own sheet or drawer primitive rather than build on it — both
+shipped ports had to, and CONTRIBUTING.md explains why that is the normal
+outcome.
 
 The behaviour comes from `core/`, and a port drives it rather than rewriting it:
 the open/close lifecycle, the focus trap, the pointer state machine, the
