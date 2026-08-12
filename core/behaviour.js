@@ -23,7 +23,12 @@
  * whatever is there now.
  */
 
-import { FALLBACK_TRIGGER_LABEL_CLOSED, FALLBACK_TRIGGER_LABEL_OPEN, FOCUSABLE } from './index.js'
+import {
+  FALLBACK_TRIGGER_LABEL_CLOSED,
+  FALLBACK_TRIGGER_LABEL_OPEN,
+  FOCUSABLE,
+  nextFocusIndex,
+} from './index.js'
 import { attachGestures } from './gestures.js'
 import { attachScrollAwareness } from './scroll.js'
 
@@ -178,18 +183,11 @@ export function createThumbzoneBehaviour({ trigger, sheet, scrim, menu, inertRoo
     // Owning every step keeps the trap correct on every engine, and keeps the
     // order it walks identical to the DOM order the sheet renders in.
     event.preventDefault()
-    const currentIndex = focusable.indexOf(document.activeElement)
     // indexOf is -1 whenever focus sits on something outside the list — the
-    // sheet's own tabindex="-1" fallback, say. Treated as "just before the
-    // sequence", because feeding -1 into the wrap arithmetic would land a
-    // forward Tab one element short and a backward one two.
-    const nextIndex =
-      currentIndex === -1
-        ? event.shiftKey
-          ? focusable.length - 1
-          : 0
-        : (currentIndex + (event.shiftKey ? -1 : 1) + focusable.length) % focusable.length
-    focusable[nextIndex].focus()
+    // sheet's own tabindex="-1" fallback, say. nextFocusIndex owns what that
+    // means; see its own note.
+    const currentIndex = focusable.indexOf(document.activeElement)
+    focusable[nextFocusIndex(currentIndex, focusable.length, event.shiftKey)].focus()
   }
 
   trigger.addEventListener('click', onTriggerClick)
