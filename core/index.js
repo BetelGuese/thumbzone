@@ -151,7 +151,7 @@ export const FOCUSABLE =
 
 /**
  * The trigger's accessible name when a port's own markup authors none — see
- * `setOpen` in every behaviour module (`thumbzone.js`, `thumbzone.ts`).
+ * `setOpen` in `core/behaviour.js`.
  * Exported, rather than left as a literal in each module, for the same
  * reason `FOCUSABLE` is: the reference and every port must write the
  * identical string, and the conformance suite has to assert against that
@@ -197,3 +197,31 @@ export function createScrollDirectionTracker({ threshold = SCROLL_THRESHOLD } = 
  * shared value, rather than through any one system's own module.
  */
 export const SWIPE_OPEN_DISTANCE = 24
+
+/**
+ * The index a Tab press moves focus to, within a cycle of `length` focusable
+ * elements.
+ *
+ * Lives here, DOM-free, rather than inline in the trap that uses it, because
+ * this arithmetic is where a hand-written focus trap goes wrong and it is the
+ * one part of the trap a test can reach without a browser. The trap itself
+ * cannot be unit-tested — it depends on `offsetParent`, which no DOM shim
+ * computes — so the cycle it walks is checked here and the walking is checked
+ * by the conformance suite.
+ *
+ * @param {number} currentIndex The focused element's index, or -1 when focus
+ *   sits outside the sequence — on the sheet's own `tabindex="-1"` fallback,
+ *   say. Treated as "just before the sequence" rather than fed into the wrap
+ *   arithmetic below. That matters in one direction only, which is worth
+ *   stating precisely because it is easy to assume otherwise: a forward Tab
+ *   from -1 comes out of the wrap as 0 regardless, so the branch changes
+ *   nothing there; a backward one comes out as `length - 2`, one short of the
+ *   last element, which is the case this exists for.
+ * @param {number} length How many focusable elements there are. Positive.
+ * @param {boolean} backwards Whether Shift was held.
+ * @returns {number}
+ */
+export function nextFocusIndex(currentIndex, length, backwards) {
+  if (currentIndex === -1) return backwards ? length - 1 : 0
+  return (currentIndex + (backwards ? -1 : 1) + length) % length
+}
