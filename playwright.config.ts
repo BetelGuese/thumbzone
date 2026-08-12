@@ -12,6 +12,10 @@ export default defineConfig({
   // terminal output is unchanged.
   reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
   use: { baseURL: 'http://localhost:4321', trace: 'on-first-retry' },
+  // Runs after webServer is up and before the first test, which is the only
+  // window in which the dev server's on-demand work can be absorbed without a
+  // test's page being open to be reloaded by it. See e2e/global-setup.ts.
+  globalSetup: './e2e/global-setup.ts',
   projects: [
     { name: 'mobile-safari', use: { ...devices['iPhone 14 Pro Max'] } },
     { name: 'mobile-chrome', use: { ...devices['Pixel 7'] } },
