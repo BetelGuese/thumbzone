@@ -9,6 +9,9 @@ major design system. Contributions are judged against that.
 ```
 core/               the shared maths, tuned constants and the focusable
                     selector — no DOM, no framework, no design system
+  behaviour.js      the shared behaviour: lifecycle, focus trap, reorder,
+  gestures.js       pointer state machine and scroll-aware tucking. Touches
+  scroll.js         the DOM; imports no framework and no design system.
 systems/            one directory per design system
   vanilla/          the reference implementation — no dependencies
 e2e/                Playwright specs, including the conformance suite
@@ -31,6 +34,34 @@ A port is complete when the conformance suite passes against it on both device
 projects and the accessibility gate reports zero violations. Use the target
 system's own components and design tokens: the result should look native to
 that system, not like a foreign widget dropped into it.
+
+### What you inherit, and what you write
+
+Import `createThumbzoneBehaviour` from `core/behaviour.js` and it wires itself
+over your markup. You do **not** write a focus trap, an Escape handler, the
+`inert` sequence, the thumb-first reorder, drag-to-dismiss, swipe-to-open, the
+scroll-aware tucking, or the teardown that restores the DOM the markup
+authored. Reimplementing any of them is how a port drifts.
+
+```js
+import { createThumbzoneBehaviour } from '../../core/behaviour.js'
+
+const behaviour = createThumbzoneBehaviour({ trigger, sheet, scrim, menu, inertRoot })
+// → { open, close, destroy }
+```
+
+The five elements are a precondition: validate them yourself, in your own
+idiom, and fail with a message naming what was missing. `destroy()` is not
+idempotent — it undoes init-time DOM mutations, and undoing one twice puts it
+back — so if your port's handle can have two owners (a component's unmount and
+the published test hook, say), latch it yourself.
+
+What is yours to write: the markup, built from your system's own components;
+the styling, tokens and motion; the framework binding, if your system has one;
+the hydration strategy, including `__thumbzoneReady`; and anything your
+system's own rendering leaves in the markup before the pattern reads it — the
+Material UI port's hoist of Emotion's server-rendered `<style>` elements out of
+the menu is the worked example.
 
 ### Test hooks the demo route must expose
 
@@ -144,27 +175,36 @@ panel with no handle has nowhere left for a touch-driven dismiss to begin.
   not a system's to decide. `core/` holds that part: the tuned constants, the
   drag and velocity maths, the scroll-direction tracker and the
   focusable-element definition. Every port and the reference implementation
-  import them from there, so no port can quietly retune them. Everything with
-  a DOM in it is still per-system — `systems/vanilla` is normative, and a port
-  reimplements the *behaviour* in its own system's idiom, held to the
-  conformance suite rather than to shared code.
-- **YAGNI** — build what is needed now. `core/` is where that judgement was
-  actually made, and it is worth being honest about which way: the maths and
-  the constants were extracted while there was still only one implementation,
-  because they were separable without a second one to compare against. A
-  number with no DOM and no framework in it — a dismiss ratio, a fling
-  velocity, a hit target — either is the contract or is a port's own styling
-  choice, and the specs already had to import it from *somewhere* to avoid
-  restating it per assertion. Pulling it out of the reference implementation
-  cost nothing but a file, and left the reference importing the same values
-  every port does instead of being the odd one out that owns them.
-  What is deliberately *not* shared is everything that touches the DOM: the
-  focus trap, the attribute sequences, the reorder, the pointer state machine.
-  Those are duplicated per port today, and duplicated on purpose — one port is
-  not enough evidence of what repeats, and a premature shared behaviour layer
-  would bake one framework's assumptions into eleven ports that have not been
-  written yet. Extract that when several ports have proved what actually
-  repeats, not before.
+  import them from there, so no port can quietly retune them.
+  `core/behaviour.js` and the two modules beside it hold the rest: the
+  lifecycle, the focus trap, the pointer state machine and the reorder. They
+  touch the DOM but import no framework, which is the line that keeps them
+  shareable — `core/index.js` touches no DOM at all, which is what lets it be
+  unit-tested without a browser. `systems/vanilla` stays normative: it is where
+  a disagreement is settled, and it now delegates the same behaviour every port
+  does rather than owning a second copy of it.
+- **YAGNI** — build what is needed now, and extract only once there is evidence
+  of what repeats. `core/` is where that judgement was made twice, and it is
+  worth being honest about both. The maths and the constants came out while
+  there was still one implementation, because they were separable without a
+  second one to compare against: a number with no DOM and no framework in it —
+  a dismiss ratio, a fling velocity, a hit target — either is the contract or
+  is a port's own styling choice, and the specs had to import it from
+  *somewhere* rather than restate it per assertion.
+
+  The behaviour layer came out later, and the right way round. With two systems
+  shipped, the same state machine existed twice under the same function names,
+  and roughly 250 lines of order-dependent policy per port — the sequence
+  `inert` comes off in, the focus trap's `-1` branch, committing a drag only
+  after pointer capture succeeds, the order `destroy()` restores in. The
+  conformance suite would catch most of a porter getting one wrong, which is
+  exactly why the cost stayed invisible: it would have been paid eleven more
+  times before anyone noticed. Extracting it then was the principle being
+  satisfied, not broken.
+
+  What is still per-system is what a system genuinely decides: its markup, its
+  styling and motion tokens, its framework binding and hydration strategy, and
+  how it validates what it is handed.
 - **KISS** — the simplest thing that works, then refactor for clarity.
 - **Composition over inheritance.**
 
