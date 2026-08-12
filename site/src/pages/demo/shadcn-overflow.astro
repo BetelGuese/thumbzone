@@ -1,0 +1,57 @@
+---
+import DemoLayout from '../../layouts/DemoLayout.astro'
+import ThumbzoneMenu from '../../../../systems/shadcn/src/ThumbzoneMenu.tsx'
+import '../../../../systems/shadcn/src/styles.css'
+
+// A dedicated fixture, not a query-param variant of /demo/shadcn — this
+// project builds to a static site, so a query-param-gated item list would
+// only ever render its overflowing branch under the dev server, never in a
+// real build/preview. A separate route works identically in all three,
+// exactly as vanilla-overflow.astro does for the reference implementation.
+//
+// Long enough that the menu is a scroll container of its own on the shortest
+// device profile the suite runs — which is the only state where the handle
+// being the sole place a dismiss drag can start is observable. Every menu
+// item is floored at MIN_HIT_TARGET (48px) by the port's own styling, so the
+// list alone runs past 1150px against an already-reduced budget: the sheet's
+// own max-h-[80dvh] leaves room for the trigger's reserved clearance and the
+// drag handle before the menu gets any of it at all.
+const items = Array.from({ length: 24 }, (_, i) => `Item ${i + 1}`)
+---
+<DemoLayout system="shadcn">
+  <main data-tz-app>
+    <h1>thumbzone — shadcn/ui (overflowing menu)</h1>
+    <p>Fixture for testing touch scrolling inside a menu taller than the sheet.</p>
+  </main>
+  <ThumbzoneMenu items={items} client:load />
+</DemoLayout>
+
+<script>
+  import { initThumbzone, liveThumbzone } from '../../../../systems/shadcn/src/thumbzone'
+
+  // Wired here, from the page, for the same reason /demo/shadcn wires from its
+  // own module script rather than leaving it to the island's mount:
+  // client:load hydrates from a dynamic import(), and the document's 'load'
+  // event — which is what page.goto() in the suite waits for — does not wait
+  // for one. A test that drives real input the instant navigation resolves
+  // would otherwise be racing React downloading, and an input event
+  // dispatched before any listener exists is not one a later hydration can
+  // retroactively answer.
+  //
+  // Unlike /demo/shadcn, this route publishes none of the contract's three
+  // test hooks. Both exist for a reason that does not apply to this fixture:
+  // the overflow suite never calls destroy() or re-initialises over this
+  // markup — it drives the sheet entirely through real input (a click, a
+  // scroll, a touch) — so nothing here ever reorders the menu after load for
+  // a hydration in flight to race against, and there is no imperative API for
+  // a test to reach that the DOM's own attributes do not already expose.
+  const sheet = document.querySelector('[data-tz-sheet]')
+  liveThumbzone(sheet) ??
+    initThumbzone({
+      sheet,
+      trigger: document.querySelector('[data-tz-trigger]'),
+      scrim: document.querySelector('[data-tz-scrim]'),
+      menu: document.querySelector('[data-tz-menu]'),
+      inertRoot: document.querySelector('[data-tz-app]'),
+    })
+</script>
