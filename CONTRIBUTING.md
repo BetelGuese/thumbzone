@@ -7,11 +7,14 @@ major design system. Contributions are judged against that.
 ## Repository layout
 
 ```
-core/               the shared maths, tuned constants and the focusable
-                    selector — no DOM, no framework, no design system
+core/               everything no design system gets to decide. Imports no
+                    framework and no design system, anywhere.
+  index.js          the maths, the tuned constants and the focusable
+                    selector — touches no DOM, so it unit-tests without a
+                    browser, which is what keeps it separate
   behaviour.js      the shared behaviour: lifecycle, focus trap, reorder,
-  gestures.js       pointer state machine and scroll-aware tucking. Touches
-  scroll.js         the DOM; imports no framework and no design system.
+  gestures.js       pointer state machine and scroll-aware tucking. These
+  scroll.js         touch the DOM; a port drives them rather than porting them
 systems/            one directory per design system
   vanilla/          the reference implementation — no dependencies
 e2e/                Playwright specs, including the conformance suite
@@ -44,7 +47,7 @@ scroll-aware tucking, or the teardown that restores the DOM the markup
 authored. Reimplementing any of them is how a port drifts.
 
 ```js
-import { createThumbzoneBehaviour } from '../../core/behaviour.js'
+import { createThumbzoneBehaviour } from '../../../core/behaviour.js'
 
 const behaviour = createThumbzoneBehaviour({ trigger, sheet, scrim, menu, inertRoot })
 // → { open, close, destroy }

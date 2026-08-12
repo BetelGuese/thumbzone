@@ -129,7 +129,7 @@
 }
 
 /* Purely a visual affordance and a dedicated non-scrolling drag target —
-   gestures.js never recognises a drag starting inside .tz-menu, so this is
+   core/gestures.js never recognises a drag starting inside .tz-menu, so this is
    the (only) touch-drag entry point once the menu has its own scrollable
    overflow. aria-hidden in the markup: it carries no information a screen
    reader user needs that "Main menu" (the dialog's own label) doesn't
