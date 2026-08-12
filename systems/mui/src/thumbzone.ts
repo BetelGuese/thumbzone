@@ -1,8 +1,8 @@
 /**
  * The behaviour half of the Material UI port: opening, closing, focus, `inert`,
- * the thumb-first menu order and teardown, with the gesture engine in
- * `gestures.ts` beside it — split out the way the reference splits its own —
- * and the scroll-aware tucking shared from `core/scroll.js`, wired from here.
+ * the thumb-first menu order and teardown, with the gesture engine and the
+ * scroll-aware tucking both shared from `core/` (`gestures.js` and
+ * `scroll.js`), wired from here.
  *
  * It imports no framework, deliberately — see `useThumbzone` for the React
  * binding that mounts it. Framework-*agnostic* it is not: it knows what
@@ -44,7 +44,7 @@
 // window, the swipe distance, the scroll tracker — is imported by the two modules
 // below, which are the only places that drive it.
 import { FALLBACK_TRIGGER_LABEL_CLOSED, FALLBACK_TRIGGER_LABEL_OPEN, FOCUSABLE } from '../../../core/index.js'
-import { attachGestures } from './gestures'
+import { attachGestures } from '../../../core/gestures.js'
 import { attachScrollAwareness } from '../../../core/scroll.js'
 
 /**
