@@ -1,0 +1,27 @@
+/*
+ * The shadcn/ui port's styling entry point.
+ *
+ * Tailwind's preflight is a global reset, and this repository serves four demo
+ * routes that must stay visually independent of one another — a reset leaking
+ * out of here would silently restyle the reference implementation, which is the
+ * thing every other system is measured against. Astro bundles styles per page,
+ * so importing this from the shadcn routes alone is what keeps it contained;
+ * it must never be imported from DemoLayout.astro, which every demo shares.
+ *
+ * The tokens below are shadcn/ui's own convention: HSL channel triplets in CSS
+ * variables, consumed through Tailwind's theme. Keeping them as variables
+ * rather than hardcoded utilities is what lets this port look like shadcn
+ * rather than like Tailwind with opinions.
+ */
+@import 'tailwindcss';
+
+@theme {
+  --color-background: hsl(0 0% 100%);
+  --color-foreground: hsl(240 10% 3.9%);
+  --color-primary: hsl(240 5.9% 10%);
+  --color-primary-foreground: hsl(0 0% 98%);
+  --color-muted: hsl(240 4.8% 95.9%);
+  --color-muted-foreground: hsl(240 3.8% 46.1%);
+  --color-border: hsl(240 5.9% 90%);
+  --radius-sheet: 0.75rem;
+}
