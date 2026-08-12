@@ -5,6 +5,12 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
+  // Retries exist to absorb an infrastructure blip, not to launder a flaky
+  // test into a green build. Without this, a test that only passes on its
+  // second attempt still reports the job as successful — so an intermittent
+  // failure ships, and the next person to see it has no reason to think CI
+  // ever knew. Pairing the two means a retry buys a diagnosis, not silence.
+  failOnFlakyTests: !!process.env.CI,
   // The default reporter (a bare 'dot' summary under CI) never writes
   // playwright-report/ at all, which would make the workflow's "upload the
   // report on failure" step upload nothing. The html reporter is what
