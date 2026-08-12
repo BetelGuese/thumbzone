@@ -4,7 +4,7 @@ import { test, expect } from '@playwright/test'
 // any of them would no longer be the same interaction, so every system's
 // gestures are measured against the one set.
 import { DISMISS_RATIO, MIN_HIT_TARGET, SWIPE_OPEN_DISTANCE } from '../core/index.js'
-import { FAST_VELOCITY, SLOW_VELOCITY, beginDragSheet, dragSheet, swipeUpOnTrigger } from './support/drag'
+import { FAST_VELOCITY, FLING_STEPS, SLOW_VELOCITY, beginDragSheet, dragSheet, swipeUpOnTrigger } from './support/drag'
 import { destroyThumbzone, reinitThumbzone } from './support/handles'
 import { INSTANT_MOTION_MAX_MS, maxTransitionDurationMs } from './support/motion'
 import { openSheetAndSettle } from './support/sheet'
@@ -57,7 +57,7 @@ describeForEachSystem('gestures', (system) => {
     await openSheetAndSettle(page)
     const height = (await page.locator('[data-tz-sheet]').boundingBox())!.height
 
-    await dragSheet(page, height * (DISMISS_RATIO - 0.1), FAST_VELOCITY, 4)
+    await dragSheet(page, height * (DISMISS_RATIO - 0.1), FAST_VELOCITY, FLING_STEPS)
 
     await expect(page.locator('[data-tz-sheet]')).not.toHaveAttribute('data-tz-open', 'true')
   })
