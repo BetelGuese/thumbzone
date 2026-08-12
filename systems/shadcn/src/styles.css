@@ -25,3 +25,18 @@
   --color-border: hsl(240 5.9% 90%);
   --radius-sheet: 0.75rem;
 }
+
+/*
+ * The breakpoint is core's, not Tailwind's. They happen to agree at 768px
+ * today, and a port that leaned on `md:` would drift silently the moment either
+ * one moved — so it is stated here against the documented constant instead,
+ * which is the same arrangement systems/vanilla/src/thumbzone.css already
+ * documents for the values a stylesheet cannot import.
+ */
+@media (min-width: 768px) {
+  [data-tz-trigger],
+  [data-tz-sheet],
+  [data-tz-scrim] {
+    display: none;
+  }
+}
