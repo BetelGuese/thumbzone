@@ -1,10 +1,50 @@
 ---
 import DemoLayout from '../../layouts/DemoLayout.astro'
+import ThumbzoneMenu from '../../../../systems/shadcn/src/ThumbzoneMenu.tsx'
 import '../../../../systems/shadcn/src/styles.css'
+
+const items = ['Home', 'Search', 'Library', 'Profile', 'Settings']
 ---
 <DemoLayout system="shadcn">
   <main data-tz-app>
-    <h1 class="text-2xl font-semibold text-foreground">thumbzone — shadcn/ui</h1>
-    <p id="probe" class="rounded-sheet bg-muted px-4 py-2 text-muted-foreground">Tailwind probe</p>
+    <h1>thumbzone — shadcn/ui</h1>
+    {Array.from({ length: 40 }, (_, i) => <p>Scrollable content line {i + 1}.</p>)}
   </main>
+  <ThumbzoneMenu items={items} client:load />
 </DemoLayout>
+
+<script>
+  import { whenMounted } from '../../../../systems/shadcn/src/mounted'
+  import { initThumbzone, liveThumbzone } from '../../../../systems/shadcn/src/thumbzone'
+
+  // Wired from the page rather than left to the island's own mount.
+  //
+  // `client:load` hydrates from a dynamic `import()`, and the document's load
+  // event does not wait for one: it fires while the island is still fetching
+  // React, leaving a window in which the whole pattern is on screen with nothing
+  // listening to it. The behaviour module imports no framework and the markup is
+  // server-rendered, so the pattern does not have to wait for React at all.
+  //
+  // Adopted if it is somehow already wired rather than initialised blind:
+  // initialising a sheet that already has an instance throws, and a throw here
+  // would abort this script with none of the hooks published.
+  const sheet = document.querySelector('[data-tz-sheet]')
+  const thumbzone =
+    liveThumbzone(sheet) ??
+    initThumbzone({
+      sheet,
+      trigger: document.querySelector('[data-tz-trigger]'),
+      scrim: document.querySelector('[data-tz-scrim]'),
+      menu: document.querySelector('[data-tz-menu]'),
+      inertRoot: document.querySelector('[data-tz-app]'),
+    })
+
+  // @ts-expect-error — deliberate test hook, not part of the page's own contract.
+  window.__thumbzone = thumbzone
+  // @ts-expect-error — deliberate test hook, not part of the page's own contract.
+  window.__initThumbzone = initThumbzone
+  // Resolves from the component's own effect, the only thing guaranteed to run
+  // after the commit. Everything that reorders the menu after load waits here.
+  // @ts-expect-error — deliberate test hook, not part of the page's own contract.
+  window.__thumbzoneReady = whenMounted()
+</script>
