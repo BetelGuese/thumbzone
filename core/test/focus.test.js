@@ -10,14 +10,18 @@ const randIndexWithin = (length) => Math.floor(rand(0, length))
 
 describe('nextFocusIndex', () => {
   it('steps forward through the sequence', () => {
-    const length = randLength()
+    // At least 3, not the usual 2-11: a ±1 step mod 2 can't tell a forward
+    // step from a backward one, which would let a sign inversion in the
+    // ternary below slip past this test undetected.
+    const length = Math.floor(rand(3, 12))
     // Anywhere but the last, where the wrap takes over instead.
     const currentIndex = Math.floor(rand(0, length - 1))
     expect(nextFocusIndex(currentIndex, length, false)).toBe(currentIndex + 1)
   })
 
   it('steps backward through the sequence', () => {
-    const length = randLength()
+    // At least 3, for the same reason as the forward step above.
+    const length = Math.floor(rand(3, 12))
     // Anywhere but the first, for the same reason.
     const currentIndex = Math.floor(rand(1, length))
     expect(nextFocusIndex(currentIndex, length, true)).toBe(currentIndex - 1)
@@ -38,9 +42,11 @@ describe('nextFocusIndex', () => {
 
   // Focus sitting outside the sequence entirely — on the sheet's own
   // tabindex="-1" fallback, typically, right after it opened onto an empty
-  // menu. Feeding -1 into the wrap arithmetic instead would land a forward Tab
-  // one element short and a backward one two, so this branch is stated rather
-  // than derived.
+  // menu. Feeding -1 into the wrap arithmetic instead already gives the right
+  // answer going forward (0), so the branch changes nothing there; going
+  // backward it gives `length - 2`, one short of the last element, which is
+  // the one direction this branch is load-bearing for. Stated rather than
+  // derived because of that asymmetry.
   it('enters at the first element when focus is outside the sequence', () => {
     expect(nextFocusIndex(-1, randLength(), false)).toBe(0)
   })
