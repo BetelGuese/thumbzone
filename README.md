@@ -37,7 +37,7 @@ system without looking foreign in any of them.
 | Tailwind CSS, Bootstrap 5, shadcn/ui | planned |
 | Chakra UI, Ant Design, Mantine, Radix/Ark, Bulma, Vuetify, Quasar, Ionic | planned |
 
-Each is held to 128 conformance instances — the same groups, across two mobile
+Each is held to 130 conformance instances — the same groups, across two mobile
 device profiles, against materially different implementations. Six of them per
 system drive real touch through Chromium's debug protocol and report as skipped
 on WebKit. There is no showcase site yet; the demo routes below run locally.
