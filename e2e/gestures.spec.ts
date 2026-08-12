@@ -209,8 +209,12 @@ describeForEachSystem('gestures', (system) => {
     }, customTransform)
 
     await reinitThumbzone(page)
-    // Guards the premise itself: the gesture layer must capture the inline
-    // value at that init call, and nothing since must have touched it.
+    // Guards the premise itself: the behaviour layer must capture the inline
+    // value at that init call, and nothing since must have touched it. The
+    // capture belongs to the lifecycle rather than to the gesture engine
+    // beside it — a drag clears the transform to '' on release, handing the
+    // settle back to the stylesheet, so only the lifecycle is in a position
+    // to know what was there before any of that started.
     const transformAtInit = await page.locator('[data-tz-sheet]').evaluate((el) => (el as HTMLElement).style.transform)
     expect(transformAtInit, 'setup did not leave the expected pre-init inline transform in place').toBe(customTransform)
 
