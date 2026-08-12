@@ -14,10 +14,11 @@ import {
   createVelocityTracker,
 } from '../../../core/index.js'
 
-// scroll.js and gestures.js exist only as internal splits of this module. Every
-// value shared across design systems lives in core/index.js and is imported
-// from there by name, here and in every port alike — this module re-exports
-// none of them. Importing a shared constant "from vanilla" would work and be
+// gestures.js exists only as an internal split of this module; scroll-aware
+// tucking now lives in core/scroll.js, shared by every port. Every value
+// shared across design systems lives in core/index.js and is imported from
+// there by name, here and in every port alike — this module re-exports none
+// of them. Importing a shared constant "from vanilla" would work and be
 // wrong: it reads as though the reference implementation owns the contract,
 // which is the habit `core/` exists to break. What this file does export is
 // only what is genuinely the reference implementation's own.

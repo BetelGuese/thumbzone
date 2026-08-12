@@ -1,8 +1,8 @@
 /**
  * The behaviour half of the Material UI port: opening, closing, focus, `inert`,
- * the thumb-first menu order and teardown, with the gesture engine and the
- * scroll-aware tucking in `gestures.ts` and `scroll.ts` beside it — split out the
- * way the reference splits its own, and wired from here.
+ * the thumb-first menu order and teardown, with the gesture engine in
+ * `gestures.ts` beside it — split out the way the reference splits its own —
+ * and the scroll-aware tucking shared from `core/scroll.js`, wired from here.
  *
  * It imports no framework, deliberately — see `useThumbzone` for the React
  * binding that mounts it. Framework-*agnostic* it is not: it knows what
