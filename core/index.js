@@ -3,10 +3,14 @@
  * and dismiss maths, the velocity window, scroll-direction tracking, and the
  * values the conformance suite holds every port to.
  *
- * Nothing here touches the DOM. A port supplies its own markup, ARIA lifecycle
- * and styling using its own system's components, and drives these functions
- * from its own pointer handling — which is why the gesture *feel* is identical
- * across systems without any port reimplementing the arithmetic.
+ * Nothing here touches the DOM, which is what lets it be unit-tested without a
+ * browser and what keeps it separate from `behaviour.js`, `gestures.js` and
+ * `scroll.js` — those share the ARIA lifecycle and the pointer handling, and
+ * import these values rather than restating them. A port supplies its own
+ * markup and styling using its own system's components, its framework binding
+ * and hydration strategy, and drives the behaviour — which is why the gesture
+ * *feel* is identical across systems without any port reimplementing the
+ * arithmetic.
  *
  * The reference implementation's own exact motion values deliberately stay with
  * it rather than moving here: ports are held to the bounds in

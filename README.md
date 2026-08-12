@@ -37,9 +37,10 @@ system without looking foreign in any of them.
 | Tailwind CSS, Bootstrap 5, shadcn/ui | planned |
 | Chakra UI, Ant Design, Mantine, Radix/Ark, Bulma, Vuetify, Quasar, Ionic | planned |
 
-Each runs 124 conformance instances — the same groups, across two mobile device
-profiles, against materially different implementations. There is no showcase site
-yet; the demo routes below run locally.
+Each is held to 128 conformance instances — the same groups, across two mobile
+device profiles, against materially different implementations. Six of them per
+system drive real touch through Chromium's debug protocol and report as skipped
+on WebKit. There is no showcase site yet; the demo routes below run locally.
 
 ## What the first port changed
 
@@ -151,12 +152,14 @@ system's own components and tokens so it looks native there, add a demo route,
 add one entry to `systems/registry.ts`, and run the suite. Use the target
 system's own sheet or drawer primitive — most already have one.
 
-Import the gesture maths and the tuned thresholds from `core/`; every port and the
-reference implementation do. What a port reimplements is the part that is genuinely
-its own: the markup, the styling, the ARIA lifecycle, and — if the system hydrates
-— the strategy for wiring the pattern before the page finishes loading. That split
-is why the gesture *feel* is identical across systems without anyone copying the
-arithmetic.
+The behaviour comes from `core/`, and a port drives it rather than rewriting it:
+the open/close lifecycle, the focus trap, the pointer state machine, the
+thumb-first reorder and the teardown, on top of the gesture maths and the tuned
+thresholds. What a port writes is the part that is genuinely its own: the markup,
+the styling, and — if the system hydrates — the strategy for wiring the pattern
+before the page finishes loading. That split is why the gesture *feel* is
+identical across systems without anyone copying the arithmetic, and why no port
+has to get a focus trap right on its own.
 
 ## Licence
 
