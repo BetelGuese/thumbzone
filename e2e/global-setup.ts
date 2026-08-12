@@ -66,13 +66,49 @@ async function visitEveryRoute(page: Page): Promise<void> {
     for (const route of [system.route, system.overflowRoute]) {
       if (route === undefined) continue
 
-      const response = await page.goto(route, { waitUntil: 'load' })
+      const response = await gotoAbsorbingReloads(page, route)
       // A route that does not resolve warms nothing, and would otherwise leave
       // this file quietly doing no work at all while the suite went back to
       // failing intermittently somewhere else entirely.
       if (response !== null && !response.ok()) {
         throw new Error(`Cannot warm ${route}: the dev server answered ${response.status()}.`)
       }
+    }
+  }
+}
+
+/**
+ * How many times a warm-up navigation may be restarted by an HMR reload before
+ * we stop treating it as the pre-bundler settling and call it a real failure.
+ *
+ * One reload per route is the case this exists for. Two allows for a route whose
+ * own reload uncovers a further discovery. Beyond that, something is reloading
+ * for a reason this file does not understand, and looping would hide it.
+ */
+const MAX_INTERRUPTING_RELOADS = 3
+
+/**
+ * Navigates to a route, treating an HMR reload that interrupts the navigation as
+ * the thing being waited for rather than as an error.
+ *
+ * The reload this file exists to absorb is provoked *by* the navigation that
+ * discovers a new dependency, so it can land while that very navigation is still
+ * in flight. Playwright reports that as the destination being "interrupted by
+ * another navigation" and rejects — the reload has done its job, and the `goto`
+ * dies of it anyway. Retrying is the whole point: the next attempt is the one
+ * that finds nothing left to pre-bundle.
+ *
+ * Only that one message is retried. Any other navigation failure is a genuine
+ * problem with the route, and swallowing it here would leave the suite warming
+ * nothing while reporting success.
+ */
+async function gotoAbsorbingReloads(page: Page, route: string) {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await page.goto(route, { waitUntil: 'load' })
+    } catch (error) {
+      const interrupted = error instanceof Error && error.message.includes('interrupted by another navigation')
+      if (!interrupted || attempt >= MAX_INTERRUPTING_RELOADS) throw error
     }
   }
 }
