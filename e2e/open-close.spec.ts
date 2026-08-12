@@ -203,6 +203,39 @@ describeForEachSystem('open and close', (system) => {
     await expect(scrim).toHaveAttribute('hidden')
   })
 
+  // The sheet is focusable only as the fallback an empty menu needs, so the
+  // pattern gives it tabindex="-1" at init. A port may also author that same
+  // value in its own markup — a hydrating one has to, since the served markup
+  // is what it must match — and teardown has to tell those two cases apart:
+  // what the pattern added is its own to remove, what the markup authored is
+  // not. Restoring the authored value rather than stripping the attribute is
+  // what makes "destroy() restores the pre-init DOM exactly" true for a port
+  // that authors one.
+  //
+  // Deliberately authored as "0" rather than the "-1" the pattern itself uses:
+  // a distinct value is what separates "handed the authored value back" from
+  // "re-added the pattern's own default", which restoring "-1" could not.
+  test('destroy() restores an authored tabindex on the sheet', async ({ page }) => {
+    await page.goto(system.route)
+    const sheet = page.locator('[data-tz-sheet]')
+
+    await destroyThumbzone(page)
+    await page.evaluate(() => {
+      document.querySelector('[data-tz-sheet]')!.setAttribute('tabindex', '0')
+    })
+
+    await reinitThumbzone(page)
+    // Guards the premise, as the hidden test above does: initialisation has to
+    // have taken the attribute over for its restoration to mean anything.
+    // Without this, an instance that simply never touched tabindex would pass
+    // the assertion below having proven nothing.
+    await expect(sheet).toHaveAttribute('tabindex', '-1')
+
+    await destroyThumbzone(page)
+
+    await expect(sheet).toHaveAttribute('tabindex', '0')
+  })
+
   // Every other test here interacts as soon as the DOM is there, which is the
   // right default — the pattern is supposed to work that early. But a port whose
   // demo route wires the sheet before a framework mounts over the same markup has
