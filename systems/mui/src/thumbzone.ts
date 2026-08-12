@@ -45,7 +45,7 @@
 // below, which are the only places that drive it.
 import { FALLBACK_TRIGGER_LABEL_CLOSED, FALLBACK_TRIGGER_LABEL_OPEN, FOCUSABLE } from '../../../core/index.js'
 import { attachGestures } from './gestures'
-import { attachScrollAwareness } from './scroll'
+import { attachScrollAwareness } from '../../../core/scroll.js'
 
 /**
  * The elements an instance is wired over, as the contract's `__initThumbzone`

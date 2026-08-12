@@ -4,7 +4,7 @@
  */
 
 import { attachGestures } from './gestures.js'
-import { attachScrollAwareness } from './scroll.js'
+import { attachScrollAwareness } from '../../../core/scroll.js'
 import {
   FALLBACK_TRIGGER_LABEL_CLOSED,
   FALLBACK_TRIGGER_LABEL_OPEN,
