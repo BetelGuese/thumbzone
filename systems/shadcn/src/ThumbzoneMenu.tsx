@@ -179,7 +179,16 @@ export default function ThumbzoneMenu({
           aria-hidden="true"
           className={cn(
             'mx-auto flex w-full shrink-0 cursor-grab items-center justify-center',
-            'touch-none',
+            // Explicit and static, not inherited: an ancestor's touch-action
+            // does not change this element's own computed value, which is what
+            // a pan starting on the handle is arbitrated against. pinch-zoom
+            // rather than none — the contract sanctions `none` here, since the
+            // handle genuinely needs to own the gesture and the impairment is
+            // confined to one 48px control, but refusing the vertical pan is
+            // all that ownership requires. A pinch landing on a real control
+            // still zooms the page (WCAG 1.4.4), which is what both shipped
+            // ports do and the side to err on.
+            'touch-pinch-zoom',
             '[[data-tz-dragging=true]_&]:cursor-grabbing',
           )}
           // The whole drag target clears the pattern's minimum, not just the
@@ -270,7 +279,11 @@ export default function ThumbzoneMenu({
           // The trigger scrolls nothing, so this can be static: without it a
           // real swipe-to-open is read as an attempt to pan the page and the
           // pointer stream is cancelled before the gesture completes.
-          'touch-none',
+          // pinch-zoom rather than none — refusing the vertical pan is all the
+          // swipe needs, and a 56px control is a real thing to zoom over
+          // (WCAG 1.4.4). The suite asserts nothing here either way, which is
+          // why it follows both shipped ports rather than the looser reading.
+          'touch-pinch-zoom',
           'motion-reduce:transition-none',
         )}
       >

@@ -13,6 +13,32 @@ const items = ['Home', 'Search', 'Library', 'Profile', 'Settings']
   <ThumbzoneMenu items={items} client:load />
 </DemoLayout>
 
+<style>
+  /* Restores the demo page's own prose spacing, which Tailwind's preflight
+     removes along with every other user-agent default.
+
+     Not cosmetic. The other four demo routes get the UA's block margins on this
+     same content, and that is what makes the page under the sheet a genuinely
+     scrollable one: with the margins gone, the identical 40 paragraphs run 456px
+     shorter and leave the document with less scroll range than a single scroll
+     gesture covers. The trigger's scroll-aware tuck is then unobservable — not
+     because the behaviour is wrong, but because every scroll lands at the end of
+     the document, where the pattern deliberately untucks. Restoring what
+     preflight took is what keeps this fixture equivalent to the reference one.
+
+     Scoped rather than global: it applies to this route's own content and must
+     not reach the port's markup, which styles itself in utilities. */
+  h1 {
+    font-size: 2em;
+    font-weight: bold;
+    margin-block: 0.67em;
+  }
+
+  p {
+    margin-block: 1em;
+  }
+</style>
+
 <script>
   import { whenMounted } from '../../../../systems/shadcn/src/mounted'
   import { initThumbzone, liveThumbzone } from '../../../../systems/shadcn/src/thumbzone'

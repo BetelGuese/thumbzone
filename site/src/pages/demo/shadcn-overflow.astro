@@ -26,6 +26,24 @@ const items = Array.from({ length: 24 }, (_, i) => `Item ${i + 1}`)
   <ThumbzoneMenu items={items} client:load />
 </DemoLayout>
 
+<style>
+  /* The same restoration /demo/shadcn makes, and for the same cause: Tailwind's
+     preflight removes the user-agent defaults this page's prose is written
+     against. Nothing here depends on the document's scroll range — this fixture
+     scrolls inside the menu, not the page — but the two shadcn fixtures render
+     the same demo shell, and only one of them compensating would leave them
+     disagreeing about what that shell looks like. */
+  h1 {
+    font-size: 2em;
+    font-weight: bold;
+    margin-block: 0.67em;
+  }
+
+  p {
+    margin-block: 1em;
+  }
+</style>
+
 <script>
   import { initThumbzone, liveThumbzone } from '../../../../systems/shadcn/src/thumbzone'
 
