@@ -1,8 +1,11 @@
 /**
- * The behaviour half of the Material UI port: opening, closing, focus, `inert`,
- * the thumb-first menu order and teardown, with the gesture engine and the
- * scroll-aware tucking both shared from `core/` (`gestures.js` and
- * `scroll.js`), wired from here.
+ * The Material UI port's adapter onto `core/behaviour.js`, which is where the
+ * behaviour itself lives: opening, closing, focus, `inert`, the thumb-first
+ * menu order and teardown are shared with every other system. What is left here
+ * is what only this port can do — validating the elements it is handed, getting
+ * Emotion's server-rendered `<style>` elements out of the pattern's markup
+ * before anything reads it, and the ownership registry that lets a late mount
+ * adopt an instance already running.
  *
  * It imports no framework, deliberately — see `useThumbzone` for the React
  * binding that mounts it. Framework-*agnostic* it is not: it knows what
@@ -15,37 +18,32 @@
  * a focus trap, Escape-to-close, a backdrop, return-focus — all belong to
  * `Modal`, not to `Drawer`, and the contract rules the `Modal`-backed temporary
  * variant out (see `ThumbzoneMenu` for why). What is left is a `Paper` rendered
- * in place, so the trap, the key handling and the focus round trip are the
- * port's own. MUI still owns everything it can: the components, the theme, the
- * motion tokens, and the `Fab` that is a real `<button>` for the trigger to be.
+ * in place, and what MUI does not supply there the shared behaviour does: the
+ * trap, the key handling and the focus round trip are `core/behaviour.js`'s.
+ * MUI still owns everything it can: the components, the theme, the motion
+ * tokens, and the `Fab` that is a real `<button>` for the trigger to be.
  *
  * Importing no framework is what lets the pattern be live before the
  * island's framework has finished downloading: the sheet's markup is
  * server-rendered, so a page can wire it from a module script during load and
- * the component adopts that instance on mount. It is also why the state lives in
- * the DOM rather than in React state, and is written with
- * `setAttribute`/`dataset` rather than by re-rendering:
+ * the component adopts that instance on mount. It is also why the pattern's
+ * state lives in the DOM rather than in React state, and why this port authors
+ * the contract attributes in its markup as literals rather than driving them
+ * from a render:
  *
- * - `destroy()` has to hand back the DOM as the markup authored it, and be
- *   followed by an initialiser running over *whatever is there now* —
- *   consumers and the conformance suite alike edit that DOM while no instance
- *   exists (an attribute added, a node inserted between menu items). A render
- *   driven from props would overwrite those edits on its next commit; a render
- *   driven from state could not see them at all.
+ * - The shared behaviour's `destroy()` has to hand back the DOM as the markup
+ *   authored it, and be followed by an initialiser running over *whatever is
+ *   there now* — consumers and the conformance suite alike edit that DOM while
+ *   no instance exists (an attribute added, a node inserted between menu
+ *   items). A render driven from props would overwrite those edits on its next
+ *   commit; a render driven from state could not see them at all.
  * - React only touches an attribute whose prop actually changed between
- *   renders. The contract attributes are authored once, as literals, and never
- *   move back into props — so an unrelated re-render (a ripple, a focus ring)
- *   leaves the pattern's writes alone.
+ *   renders. Keeping the contract attributes as literals, never back in props,
+ *   is what makes that guarantee usable here — an unrelated re-render (a
+ *   ripple, a focus ring) then leaves the shared behaviour's writes alone.
  */
 
-// The one definition of "focusable" that the pattern, every other port and the
-// conformance suite all share, so the trap cannot drift from what the suite
-// walks. Everything else this port takes from core — the drag maths, the velocity
-// window, the swipe distance, the scroll tracker — is imported by the two modules
-// below, which are the only places that drive it.
-import { FALLBACK_TRIGGER_LABEL_CLOSED, FALLBACK_TRIGGER_LABEL_OPEN, FOCUSABLE } from '../../../core/index.js'
-import { attachGestures } from '../../../core/gestures.js'
-import { attachScrollAwareness } from '../../../core/scroll.js'
+import { createThumbzoneBehaviour } from '../../../core/behaviour.js'
 
 /**
  * The elements an instance is wired over, as the contract's `__initThumbzone`
@@ -142,12 +140,6 @@ function hoistServerRenderedStyles(roots: HTMLElement[]): void {
   }
 }
 
-function focusableWithin(root: HTMLElement): HTMLElement[] {
-  return Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
-    (element) => element.offsetParent !== null || element === document.activeElement,
-  )
-}
-
 /**
  * The live instance per sheet, if any.
  *
@@ -202,7 +194,8 @@ export function hasThumbzoneOwner(sheet: Element | null): boolean {
  * @throws {Error} If this sheet already has a live instance.
  */
 export function initThumbzone(refs: ThumbzoneRefs): ThumbzoneHandle {
-  const { trigger, sheet, scrim, menu, inertRoot } = requireElements(refs)
+  const elements = requireElements(refs)
+  const { sheet } = elements
 
   if (liveInstances.has(sheet)) {
     throw new Error(
@@ -210,223 +203,28 @@ export function initThumbzone(refs: ThumbzoneRefs): ThumbzoneHandle {
     )
   }
 
-  // Before anything reads the markup, including the authored state below.
-  hoistServerRenderedStyles([sheet, scrim, trigger])
+  // Before anything reads the markup, the shared behaviour's own capture of the
+  // authored state included: the hoist moves real elements out of the menu and
+  // out of the first item's anchor, and the pattern must not see them there.
+  hoistServerRenderedStyles([sheet, elements.scrim, elements.trigger])
 
-  // Read before anything below writes, so destroy() hands back what the markup
-  // itself authored rather than this module's defaults. `hidden` is stripped on
-  // every state change — a sheet that is display: none has nothing for the open
-  // transition to animate and makes `inert` decorative — but a consumer who
-  // authored it as a no-JS default still gets it back at teardown. The inline
-  // transform is captured for the same reason: it is the channel a drag tracks
-  // the finger through, so clearing it at teardown would silently discard a
-  // value the markup put there.
-  const authoredTriggerLabel = trigger.getAttribute('aria-label')
-  const authoredSheetTabIndex = sheet.getAttribute('tabindex')
-  const authoredSheetHidden = sheet.hasAttribute('hidden')
-  const authoredScrimHidden = scrim.hasAttribute('hidden')
-  const authoredSheetTransform = sheet.style.transform
+  const behaviour = createThumbzoneBehaviour(elements)
 
-  let isOpen = false
+  // Idempotent, because two owners can each hold this handle: the component
+  // tears the instance down when it unmounts, and a test may already have
+  // destroyed it through the published hook. The shared behaviour's own
+  // destroy() undoes init-time DOM mutations, and undoing one twice would put
+  // it back — so the latch belongs here, with the adoption design that creates
+  // the second owner, rather than in behaviour shared with ports that have one.
   let destroyed = false
 
-  function setOpen(next: boolean): void {
-    isOpen = next
-    sheet.toggleAttribute('hidden', false)
-    scrim.toggleAttribute('hidden', false)
-    sheet.dataset.tzOpen = String(next)
-    scrim.dataset.tzOpen = String(next)
-    trigger.setAttribute('aria-expanded', String(next))
-    // Only ever names an unnamed trigger. A port or a consumer names it in its
-    // own words and language ("Browse menu", "Menü"), and overwriting that with
-    // an English string on every state change loses it silently — while saying
-    // nothing that `aria-expanded` above has not already said.
-    if (authoredTriggerLabel === null) {
-      trigger.setAttribute('aria-label', next ? FALLBACK_TRIGGER_LABEL_OPEN : FALLBACK_TRIGGER_LABEL_CLOSED)
-    }
-    inertRoot.toggleAttribute('inert', next)
-    // The mirror of the line above. A closed sheet stays fully rendered — only
-    // translated out of view, so the open transition has something to animate —
-    // which means it has to be taken out of the tab order and the accessibility
-    // tree itself, or its links stay reachable by keyboard and screen-reader
-    // users while the sheet looks shut. `inert` does that without the
-    // `hidden`/`display: none` that would also kill the transition.
-    sheet.toggleAttribute('inert', !next)
-  }
-
-  function open(): void {
-    if (isOpen) return
-    setOpen(true)
-    // The trigger and an open sheet never compete for the thumb's reach at
-    // once: tucking only means anything while the sheet is off-screen and the
-    // trigger is what the thumb has to find.
-    scrollAwareness.clearTucked()
-    // Focused after `inert` came off above: an inert subtree refuses
-    // programmatic focus too, so the order here is load-bearing rather than
-    // stylistic. The sheet itself is the fallback for a menu with nothing
-    // focusable in it, which is what its tabindex="-1" is for.
-    const [first] = focusableWithin(sheet)
-    ;(first ?? sheet).focus()
-  }
-
-  function close(): void {
-    if (!isOpen) return
-    setOpen(false)
-    // Every close path lands here — trigger, scrim, Escape — so returning focus
-    // once, at the bottom of the funnel, is what makes that promise hold for all
-    // three rather than for whichever one was remembered.
-    trigger.focus()
-  }
-
-  // Before anything that can reach open() — the gesture listeners below, the
-  // click handler, the published handle. open() clears the tucked state through
-  // this binding, so a swipe arriving while it was still uninitialised would
-  // throw on the temporal dead zone rather than open the sheet. `isOpen` is
-  // passed as a closure precisely so that this ordering constraint runs one way
-  // only: the tracker reads the flag when a scroll happens, never at attach
-  // time, so it does not care what is or is not initialised here yet.
-  const scrollAwareness = attachScrollAwareness({ trigger, isOpen: () => isOpen })
-
-  const gestures = attachGestures({ sheet, trigger, menu, open, close })
-
-  function onTriggerClick(): void {
-    // A recognised swipe-open has already opened the sheet, and the browser
-    // synthesizes a 'click' from that same gesture — treated as a fresh tap it
-    // would toggle the sheet straight back shut a moment after opening it.
-    if (gestures.consumeSwipeClick()) return
-    if (isOpen) close()
-    else open()
-  }
-
-  function onScrimClick(): void {
-    close()
-  }
-
-  function onKeydown(event: KeyboardEvent): void {
-    if (!isOpen) return
-
-    if (event.key === 'Escape') {
-      event.preventDefault()
-      close()
-      return
-    }
-    if (event.key !== 'Tab') return
-
-    const focusable = focusableWithin(sheet)
-    if (focusable.length === 0) {
-      event.preventDefault()
-      return
-    }
-    // Every Tab is answered here, not just the two at the ends of the list.
-    // Catching only the boundary and letting the browser walk the middle looks
-    // equivalent and is not: WebKit leaves a plain `<a href>` out of its native
-    // tab sequence entirely unless Full Keyboard Access is on, so a mid-list
-    // press would step out of the sheet there while passing everywhere else.
-    // Owning every step keeps the trap correct on every engine, and keeps the
-    // order it walks identical to the DOM order the sheet renders in.
-    event.preventDefault()
-    const currentIndex = focusable.indexOf(document.activeElement as HTMLElement)
-    // indexOf is -1 whenever focus sits on something outside the list — the
-    // sheet's own tabindex="-1" fallback, say. Treated as "just before the
-    // sequence", because feeding -1 into the wrap arithmetic would land a
-    // forward Tab one element short and a backward one two.
-    const nextIndex =
-      currentIndex === -1
-        ? event.shiftKey
-          ? focusable.length - 1
-          : 0
-        : (currentIndex + (event.shiftKey ? -1 : 1) + focusable.length) % focusable.length
-    focusable[nextIndex].focus()
-  }
-
-  trigger.addEventListener('click', onTriggerClick)
-  scrim.addEventListener('click', onScrimClick)
-  // On the document rather than the sheet: Escape has to work with focus
-  // anywhere, including on <body> after something focused was removed.
-  document.addEventListener('keydown', onKeydown)
-
-  // Focusable only as the fallback an empty menu needs, and never a stop in the
-  // tab sequence itself. Authored in the markup as well as set here: the markup
-  // is what a page hydrating this port has to match, and the pattern still sets
-  // it so that markup which authored none is not left without the fallback.
-  sheet.setAttribute('tabindex', '-1')
-  setOpen(false)
-
-  // Authors list the menu most-used-first, and the most-used item has to land
-  // nearest the thumb — at the bottom of the list, which in DOM terms is last.
-  //
-  // Reordered in the DOM rather than repainted with `flex-direction:
-  // column-reverse`, because the focus order has to track the visual order
-  // (WCAG 1.3.2): the trap above walks this same DOM order, so a CSS-only
-  // reversal would tab through the menu bottom-to-top against what is on screen.
-  //
-  // append(), not replaceChildren(): every node passed is already a child of the
-  // menu, so this moves them into their new order in place rather than emptying
-  // the menu first — which would silently drop any non-element node (whitespace,
-  // a comment) a hand-authored consumer left between the items, with nothing for
-  // destroy() to hand back. `children` for the same reason: only the elements are
-  // moved, so anything else stays exactly where the markup put it.
-  //
-  // MUI renders the menu as a plain `<ul>` of `<li>` items, and the drag handle
-  // is authored as the menu's *sibling* inside the sheet, so this touches
-  // nothing but the items. Emotion's server-rendered `<style>` elements do land
-  // among them, which is why hoistServerRenderedStyles above runs first.
-  const reordersMenu = menu.dataset.tzOrder !== 'dom'
-  if (reordersMenu) menu.append(...Array.from(menu.children).reverse())
-
   const handle: ThumbzoneHandle = {
-    open,
-    close,
+    open: behaviour.open,
+    close: behaviour.close,
     destroy() {
-      // Idempotent, because two owners can each hold this handle: the component
-      // tears the instance down when it unmounts, and a test may already have
-      // destroyed it through the published hook. Undoing an init-time DOM
-      // mutation twice would put it back rather than leave it undone.
       if (destroyed) return
       destroyed = true
-
-      // Closed first. destroy() can arrive while the sheet is open, and without
-      // this the whole app would be left permanently inert with every listener
-      // that could have recovered it already gone. It also puts the sheet,
-      // scrim and trigger back to the same closed values the markup authors, so
-      // a destroyed instance and a never-initialised page look alike.
-      const wasOpen = isOpen
-      setOpen(false)
-      // setOpen leaves focus where it was — on a menu link that has just become
-      // inert, which blurs to <body> with nothing to move it on. Tearing down
-      // from an open state hands focus back to the trigger like a normal close,
-      // or a keyboard user loses their place entirely.
-      if (wasOpen) trigger.focus()
-
-      trigger.removeEventListener('click', onTriggerClick)
-      scrim.removeEventListener('click', onScrimClick)
-      document.removeEventListener('keydown', onKeydown)
-      // Each of these releases a pointer capture or a tucked attribute of its
-      // own, so neither a drag nor a tuck in flight at teardown survives it.
-      gestures.detach()
-      scrollAwareness.detach()
-      scrollAwareness.clearTucked()
-      // The reorder has no CSS counterpart to defer to, so it is undone by the
-      // same in-place move that applied it.
-      if (reordersMenu) menu.append(...Array.from(menu.children).reverse())
-
-      if (authoredSheetTabIndex === null) sheet.removeAttribute('tabindex')
-      else sheet.setAttribute('tabindex', authoredSheetTabIndex)
-      // The same shape for the fallback name: it only ever exists where the
-      // markup authored none, so restoring means removing it — and an authored
-      // name needs no restoring, because nothing overwrote it.
-      if (authoredTriggerLabel === null) trigger.removeAttribute('aria-label')
-      // Whatever the markup had inline, back verbatim. The empty string is the
-      // honest restoration of "nothing inline": assigning it drops the
-      // declaration rather than leaving `transform: ;` behind, so a sheet that
-      // was never dragged ends up with the class-declared transform back in
-      // charge.
-      sheet.style.transform = authoredSheetTransform
-      // setOpen has just stripped `hidden` again on its way out, so these come
-      // last.
-      sheet.toggleAttribute('hidden', authoredSheetHidden)
-      scrim.toggleAttribute('hidden', authoredScrimHidden)
-
+      behaviour.destroy()
       liveInstances.delete(sheet)
     },
   }
