@@ -105,6 +105,44 @@ motion, and so does this pattern. Two owners of one lifecycle cannot be made to
 work, so that is now written down as the expected shape of a port rather than a
 surprise each porter meets alone.
 
+## What the third port established
+
+Tailwind CSS is the first port written in utility classes rather than
+components, which made it the first that could test whether this contract's
+CSS is expressible in utilities at all. Almost all of it is — three
+requirements need something else, and each follows from how a utility-first
+system works rather than from Tailwind's own vocabulary.
+
+- **The breakpoint is not the framework's.** Core's own breakpoint is 768px;
+  Tailwind states its own `md` breakpoint in its theme as 48rem — a different
+  unit, resolved against the root font size, and free to move on a major
+  release. The two agree today, but a port leaning on that variant would drift
+  silently the moment either constant changed. The port declares its own
+  `@custom-variant desktop (@media (min-width: 768px));` instead, so the
+  breakpoint stays the contract's rather than the framework's.
+- **A length two elements must agree on.** The trigger floats above the open
+  sheet, and the sheet has to reserve the trigger's own footprint or the
+  menu's last row ends up underneath it. A utility class carries a *value*,
+  not a reference to another element's, and a class name assembled from a
+  shared constant is never scanned at all — custom properties, read by both
+  elements, are the answer.
+- **A value that lives in JavaScript.** `MIN_HIT_TARGET` sizes the handle, and
+  for the same scanning reason it cannot be a class either — it is an inline
+  style.
+
+A utility-first system also compiles your comments. Two comments in this port
+named classes in bracket shorthand, and the scanner — which reads raw file
+text and has no concept of a comment — turned them into real rules with
+meaningless values. Both are gone; no such rule survives in any bundle.
+
+Two Tailwind entries in one repository cross-pollinate. Each scans the whole
+repository and compiles every candidate valid under its own theme, so this
+port's stock utilities appear in shadcn/ui's bundle and shadcn's appear in
+this one — measured, shadcn's bundle is 17216 bytes with this port absent and
+19639 with it present. It is inert: nothing on the other route carries those
+classes. It does not touch the isolation that matters — vanilla and Material
+UI import no Tailwind stylesheet at all.
+
 ## The pattern
 
 A trigger fixed at the bottom centre opens a sheet that rises from the bottom
@@ -188,9 +226,9 @@ npm run typecheck
 See [CONTRIBUTING.md](CONTRIBUTING.md). In short: build it with the target
 system's own components and tokens so it looks native there, add a demo route,
 add one entry to `systems/registry.ts`, and run the suite. Expect to reach past
-the system's own sheet or drawer primitive rather than build on it — both ports
-built on a system that has one did, and CONTRIBUTING.md explains why that is the
-normal outcome.
+the system's own sheet or drawer primitive rather than build on it — both
+design systems shipping a drawer of their own have forced their port to reach
+past it, and CONTRIBUTING.md explains why that is the normal outcome.
 
 The behaviour comes from `core/`, and a port drives it rather than rewriting it:
 the open/close lifecycle, the focus trap, the pointer state machine, the
