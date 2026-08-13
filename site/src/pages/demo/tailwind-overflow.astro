@@ -1,0 +1,61 @@
+---
+import DemoLayout from '../../layouts/DemoLayout.astro'
+import ThumbzoneMenu from '../../../../systems/tailwind/src/ThumbzoneMenu.astro'
+import '../../../../systems/tailwind/src/styles.css'
+
+// A dedicated fixture, not a query-param variant of /demo/tailwind: this
+// project builds to a static site, so a query-param-gated item list would only
+// ever render its overflowing branch under the dev server, never in a real
+// build or preview. A separate route works identically in all three, exactly as
+// vanilla-overflow.astro does for the reference implementation.
+//
+// Twenty items comfortably overflows the sheet on both device profiles. Each
+// row is floored at the contract's 48px minimum by the port's own styling, so
+// the list alone runs past 960px, against a budget the sheet's own 85dvh has
+// already reduced by the handle's height and the trigger's reserved clearance.
+const items = Array.from({ length: 20 }, (_, i) => `Item ${i + 1}`)
+---
+<DemoLayout system="tailwind">
+  <main data-tz-app>
+    <h1>thumbzone — Tailwind CSS (overflowing menu)</h1>
+    <p>Fixture for testing touch scrolling inside a menu taller than the sheet.</p>
+  </main>
+  <ThumbzoneMenu items={items} />
+</DemoLayout>
+
+<style>
+  /* The same restoration /demo/tailwind makes, and for the same cause:
+     Tailwind's preflight removes the user-agent defaults this page's prose is
+     written against. Nothing here depends on the document's scroll range — this
+     fixture scrolls inside the menu, not the page — but the two tailwind
+     fixtures render the same demo shell, and only one of them compensating
+     would leave them disagreeing about what that shell looks like. */
+  h1 {
+    font-size: 2em;
+    font-weight: bold;
+    margin-block: 0.67em;
+  }
+
+  p {
+    margin-block: 1em;
+  }
+</style>
+
+<script>
+  import { initThumbzone } from '../../../../systems/tailwind/src/thumbzone.js'
+
+  initThumbzone({
+    trigger: document.querySelector('[data-tz-trigger]'),
+    sheet: document.querySelector('[data-tz-sheet]'),
+    scrim: document.querySelector('[data-tz-scrim]'),
+    menu: document.querySelector('[data-tz-menu]'),
+    inertRoot: document.querySelector('[data-tz-app]'),
+  })
+
+  // Deliberately none of the contract's three test hooks. All three exist for
+  // reasons that do not apply to this fixture: the overflow tests drive the
+  // sheet entirely through real input — a click, a scroll, a touch — so nothing
+  // here ever reorders the menu after load for a readiness promise to guard,
+  // and there is no imperative API for a test to reach that the DOM's own
+  // attributes do not already expose.
+</script>
