@@ -28,7 +28,7 @@ system without looking foreign in any of them.
 
 ## Status
 
-**Four systems shipped**, all held to the same conformance suite.
+**Five systems shipped**, all held to the same conformance suite.
 
 | Design system | State |
 | --- | --- |
@@ -36,16 +36,16 @@ system without looking foreign in any of them.
 | Material UI | shipped |
 | shadcn/ui | shipped |
 | Tailwind CSS | shipped |
-| Bootstrap 5 | planned |
+| Bootstrap 5 | shipped |
 | Chakra UI, Ant Design, Mantine, Radix/Ark, Bulma, Vuetify, Quasar, Ionic | planned |
 
 Each is held to 130 conformance instances — 65 per mobile device profile, the
 same groups across two of them, against materially different implementations.
 Six of the 130 drive real touch through Chromium's debug protocol and report as
-skipped on WebKit, so 124 have to pass and none may fail: 496 passes across the
-four. A further 24 instances belong to no system — the registry guard, the scan
+skipped on WebKit, so 124 have to pass and none may fail: 620 passes across the
+five. A further 24 instances belong to no system — the registry guard, the scan
 for `vh` where `dvh` is required, the contract predicates — and pass too. The
-whole run is 544 instances: 520 passed, 24 skipped, nothing failed, no retries.
+whole run is 674 instances: 644 passed, 30 skipped, nothing failed, no retries.
 There is no showcase site yet; the demo routes below run locally.
 
 ## What the first port changed
@@ -96,8 +96,9 @@ did. It found two things anyway.
   where the trigger is deliberately untucked. Six failures that read as broken
   tuck logic were a fixture with nothing left to scroll. The Tailwind CSS port
   met the same preflight and restored the spacing in its demo route before its
-  first conformance run; Bootstrap 5's Reboot resets the same margins, so the
-  next port will meet it too.
+  first conformance run. Bootstrap 5 ships Reboot, a different reset, and its
+  fixture did not repeat the hazard: `maxScrollY` measured 902 against
+  vanilla's 700, taller rather than shorter.
 
 Material UI and shadcn/ui both had to reach past their design system's own
 drawer, for the same structural reason: a drawer owns open/close, focus and
@@ -142,6 +143,31 @@ this one — measured, shadcn's bundle is 17216 bytes with this port absent and
 19639 with it present. It is inert: nothing on the other route carries those
 classes. It does not touch the isolation that matters — vanilla and Material
 UI import no Tailwind stylesheet at all.
+
+## What the fourth port settled
+
+Bootstrap 5 is the fourth port, and the first to ship a drawer of its own that
+actively runs rather than merely holding state — its `Offcanvas` constructs a
+backdrop, activates a focus trap, locks body scroll and binds Escape, all
+responsibilities this pattern already owns. It settles a question three ports
+have now answered the same way.
+
+- **A design system's drawer cannot own this gesture, for a third and
+  different reason.** Material UI's problem was an imperative transform and a
+  sibling `aria-hidden`; shadcn's was a hard-coded fling threshold inside an
+  otherwise-faithful gesture library; Bootstrap's is a primitive that runs its
+  own lifecycle in code. Three systems, three different reasons, one
+  outcome — reaching past the drawer is confirmed as the normal shape of a
+  port, not a coincidence of the first two.
+- **Check a primitive's closed state before its open one.** Bootstrap's
+  `Offcanvas` is `visibility: hidden` while closed — the same defect that
+  disqualified Material UI's `Modal` — and it is invisible unless that is the
+  first thing checked rather than the last.
+- **A design system's own defaults can sit under the contract's floor.**
+  Bootstrap's `.nav-link` renders at 40px and its `.btn` at 36px, both under
+  the 48px minimum, and neither the conformance suite nor axe would say why.
+  Raising Bootstrap's own token, `--bs-nav-link-padding-y`, closes the gap
+  without an override: 56px, measured.
 
 ## The pattern
 
@@ -211,9 +237,9 @@ npm install
 npm run dev            # http://localhost:4321
 ```
 
-Demo routes: `/demo/vanilla`, `/demo/mui`, `/demo/shadcn` and `/demo/tailwind`,
-each with an `-overflow` variant carrying a menu taller than the sheet, for
-testing internal scrolling against the drag gesture.
+Demo routes: `/demo/vanilla`, `/demo/mui`, `/demo/shadcn`, `/demo/tailwind` and
+`/demo/bootstrap`, each with an `-overflow` variant carrying a menu taller than
+the sheet, for testing internal scrolling against the drag gesture.
 
 ```bash
 npm test               # unit
@@ -226,9 +252,10 @@ npm run typecheck
 See [CONTRIBUTING.md](CONTRIBUTING.md). In short: build it with the target
 system's own components and tokens so it looks native there, add a demo route,
 add one entry to `systems/registry.ts`, and run the suite. Expect to reach past
-the system's own sheet or drawer primitive rather than build on it — both
-design systems shipping a drawer of their own have forced their port to reach
-past it, and CONTRIBUTING.md explains why that is the normal outcome.
+the system's own sheet or drawer primitive rather than build on it — three
+design systems shipping a drawer of their own have each forced their port to
+reach past it, for three different reasons, and CONTRIBUTING.md explains why
+that is the normal outcome.
 
 The behaviour comes from `core/`, and a port drives it rather than rewriting it:
 the open/close lifecycle, the focus trap, the pointer state machine, the
