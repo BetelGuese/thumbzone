@@ -109,6 +109,9 @@
   padding-block-end: calc(var(--tz-trigger-size) + var(--tz-trigger-gap) + env(safe-area-inset-bottom, 0px));
   border-start-start-radius: var(--bs-border-radius-xl);
   border-start-end-radius: var(--bs-border-radius-xl);
+  /* Vanilla's sheet draws no border here; this one does because Bootstrap's own
+     bottom offcanvas draws exactly this line at exactly this edge, and keeping
+     it is following the system's idiom rather than adding to it. */
   border-top: var(--bs-border-width) solid var(--bs-border-color);
   background-color: var(--bs-body-bg);
   color: var(--bs-body-color);
@@ -143,7 +146,10 @@
      `none` here, since the handle genuinely needs to own the gesture and the
      impairment is confined to one 48px control — but refusing the vertical pan
      is all that ownership requires, and a pinch landing on a real control
-     should still zoom the page. All four shipped ports make the same call. */
+     should still zoom the page. All four shipped ports make the same call.
+     That 48px is the whole interactive region, not just the pill drawn inside
+     it, and is set from MIN_HIT_TARGET as an inline style on the element
+     itself, because a class name here cannot carry a JavaScript constant. */
   touch-action: pinch-zoom;
 }
 
