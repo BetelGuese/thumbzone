@@ -131,6 +131,20 @@ costume rather than a port, so the structure here is written by hand and
 Bootstrap is left to supply only the vocabulary — colour, radius and border
 width, each still read from a `--bs-*` token.
 
+The `vh` guard earlier in this document scans a port's source files, not its
+build output, so it catches what a porter writes and not what a porter
+imports. This port imports Bootstrap's own stylesheet for that vocabulary, and
+the stylesheet carries its own `vh` sizing straight through into the built
+bundle regardless — four declarations reach it, none of them written by this
+port: `--bs-offcanvas-height: 30vh`, `height: 100vh`, `min-height: 100vh`, and
+`max-height: var(--bs-scroll-height, 75vh)`. All four are inert here, because
+this port uses none of the classes that would apply them — no `.offcanvas`, no
+`.vh-100`, no `.min-vh-100` — but the guard has no way to see that, and this is
+the first port where the gap between what it scans and what ships is real
+rather than hypothetical. That is a known limit of reading source rather than
+a defect in the guard: the check that would close it reads the built CSS
+instead, which is what verifying this port did by hand.
+
 Three systems, three primitives, three different reasons, one outcome. The
 lesson worth carrying to the next one: **check a candidate primitive's closed
 state before its open one.** `visibility: hidden` while closed is what
