@@ -68,9 +68,9 @@ the menu is the worked example.
 
 ### Expect to reach past your system's drawer component
 
-Both ports built on a system that ships a drawer of its own had to, for the
-same structural reason, so a porter may as well know it before starting rather
-than halfway through.
+Three ports built on a system that ships a drawer of its own have had to, for
+the same structural reason each time, so a porter may as well know it before
+starting rather than halfway through.
 
 Material UI's temporary `Drawer` could not work: `Slide` writes the transform
 imperatively and occupies the inline style the drag needs, and `Modal` sets
@@ -102,6 +102,42 @@ be paced finely enough to land inside a 0.4–0.5 window — a run targeting
 than the window it needed to sit in. So a Vaul-based port would have passed
 every assertion here while running a retuned feel, and `core/` is the only
 thing standing in its way.
+
+Bootstrap 5's `Offcanvas` is the third case, and it is the strongest of the
+three, because it fails for a different kind of reason. Where MUI's `Drawer`
+and Vaul each merely *hold* state — a transform, an ARIA attribute, a
+hard-coded constant — Bootstrap's is the first primitive here that actively
+*runs*. Opening one constructs a `Backdrop`, activates a `FocusTrap`, calls
+`new ScrollBarHelper().hide()` to lock body scroll, sets `aria-modal`, and
+binds `keydown.dismiss` for Escape: five responsibilities this pattern
+already owns, carried out by code rather than merely represented in markup.
+
+Its CSS conflicts just as hard, in three ways worth checking for in any
+candidate primitive, not only this one. It is `visibility: hidden` while
+closed, made visible only through `.showing`/`.hiding`/`.show` — exactly what
+disqualified MUI's `Modal`, for the same reason: a hidden element makes
+`inert` decorative, since the element was already unreachable, and leaves the
+transition into view with nothing to animate from. It sizes itself in `vh` —
+`30vh` for the panel, `100vh` for the backdrop — against a pattern that
+forbids the unit outright, because iOS Safari's collapsing URL bar resolves
+it to the expanded viewport height and pushes the sheet under the browser's
+own chrome; Bootstrap has no `dvh` anywhere to fall back on. And
+`.offcanvas-bottom` sizes that height as a fixed value rather than a
+content-driven maximum, so it cannot be raised to fit a longer menu without
+also giving up the very thing that makes it fixed.
+
+Overriding all of that while keeping Bootstrap's own class names would be a
+costume rather than a port, so the structure here is written by hand and
+Bootstrap is left to supply only the vocabulary — colour, radius and border
+width, each still read from a `--bs-*` token.
+
+Three systems, three primitives, three different reasons, one outcome. The
+lesson worth carrying to the next one: **check a candidate primitive's closed
+state before its open one.** `visibility: hidden` while closed is what
+disqualified both MUI's `Modal` and Bootstrap's `Offcanvas`, and it is
+invisible if the only state you inspect is the primitive open — which,
+absent this instruction, is usually the only state a porter thinks to look
+at.
 
 The pattern is not being awkward. A design system's drawer owns open/close,
 focus management and motion; this pattern already owns those, and two owners of
@@ -207,6 +243,24 @@ human would call it a comment. It reads this file too — which is why the
 paragraph you are reading names those two classes without their brackets. Write
 a class name in a comment either in full or not in brackets at all.
 
+That framing understated it. The hazard is not particular to a utility-first
+port at all — **any scanner anywhere in the repository compiles any file in
+it**, regardless of which system wrote the file or whether the system doing
+the scanning is itself utility-first. The Bootstrap 5 port ships no scanner of
+its own and touches no Tailwind class deliberately, and it still grew both
+Tailwind bundles: shadcn's from 19639 to 19756 bytes, tailwind's from 18275 to
+18392 — +117 either way. Three selectors cross: `.flex-nowrap`, a class its
+markup genuinely carries; `.flex-wrap`, from a comment explaining why
+Bootstrap's `.nav` needs overriding; and `.border`, from the bare English word
+sitting in prose, nowhere near a bracket or a class attribute. All three are
+dead where they land — nothing on either Tailwind route carries them — but no
+amount of careful writing would have stopped the third one, because `border`
+is not a mistake to correct; it is an ordinary English word that also happens
+to be a utility name. This cannot be fully avoided. The mitigation is knowing
+that a scanner's rules for a file outside its own system are inert, and
+checking that they stay that way, rather than trying to write around every
+word one might recognise.
+
 ### Test hooks the demo route must expose
 
 Three, on `window`. The doc comment on `System.route` in `systems/registry.ts` is
@@ -249,12 +303,18 @@ performs. Every scroll landed at the end of the document, and the first
 conformance run produced six failures that all looked like a broken tuck and
 were none of them in the pattern.
 
-Bootstrap 5 ships Reboot, which resets the same margins, so this will come
-round again. The fix belongs in the demo route's own content: restore the block
-spacing the reset removed, scoped to the route's prose so it cannot reach the
-port's markup, which styles itself. Not in the pattern, and not in the suite. A
-demo route is a fixture as much as a demonstration, and it owes the suite the
-same scrollable range every other route gives it.
+Bootstrap 5 ships Reboot, a global reset too, which made the same hazard look
+likely to recur. It was tested rather than assumed, and the forecast did not
+hold: Bootstrap's fixture measures `maxScrollY` of 902 on an iPhone 14 Pro Max
+and 803 on a Pixel 7, against vanilla's 700 and 601 on the same two devices —
+taller than the reference, not shorter, and comfortably clear of the fixed
+distance the suite scrolls. The reason is one line of difference between the
+two resets: Reboot keeps `p { margin-bottom: 1rem }` where Tailwind's preflight
+zeroes the same rule outright. The finding above is real, and it belongs to
+Tailwind's reset specifically — "any CSS reset" was this document
+over-generalising from one system to a category, and the honest correction is
+to say so rather than carry a forecast the project's own evidence has since
+contradicted.
 
 It already came round again within this same branch, when the Tailwind CSS
 port's own preflight hit its demo route the same way and took the same fix.
@@ -341,6 +401,60 @@ against the overflowing fixture, where the deadlock it exists to avoid is
 observable.) A port whose menu is short today has no guarantee it stays
 short: a consumer's own menu decides that, and the moment it overflows, a
 panel with no handle has nowhere left for a touch-driven dismiss to begin.
+
+### A design system's own defaults can sit under the contract's floor
+
+Two of Bootstrap's stock components do, and nothing here would have caught it
+without measuring. `.nav-link` renders at 40px with its default padding; `.btn`
+renders at 36px. Both are under the pattern's 48px minimum, silently — neither
+the conformance suite nor axe attributes a rendered height to the system's own
+defaults, so a component that happens to clear the floor and one that happens
+to fall short of it look identical from the outside.
+
+The menu's fix raises Bootstrap's own token rather than reaching for an
+override: `--bs-nav-link-padding-y: 1rem` in place of the default, which is how
+a Bootstrap developer would close the gap without inventing a new declaration.
+Measured after the change: 56px, comfortably above the floor rather than
+sitting on it. Check a system's stock interactive defaults against the 48px
+minimum before trusting that a real component clears it — a design system's own
+choices are not guaranteed to agree with this pattern's floor any more than a
+bespoke one is.
+
+### The tall-menu fixture is not a formality
+
+Every port is asked to ship an overflow fixture — a menu long enough to
+exceed the sheet's own maximum height — and until this port, none of them had
+found anything with it. Bootstrap did, on the first attempt.
+
+Bootstrap's `.nav` sets `flex-wrap: wrap`, because it is built for horizontal
+navbars that need to wrap onto a second line rather than run off the screen.
+`.flex-column` only changes the axis; it does not reset the wrap it inherited.
+A column flex container that is both height-bounded and allowed to wrap does
+not overflow when its content exceeds its box — it lays the excess out in a
+second column instead, so `scrollHeight` never grows past `clientHeight`
+because nothing is ever asked to scroll. Measured against the sixteen-item
+fixture, before the fix: `scrollHeight` equalled `clientHeight` — 508 against
+508 on an iPhone 14 Pro Max, 592 against 592 on a Pixel 7 — a ratio of exactly
+1.0 on both. Not marginal. Zero.
+
+That is a real defect a real user would have seen: a long menu rendering as
+two truncated columns rather than one scrollable list. The primary route's
+five items can never reveal it, because five rows fit in a single column with
+room to spare; the sixteen-item fixture reveals it on the first run, because
+sixteen do not. That is the entire argument for requiring the fixture at
+all — not that a short route might theoretically hide something, but that
+this port's short route structurally could not have shown this one, no matter
+how carefully it was reviewed.
+
+The fix stayed inside Bootstrap's own vocabulary: `.flex-nowrap`, the system's
+own answer to exactly this combination, added alongside `.flex-column` rather
+than a raw `flex-wrap: nowrap` declaration dropped into the port's stylesheet.
+Measured after: `scrollHeight` against `clientHeight` is 912 against 508 on an
+iPhone 14 Pro Max — a 1.80× overflow ratio — and 912 against 592 on a Pixel 7,
+a 1.54× ratio. Comfortably overflowing on both, as the fixture is meant to be.
+
+One port finding this does not make it universal. It makes the fixture's
+place in the contract something other than a formality for the next one.
 
 ## Design principles
 
