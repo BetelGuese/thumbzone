@@ -28,21 +28,23 @@ system without looking foreign in any of them.
 
 ## Status
 
-**Three systems shipped**, all held to the same conformance suite.
+**Four systems shipped**, all held to the same conformance suite.
 
 | Design system | State |
 | --- | --- |
 | Vanilla (no dependencies) | shipped — normative reference |
 | Material UI | shipped |
 | shadcn/ui | shipped |
-| Tailwind CSS, Bootstrap 5 | planned |
+| Tailwind CSS | shipped |
+| Bootstrap 5 | planned |
 | Chakra UI, Ant Design, Mantine, Radix/Ark, Bulma, Vuetify, Quasar, Ionic | planned |
 
 Each is held to 130 conformance instances — 65 per mobile device profile, the
 same groups across two of them, against materially different implementations.
 Six per system drive real touch through Chromium's debug protocol and report as
-skipped on WebKit. There is no showcase site yet; the demo routes below run
-locally.
+skipped on WebKit. The full run reports 520 passed, 24 skipped and nothing
+failed, with no retries. There is no showcase site yet; the demo routes below
+run locally.
 
 ## What the first port changed
 
@@ -90,14 +92,16 @@ did. It found two things anyway.
   rendered 456px shorter than the other systems' — short enough that every
   scroll the suite performs landed on the end of the document, which is exactly
   where the trigger is deliberately untucked. Six failures that read as broken
-  tuck logic were a fixture with nothing left to scroll. Bootstrap 5's Reboot
-  resets the same margins, so the next port is likely to meet it.
+  tuck logic were a fixture with nothing left to scroll. The Tailwind CSS port
+  met the same preflight and restored the spacing in its demo route before its
+  first conformance run; Bootstrap 5's Reboot resets the same margins, so the
+  next port will meet it too.
 
-Both ports also had to reach past their design system's own drawer component,
-for the same structural reason: a drawer owns open/close, focus and motion, and
-so does this pattern. Two owners of one lifecycle cannot be made to work, so
-that is now written down as the expected shape of a port rather than a surprise
-each porter meets alone.
+Material UI and shadcn/ui both had to reach past their design system's own
+drawer, for the same structural reason: a drawer owns open/close, focus and
+motion, and so does this pattern. Two owners of one lifecycle cannot be made to
+work, so that is now written down as the expected shape of a port rather than a
+surprise each porter meets alone.
 
 ## The pattern
 
@@ -167,9 +171,9 @@ npm install
 npm run dev            # http://localhost:4321
 ```
 
-Demo routes: `/demo/vanilla`, `/demo/mui` and `/demo/shadcn`, each with an
-`-overflow` variant carrying a menu taller than the sheet, for testing internal
-scrolling against the drag gesture.
+Demo routes: `/demo/vanilla`, `/demo/mui`, `/demo/shadcn` and `/demo/tailwind`,
+each with an `-overflow` variant carrying a menu taller than the sheet, for
+testing internal scrolling against the drag gesture.
 
 ```bash
 npm test               # unit
@@ -182,9 +186,9 @@ npm run typecheck
 See [CONTRIBUTING.md](CONTRIBUTING.md). In short: build it with the target
 system's own components and tokens so it looks native there, add a demo route,
 add one entry to `systems/registry.ts`, and run the suite. Expect to reach past
-the system's own sheet or drawer primitive rather than build on it — both
-shipped ports had to, and CONTRIBUTING.md explains why that is the normal
-outcome.
+the system's own sheet or drawer primitive rather than build on it — both ports
+built on a system that has one did, and CONTRIBUTING.md explains why that is the
+normal outcome.
 
 The behaviour comes from `core/`, and a port drives it rather than rewriting it:
 the open/close lifecycle, the focus trap, the pointer state machine, the

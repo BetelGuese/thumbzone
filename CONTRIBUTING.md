@@ -68,8 +68,9 @@ the menu is the worked example.
 
 ### Expect to reach past your system's drawer component
 
-Both shipped ports had to, for the same structural reason, so a porter may as
-well know it before starting rather than halfway through.
+Both ports built on a system that ships a drawer of its own had to, for the
+same structural reason, so a porter may as well know it before starting rather
+than halfway through.
 
 Material UI's temporary `Drawer` could not work: `Slide` writes the transform
 imperatively and occupies the inline style the drag needs, and `Modal` sets
@@ -108,6 +109,94 @@ one lifecycle is not a thing that can be made to work. Take the system's
 surface, its tokens and its components, and let `core/behaviour.js` drive.
 **Reaching past the drawer primitive is the expected shape of a port, not a
 sign that one has failed.**
+
+### A utility-first system can say almost all of this
+
+The Tailwind CSS port is the first here written in utility classes rather than
+components, so it is the first that could answer whether this contract is
+expressible in utilities at all. Nearly. Three requirements were not, and each
+needed something that is not a class. This is one framework at one major
+version rather than a general result about utility-first systems — but all
+three follow from how such a system works rather than from Tailwind's
+vocabulary, so expect to meet them again.
+
+- **The breakpoint is not your framework's.** The pattern hides itself above
+  `DESKTOP_BREAKPOINT` in `core/index.js`, which is 768. Tailwind states its own
+  `md` breakpoint in its theme as 48rem — a different unit, resolved against the
+  root font size, and free to move on a major release. The two agree today; a
+  port leaning on `md:` would drift silently the moment either constant changed.
+  Declare the pattern's own instead — this port writes
+  `@custom-variant desktop (@media (min-width: 768px));` in its stylesheet, so
+  the utilities using it still read as utilities.
+- **A length two elements have to agree on.** The trigger floats above the open
+  sheet, and the sheet has to reserve the trigger's own footprint or the menu's
+  last row ends up underneath it — two rules, on two elements, depending on the
+  same two lengths. A utility class carries a *value*, not a reference, so it
+  cannot say "the same length as that other element's". Nor can you assemble the
+  class name from a shared constant: the scanner reads source text, so a name
+  built by interpolation never appears in it and nothing is emitted at all.
+  Three custom properties on `[data-tz-trigger], [data-tz-sheet]`, read from
+  both elements' arbitrary values, is the answer.
+- **A value that lives in JavaScript.** `MIN_HIT_TARGET` is the handle's height,
+  and for the same scanning reason it cannot be a class either. It is an inline
+  style.
+
+**The failure mode of an invalid utility is silence.** It emits nothing, the
+page still renders, and it renders almost right — a dropped
+`env(safe-area-inset-bottom)` or a `touch-action` that never compiled looks
+like nothing until the one device that needed it. A port on a utility system
+therefore owes itself a read of the built CSS rather than a look at the screen.
+This one verified twelve contract requirements that way, each by locating the
+rule its class should have produced. Anchor those reads on something the build
+does not rewrite: the pipeline minifies to the shortest equivalent, so
+`duration-200` arrives as `.2s` rather than `200ms` and the `768px` media query
+as range syntax, and a check pinned to the literal you authored reports a
+failure that is only the serialisation.
+
+**Two of this port's rules win on emit order rather than specificity.**
+`motion-reduce:` utilities are emitted after their unvariant counterparts at
+equal specificity, so `motion-reduce:duration-[1ms]` beats `duration-200` and
+`motion-reduce:translate-y-0` beats `translate-y-full` by position alone. A
+framework upgrade that reordered them would break reduced motion without failing
+to compile. The reduced-motion specs are parameterised per system, so it would
+redden loudly rather than ship — which is the reason to know the ordering is
+load-bearing, not the reason to leave it unread.
+
+**Physical and logical is where the vocabulary is thinnest.** `inset-x-*`,
+`rounded-ss-*`/`rounded-se-*` and `pbe-*` are logical. The sizing utilities have
+no logical form at all, so `max-h-`, `min-h-` and `size-` stand in where the
+reference stylesheet writes `max-block-size`, `min-block-size` and
+`inline-size`/`block-size`.
+
+**Two Tailwind entries in one repository cross-pollinate their utility sets.** A
+second Tailwind-based port is the first thing that could discover this, and it
+did. Each entry scans the whole repository for candidate class names and
+compiles every candidate valid under *its own* theme, regardless of which file
+wrote it: shadcn/ui's CSS bundle is 17216 bytes with this port absent and 19456
+with it present, and the difference is rules it has no element for. What does
+not cross is anything needing a declaration the other entry lacks — this port's
+custom `desktop` variant, shadcn's `@theme` colour tokens. It is inert on two
+independent grounds: no element on the other route carries those classes, and
+the `--tz-*` custom properties are referenced there but never defined — six
+references, no definition, because the definition stays in this port's own
+stylesheet. It does not touch the isolation that matters: vanilla and Material
+UI import no Tailwind stylesheet at all, so nothing crosses into them. If you
+add a second entry for a framework already present, expect the neighbour's
+bundle to gain rules, and check that what arrived is unmatchable rather than a
+restyle.
+
+**And a utility-first system compiles your comments.** Two comments in this port
+abbreviated a class in the bracketed arbitrary-value shorthand — a `pbe-` and a
+`bottom-`, each with an ellipsis standing in for the length. The scanner reads
+candidate class names out of raw file text and has no concept of a comment, so
+both compiled: two real rules whose declared value was the ellipsis itself,
+shipped in the built bundle and crossed into shadcn's alongside the rest. Dead,
+because nothing carries those classes, but junk in a production build produced
+by prose. This and the crossover are the same property seen twice: the scanner
+reads text, not code, and does not care which file the text is in or whether a
+human would call it a comment. It reads this file too — which is why the
+paragraph you are reading names those two classes without their brackets. Write
+a class name in a comment either in full or not in brackets at all.
 
 ### Test hooks the demo route must expose
 
