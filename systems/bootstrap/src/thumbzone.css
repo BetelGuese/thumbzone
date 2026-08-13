@@ -110,9 +110,12 @@
   border-start-start-radius: var(--bs-border-radius-xl);
   border-start-end-radius: var(--bs-border-radius-xl);
   /* Vanilla's sheet draws no border here; this one does because Bootstrap's own
-     bottom offcanvas draws exactly this line at exactly this edge, and keeping
-     it is following the system's idiom rather than adding to it. */
-  border-top: var(--bs-border-width) solid var(--bs-border-color);
+     bottom offcanvas draws exactly this line at exactly this edge, in
+     --bs-border-width solid --bs-border-color-translucent, and keeping it is
+     following the system's idiom rather than adding to it. Read directly
+     rather than through --bs-offcanvas-border-color: that variable is scoped
+     to .offcanvas, a class this port deliberately does not use. */
+  border-top: var(--bs-border-width) solid var(--bs-border-color-translucent);
   background-color: var(--bs-body-bg);
   color: var(--bs-body-color);
   transform: translateY(100%);
