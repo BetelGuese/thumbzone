@@ -201,6 +201,19 @@
   padding: 0.5rem;
 }
 
+/* --bs-nav-link-padding-y above raises Bootstrap's own default in Bootstrap's
+   idiom, but a token is arithmetic, not a floor: nothing in the conformance
+   suite asserts a menu row's height (only the trigger and the drag handle are
+   checked against MIN_HIT_TARGET), so a later retune of that token could push
+   rows back under the 48px minimum with no test going red. This explicit
+   min-block-size is what turns the floor into a declaration rather than a
+   number that happens to come out right — stated alongside the token, not
+   instead of it, the same way the reference implementation states its own
+   floor twice. */
+[data-tz-menu] .nav-link {
+  min-block-size: 3rem;
+}
+
 [data-tz-trigger] {
   /* .btn's own padding would fight a fixed square, so it is zeroed through
      Bootstrap's tokens rather than overridden with a raw declaration. Note the
