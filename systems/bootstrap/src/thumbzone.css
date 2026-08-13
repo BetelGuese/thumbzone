@@ -54,10 +54,11 @@
   --tz-trigger-max-bottom-gap: 96px;
 }
 
-/* The z-indexes below follow Bootstrap's own stacking scale so that a
-   consumer's Bootstrap chrome stacks against this pattern predictably:
-   .offcanvas-backdrop is 1040 and .offcanvas is 1045. The trigger sits above
-   both, because it stays hit-testable over the open sheet. */
+/* The scrim and sheet take Bootstrap's own stacking values outright —
+   .offcanvas-backdrop's 1040 and .offcanvas's 1045 — rather than inventing
+   new ones. The trigger sits above both, because it stays hit-testable over
+   the open sheet, and below .modal at 1055, which is the ordering that
+   matters for a consumer's own Bootstrap chrome. */
 [data-tz-scrim] {
   position: fixed;
   inset: 0;
