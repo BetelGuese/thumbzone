@@ -172,7 +172,7 @@ reference stylesheet writes `max-block-size`, `min-block-size` and
 second Tailwind-based port is the first thing that could discover this, and it
 did. Each entry scans the whole repository for candidate class names and
 compiles every candidate valid under *its own* theme, regardless of which file
-wrote it: shadcn/ui's CSS bundle is 17216 bytes with this port absent and 19456
+wrote it: shadcn/ui's CSS bundle is 17216 bytes with this port absent and 19639
 with it present, and the difference is rules it has no element for. What does
 not cross is anything needing a declaration the other entry lacks — this port's
 custom `desktop` variant, shadcn's `@theme` colour tokens. It is inert on two
@@ -192,7 +192,9 @@ candidate class names out of raw file text and has no concept of a comment, so
 both compiled: two real rules whose declared value was the ellipsis itself,
 shipped in the built bundle and crossed into shadcn's alongside the rest. Dead,
 because nothing carries those classes, but junk in a production build produced
-by prose. This and the crossover are the same property seen twice: the scanner
+by prose. Both are gone — the comments name the declaration now instead of
+abbreviating the class, and no ellipsis-bearing rule survives in any demo
+bundle. This and the crossover are the same property seen twice: the scanner
 reads text, not code, and does not care which file the text is in or whether a
 human would call it a comment. It reads this file too — which is why the
 paragraph you are reading names those two classes without their brackets. Write
