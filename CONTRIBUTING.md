@@ -475,6 +475,46 @@ a 1.54× ratio. Comfortably overflowing on both, as the fixture is meant to be.
 One port finding this does not make it universal. It makes the fixture's
 place in the contract something other than a formality for the next one.
 
+### An open decision: extracting the adapter
+
+Three ports now write the same small module — the one that validates the five
+elements a port is handed and hands them to `createThumbzoneBehaviour` —
+under the name `initThumbzone`. Vanilla's version validates by truthiness, but
+Tailwind's and Bootstrap's are identical in every line that runs; only their
+comments differ. That is validation-and-delegation, written out three times,
+two of those times byte-for-byte the same.
+
+It has not been extracted, and the reason is not that the repetition is too
+small to matter — it is that doing the extraction inside a port branch buys a
+refactor with merge risk that branch does not need. A branch whose job is to
+add one design system is not the place to also change the three that already
+ship.
+
+When it does land, it belongs beside `core/`, not inside it: a new
+`shared/thumbzone-adapter.js`, exporting `createThumbzoneAdapter({ validate })`
+and parameterised on nothing but the one thing that genuinely varies across
+the three — how a port checks that what it was handed is usable. Every port
+already imports the same `core/behaviour.js` unchanged; a `createBehaviour`
+seam would have nothing left to vary across it, which is what makes `validate`
+the only parameter worth having.
+
+Not inside `core/`, and the reason is not the usual one — that `core/` is
+where DOM-touching behaviour lives and this module would touch the DOM too.
+`core/index.js`'s own doc comment says nothing there touches the DOM at all,
+which is precisely what keeps it separate from `behaviour.js`. `core/` is
+already two halves on that line: DOM-free maths in `index.js`, DOM-touching
+behaviour in `behaviour.js`. The adapter is neither. It does not compute the
+pattern's maths and it does not run the pattern's lifecycle; it is the wiring
+between a port's own markup and the behaviour layer, which is a third kind of
+thing this repository does not yet have a home for — hence a sibling
+directory rather than a third file inside an existing one.
+
+The trigger for doing it: the next framework-free port, which would make the
+repetition three-going-on-four, or the first change that has to be made to
+all three existing adapters at once, whichever comes first. Until then this is
+a named decision, not an oversight — the next porter should meet it here
+rather than notice the duplication and wonder whether it was missed.
+
 ## Design principles
 
 - **SOLID** — each module has one reason to change; depend on narrow interfaces
