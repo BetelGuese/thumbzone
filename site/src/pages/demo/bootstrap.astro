@@ -1,11 +1,45 @@
 ---
 import DemoLayout from '../../layouts/DemoLayout.astro'
+import ThumbzoneMenu from '../../../../systems/bootstrap/src/ThumbzoneMenu.astro'
 import '../../../../systems/bootstrap/src/thumbzone.css'
+
+const items = ['Home', 'Search', 'Library', 'Profile', 'Settings']
 ---
 <DemoLayout system="bootstrap">
   <main data-tz-app>
     <h1>thumbzone — Bootstrap 5</h1>
-    <p class="lead">Pipeline probe.</p>
-    <button type="button" class="btn btn-primary">Probe</button>
+    {Array.from({ length: 40 }, (_, i) => <p>Scrollable content line {i + 1}.</p>)}
   </main>
+  <ThumbzoneMenu items={items} />
 </DemoLayout>
+
+<script>
+  import { initThumbzone } from '../../../../systems/bootstrap/src/thumbzone.js'
+
+  const thumbzone = initThumbzone({
+    trigger: document.querySelector('[data-tz-trigger]'),
+    sheet: document.querySelector('[data-tz-sheet]'),
+    scrim: document.querySelector('[data-tz-scrim]'),
+    menu: document.querySelector('[data-tz-menu]'),
+    inertRoot: document.querySelector('[data-tz-app]'),
+  })
+
+  // Exposed only so e2e tests can drive the imperative API (destroy(), in
+  // particular, has no attribute-driven equivalent to trigger from a test).
+  // @ts-expect-error — deliberate test hook, not part of the page's own contract.
+  window.__thumbzone = thumbzone
+  // Exposed so a test can destroy() this instance and re-initThumbzone() the
+  // same elements after setting a pre-init inline style on them — there is no
+  // other way to exercise "what was here before initThumbzone ran" from
+  // outside the module.
+  // @ts-expect-error — deliberate test hook, not part of the page's own contract.
+  window.__initThumbzone = initThumbzone
+  // Already resolved, and this is the one case that is correct for: the
+  // component compiles to static HTML at build time and this port ships no
+  // runtime, so nothing arrives after the script that wired the pattern and
+  // there is nothing for the suite to wait on. Published all the same rather
+  // than left out as a special case — a suite that had to ask which systems
+  // have one would be back to knowing about systems.
+  // @ts-expect-error — deliberate test hook, not part of the page's own contract.
+  window.__thumbzoneReady = Promise.resolve()
+</script>

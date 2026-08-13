@@ -1,0 +1,83 @@
+---
+import { MIN_HIT_TARGET } from '../../../core/index.js'
+
+/*
+ * The pattern's markup in Bootstrap 5's vocabulary.
+ *
+ * Bootstrap's own bottom sheet, .offcanvas, is not used — see the reasoning in
+ * thumbzone.css, which is where the four conflicts are recorded. What is used is
+ * everything else Bootstrap offers: a real .btn for the trigger, .nav for the
+ * menu, and 5.3's colour-mode API for the sheet's surface. No colour, radius or
+ * border width is hardcoded anywhere; each reads a --bs-* token.
+ *
+ * Every contract attribute is authored explicitly rather than derived from a
+ * class, because class names belong to the styling system and nothing the
+ * contract is expressed in may ride on one. Everything here renders the sheet's
+ * closed state, which is also what a reader gets with the module script blocked
+ * entirely; the behaviour takes these same attributes over from there.
+ */
+
+/** Target of the trigger's `aria-controls`, and the sheet's own `id`. */
+const SHEET_ID = 'tz-bootstrap-sheet'
+
+interface Props {
+  /** The menu's items, authored most-used-first. */
+  items: string[]
+}
+
+const { items } = Astro.props
+---
+<div data-tz-scrim data-tz-open="false"></div>
+
+<!-- data-bs-theme="dark" is Bootstrap 5.3's colour-mode API, and it is doing
+     real work here: it redefines --bs-body-bg, --bs-body-color,
+     --bs-secondary-color and --bs-border-color on this element, so the sheet
+     reads as a dark surface without a single hardcoded colour. Authored closed
+     and inert, and rendered either way — never `hidden` and never
+     `display: none`, which would leave the open transition nothing to animate
+     and make `inert` decorative. That is precisely what disqualified
+     Bootstrap's own .offcanvas, which is `visibility: hidden` while closed. -->
+<div
+  id={SHEET_ID}
+  data-tz-sheet
+  data-tz-open="false"
+  data-bs-theme="dark"
+  role="dialog"
+  aria-modal="true"
+  aria-label="Main menu"
+  inert
+>
+  <!-- A sibling of the menu and authored above it: the menu owns the sheet's
+       scrolling, so this is the one place a dismiss drag can start. The
+       interactive region, not just the visible pill, must clear the pattern's
+       48px minimum — declared from MIN_HIT_TARGET rather than from a spacing
+       token that could be tidied under it. -->
+  <div data-tz-handle aria-hidden="true" style={`block-size:${MIN_HIT_TARGET}px`}></div>
+
+  <!-- .nav is Bootstrap's own navigation component, and `flex-column` is its
+       vertical variant. The anchors are direct children of the menu, which is
+       what the shared reorder moves — it reverses the menu's element children,
+       so no list wrapper is needed or wanted here. -->
+  <nav class="nav flex-column" data-tz-menu>
+    {items.map((item) => <a class="nav-link" href="#">{item}</a>)}
+  </nav>
+</div>
+
+<!-- A real <button>, which the trigger has to be. Its name is the port's own and
+     describes the menu rather than the state: aria-expanded reports open or
+     closed, so a name that changed with it would say the same thing twice, and
+     the pattern deliberately leaves an authored name alone. -->
+<button
+  type="button"
+  class="btn btn-primary rounded-circle shadow"
+  data-tz-trigger
+  aria-expanded="false"
+  aria-controls={SHEET_ID}
+  aria-label="Navigation menu"
+>
+  <!-- Drawn inline rather than pulled from an icon package, which this project
+       does not depend on. Bootstrap Icons is a separate package. -->
+  <svg width="20" height="14" viewBox="0 0 20 14" aria-hidden="true">
+    <path d="M0 1h20M0 7h20M0 13h20" stroke="currentColor" stroke-width="2" />
+  </svg>
+</button>
