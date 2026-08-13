@@ -57,8 +57,17 @@ const { items } = Astro.props
   <!-- .nav is Bootstrap's own navigation component, and `flex-column` is its
        vertical variant. The anchors are direct children of the menu, which is
        what the shared reorder moves — it reverses the menu's element children,
-       so no list wrapper is needed or wanted here. -->
-  <nav class="nav flex-column" data-tz-menu>
+       so no list wrapper is needed or wanted here.
+
+       `.nav` is built for horizontal navbars and sets `flex-wrap: wrap`;
+       `.flex-column` changes the direction but does not reset the wrap, so a
+       bounded-height column menu wraps into a second column instead of
+       scrolling. `.flex-nowrap` is Bootstrap's own answer, kept in Bootstrap's
+       own vocabulary rather than a raw declaration in the stylesheet. This
+       stays invisible until the menu is tall enough to need a second column,
+       which is what makes the tall-menu fixture load-bearing rather than
+       decorative. -->
+  <nav class="nav flex-column flex-nowrap" data-tz-menu>
     {items.map((item) => <a class="nav-link" href="#">{item}</a>)}
   </nav>
 </div>
