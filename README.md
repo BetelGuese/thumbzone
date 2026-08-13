@@ -139,10 +139,11 @@ meaningless values. Both are gone; no such rule survives in any bundle.
 Two Tailwind entries in one repository cross-pollinate. Each scans the whole
 repository and compiles every candidate valid under its own theme, so this
 port's stock utilities appear in shadcn/ui's bundle and shadcn's appear in
-this one — measured, shadcn's bundle is 17216 bytes with this port absent and
-19639 with it present. It is inert: nothing on the other route carries those
-classes. It does not touch the isolation that matters — vanilla and Material
-UI import no Tailwind stylesheet at all.
+this one — measured, shadcn's bundle is 17333 bytes with this port absent and
+19756 with it present. The gap, 2423 bytes, is what stays constant as later
+ports shift both figures. It is inert: nothing on the other route carries
+those classes. It does not touch the isolation that matters — vanilla and
+Material UI import no Tailwind stylesheet at all.
 
 ## What the fourth port settled
 

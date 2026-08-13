@@ -215,13 +215,17 @@ reference stylesheet writes `max-block-size`, `min-block-size` and
 second Tailwind-based port is the first thing that could discover this, and it
 did. Each entry scans the whole repository for candidate class names and
 compiles every candidate valid under *its own* theme, regardless of which file
-wrote it: shadcn/ui's CSS bundle is 17216 bytes with this port absent and 19639
-with it present, and the difference is rules it has no element for. What does
-not cross is anything needing a declaration the other entry lacks — this port's
-custom `desktop` variant, shadcn's `@theme` colour tokens. It is inert on two
-independent grounds: no element on the other route carries those classes, and
-the `--tz-*` custom properties are referenced there but never defined — six
-references, no definition, because the definition stays in this port's own
+wrote it: shadcn/ui's CSS bundle is 17333 bytes with this port absent and
+19756 with it present — a delta of 2423 bytes, all of it rules shadcn has no
+element for. The delta is the finding, not the endpoints: each port added to
+this repository shifts both figures by its own contribution and leaves the
+gap between them alone, so the absolute pair will move again the next port
+that lands while the delta holds. What does not cross is anything needing a
+declaration the other entry lacks — this port's custom `desktop` variant,
+shadcn's `@theme` colour tokens. It is inert on two independent grounds: no
+element on the other route carries those classes, and the `--tz-*` custom
+properties are referenced there but never defined — six references, no
+definition, because the definition stays in this port's own
 stylesheet. It does not touch the isolation that matters: vanilla and Material
 UI import no Tailwind stylesheet at all, so nothing crosses into them. If you
 add a second entry for a framework already present, expect the neighbour's
@@ -411,14 +415,14 @@ the conformance suite nor axe attributes a rendered height to the system's own
 defaults, so a component that happens to clear the floor and one that happens
 to fall short of it look identical from the outside.
 
-The menu's fix raises Bootstrap's own token rather than reaching for an
-override: `--bs-nav-link-padding-y: 1rem` in place of the default, which is how
-a Bootstrap developer would close the gap without inventing a new declaration.
-Measured after the change: 56px, comfortably above the floor rather than
-sitting on it. Check a system's stock interactive defaults against the 48px
-minimum before trusting that a real component clears it — a design system's own
-choices are not guaranteed to agree with this pattern's floor any more than a
-bespoke one is.
+The menu's fix raises Bootstrap's own token rather than reaching for a
+`min-height` override: `--bs-nav-link-padding-y: 1rem` in place of the
+default, which is how a Bootstrap developer would close the gap without
+inventing a new declaration. Measured after the change: 56px, comfortably
+above the floor rather than sitting on it. Check a system's stock interactive
+defaults against the 48px minimum before trusting that a real component
+clears it — a design system's own choices are not guaranteed to agree with
+this pattern's floor any more than a bespoke one is.
 
 ### The tall-menu fixture is not a formality
 
