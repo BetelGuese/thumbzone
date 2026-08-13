@@ -47,7 +47,7 @@ const { items } = Astro.props
 </div>
 
 <!-- Sheet, on `max-h-[85dvh]`: `dvh`, not `vh` — iOS Safari's collapsing URL bar makes `vh` resolve to the expanded height, which would push the sheet under the browser chrome. And: Tailwind has no logical sizing utility, so this is `max-height` where the reference stylesheet writes `max-block-size`. The pattern is vertical either way; the gap is real and is recorded rather than papered over. -->
-<!-- Sheet, on `pbe-[…]`: reserves the trigger's own vertical footprint so the menu's last row never ends up under the trigger floating over it. The safe-area inset is added outright rather than folded into the trigger's (clamped) offset: this only has to be *at least* as large as the trigger's real clearance, and adding the inset can only make that truer. -->
+<!-- Sheet, on the reserved clearance: reserves the trigger's own vertical footprint so the menu's last row never ends up under the trigger floating over it. The safe-area inset is added outright rather than folded into the trigger's (clamped) offset: this only has to be *at least* as large as the trigger's real clearance, and adding the inset can only make that truer. -->
 <!-- Sheet, on `overflow-hidden`: the menu, not the sheet, scrolls. A single element cannot both scroll natively and own a dismiss drag — `touch-action` has no way to grant panning in one direction on every engine (WebKit silently degrades `pan-up`/`pan-down` to `auto`), so the sheet is a non-scrolling drag surface with a separately scrollable menu inside it. -->
 <!-- Sheet, on `touch-pinch-zoom`: static and explicit, not inherited. An ancestor's `touch-action` does not change this element's own computed value, which is what a pan starting on the sheet's own chrome is arbitrated against. -->
 <!-- Sheet, on `transition-transform`: covers `transform`, `translate`, `scale` and `rotate` — which it must, because the resting position is a `translate` utility while the drag tracks the finger through an inline `transform`. The two compose rather than compete; naming only `transform` would leave the open/close travel unanimated. -->
@@ -106,7 +106,7 @@ const { items } = Astro.props
   </ul>
 </div>
 
-<!-- Trigger, on `bottom-[min(…)]`: placed a gap above the bottom edge, then clamped by the pattern's own ceiling on how far a thumb-reachable trigger may sit from it — so neither a larger gap nor a tall home-indicator inset can push it out of the thumb zone. -->
+<!-- Trigger, on the clamped bottom offset: placed a gap above the bottom edge, then clamped by the pattern's own ceiling on how far a thumb-reachable trigger may sit from it — so neither a larger gap nor a tall home-indicator inset can push it out of the thumb zone. -->
 <!-- Trigger, on `cursor-pointer`: Tailwind's preflight resets a button's cursor to `default`, so this is restoring the affordance the reset removed rather than decorating it. -->
 <!-- Trigger, on `aria-label`: the name names the menu and stays put in both states — `aria-expanded` is what reports open or closed, so a name that changed with it would say the same thing twice, and the pattern deliberately leaves an authored name alone. -->
 <!-- Trigger, on `touch-pinch-zoom`: the trigger scrolls nothing, so this can be static. Without it a real swipe-to-open is read as an attempt to pan the page and the pointer stream is cancelled before the gesture completes. -->
