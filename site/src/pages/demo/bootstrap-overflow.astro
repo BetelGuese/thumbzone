@@ -1,0 +1,44 @@
+---
+import DemoLayout from '../../layouts/DemoLayout.astro'
+import ThumbzoneMenu from '../../../../systems/bootstrap/src/ThumbzoneMenu.astro'
+import '../../../../systems/bootstrap/src/thumbzone.css'
+
+// A dedicated fixture, not a query-param variant of /demo/bootstrap: this
+// project builds to a static site, so a query-param-gated item list would only
+// ever render its overflowing branch under the dev server, never in a real
+// build or preview. A separate route works identically in all three, exactly as
+// vanilla-overflow.astro does for the reference implementation.
+//
+// Sixteen items comfortably overflows the sheet on both device profiles. Each
+// row is 56px — Bootstrap's .nav-link raised through its own padding token past
+// the contract's 48px floor — so the list alone runs to 896px, plus the menu's
+// own 0.5rem padding top and bottom, against a budget the sheet's 85dvh has
+// already reduced by the handle's height and the trigger's reserved clearance.
+const items = Array.from({ length: 16 }, (_, i) => `Item ${i + 1}`)
+---
+<DemoLayout system="bootstrap">
+  <main data-tz-app>
+    <h1>thumbzone — Bootstrap 5 (overflowing menu)</h1>
+    <p>Fixture for testing touch scrolling inside a menu taller than the sheet.</p>
+  </main>
+  <ThumbzoneMenu items={items} />
+</DemoLayout>
+
+<script>
+  import { initThumbzone } from '../../../../systems/bootstrap/src/thumbzone.js'
+
+  initThumbzone({
+    trigger: document.querySelector('[data-tz-trigger]'),
+    sheet: document.querySelector('[data-tz-sheet]'),
+    scrim: document.querySelector('[data-tz-scrim]'),
+    menu: document.querySelector('[data-tz-menu]'),
+    inertRoot: document.querySelector('[data-tz-app]'),
+  })
+
+  // Deliberately none of the contract's three test hooks. All three exist for
+  // reasons that do not apply to this fixture: the overflow tests drive the
+  // sheet entirely through real input — a click, a scroll, a touch — so nothing
+  // here ever reorders the menu after load for a readiness promise to guard,
+  // and there is no imperative API for a test to reach that the DOM's own
+  // attributes do not already expose.
+</script>
