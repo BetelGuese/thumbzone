@@ -267,6 +267,13 @@ export const SHIPPED_SYSTEMS: readonly System[] = [
     authoredMenuOrder: ['Home', 'Search', 'Library', 'Profile', 'Settings'],
     overflowRoute: '/demo/shadcn-overflow',
   },
+  {
+    id: 'tailwind',
+    label: 'Tailwind CSS',
+    route: '/demo/tailwind',
+    authoredMenuOrder: ['Home', 'Search', 'Library', 'Profile', 'Settings'],
+    overflowRoute: '/demo/tailwind-overflow',
+  },
 ]
 
 /**
@@ -275,7 +282,6 @@ export const SHIPPED_SYSTEMS: readonly System[] = [
  * yet — the showcase lists shipped systems only.
  */
 export const PLANNED_SYSTEMS: readonly PlannedSystem[] = [
-  { id: 'tailwind', label: 'Tailwind CSS' },
   { id: 'bootstrap', label: 'Bootstrap 5' },
   { id: 'chakra', label: 'Chakra UI' },
   { id: 'antd', label: 'Ant Design' },
