@@ -1,0 +1,12 @@
+---
+import DemoLayout from '../../layouts/DemoLayout.astro'
+import '../../../../systems/tailwind/src/styles.css'
+---
+<DemoLayout system="tailwind">
+  <main data-tz-app>
+    <h1 class="text-2xl font-bold text-zinc-100">thumbzone — Tailwind CSS</h1>
+    <p class="rounded-2xl bg-zinc-800 px-4 py-2 text-zinc-300">Pipeline probe.</p>
+    <p class="desktop:hidden">Hidden above the pattern's own breakpoint.</p>
+    <p class="pbe-[calc(var(--tz-trigger-size)+var(--tz-trigger-gap))]">Shared-length probe.</p>
+  </main>
+</DemoLayout>

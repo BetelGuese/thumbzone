@@ -1,0 +1,68 @@
+/*
+ * The Tailwind CSS port's styling entry point — and, deliberately, almost all
+ * of the CSS this port writes.
+ *
+ * Tailwind's preflight is a global reset, and this repository serves demo
+ * routes for several design systems that must stay visually independent of one
+ * another: a reset leaking out of here would silently restyle the reference
+ * implementation, which is the thing every other system is measured against.
+ * Astro bundles styles per page, so importing this from the tailwind routes
+ * alone is what keeps it contained. It must never be imported from
+ * DemoLayout.astro, which every demo shares. That is not a convention — it is
+ * the only mechanism holding the isolation up.
+ *
+ * There are no design tokens below, and that is this port's identity rather
+ * than an omission. Tailwind is a scale, not a palette with names: a project
+ * using it reaches for zinc-900 and duration-200 directly. A semantic token
+ * layer is what a design system built *on* Tailwind adds, which is exactly
+ * what the shadcn/ui port next door demonstrates.
+ */
+@import 'tailwindcss';
+
+/*
+ * The pattern hides itself above core/index.js's DESKTOP_BREAKPOINT, which is
+ * not Tailwind's `md`. The two happen to agree at 768px today, but Tailwind
+ * states its own as `--breakpoint-md: 48rem` — a different unit, resolved
+ * against the root font size, and free to move on a major release. A port
+ * leaning on `md:` would drift silently the moment either constant changed.
+ *
+ * Stated once here as a named variant instead, so the utilities that use it
+ * still read as utilities. A stylesheet cannot import the constant; the
+ * conformance suite asserts the rendered visibility against DESKTOP_BREAKPOINT
+ * itself, so a value that drifted from it fails a test rather than quietly
+ * showing the sheet on a tablet.
+ */
+@custom-variant desktop (@media (min-width: 768px));
+
+/*
+ * The one requirement in this contract that a utility genuinely cannot express.
+ *
+ * The trigger floats *above* the open sheet by design — tapping it is a close
+ * path, so it has to stay hit-testable over the sheet rather than sliding
+ * beneath it — and that only reads as "floating above" rather than "covering"
+ * if the sheet reserves the trigger's own footprint at its bottom edge. Two
+ * rules on two different elements therefore depend on the same two lengths, and
+ * a size or an offset changed in one of them alone is exactly how the menu's
+ * last row ends up underneath the trigger.
+ *
+ * A utility class carries a value, not a reference, so it cannot express "the
+ * same length as that other element's". Nor can the class name be built from a
+ * shared constant: Tailwind scans source text for candidate class names, and a
+ * name assembled by string interpolation never appears in it, so nothing is
+ * emitted at all. A custom property referenced from both elements' arbitrary
+ * values is the answer, and it is written here rather than reached for quietly.
+ *
+ * --tz-trigger-max-bottom-gap restates MAX_TRIGGER_BOTTOM_GAP from
+ * core/index.js, which a stylesheet cannot import. The conformance suite
+ * asserts the rendered position against the constant itself, so a value that
+ * drifted from it fails a test rather than moving the trigger somewhere no
+ * thumb reaches. Sizes are in rem so the trigger scales with the user's font
+ * preference; 3.5rem is 56px at the default root size, comfortably above the
+ * contract's 48px floor rather than equal to it.
+ */
+[data-tz-trigger],
+[data-tz-sheet] {
+  --tz-trigger-size: 3.5rem;
+  --tz-trigger-gap: 1rem;
+  --tz-trigger-max-bottom-gap: 96px;
+}
