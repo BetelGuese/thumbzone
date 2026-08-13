@@ -1,0 +1,246 @@
+/*
+ * The Bootstrap 5 port's stylesheet.
+ *
+ * Bootstrap's Reboot is a global reset, and this repository serves demo routes
+ * for several design systems that must stay visually independent of one
+ * another — a reset leaking out of here would silently restyle the reference
+ * implementation, which is the thing every other system is measured against.
+ * Astro bundles styles per page, so importing this from the bootstrap routes
+ * alone is what keeps it contained. It must never be imported from
+ * DemoLayout.astro, which every demo shares. That is not a convention; it is
+ * the only mechanism holding the isolation up.
+ *
+ * What is deliberately absent is .offcanvas, Bootstrap's own bottom sheet. It
+ * cannot express this pattern, in four independent ways. Its JS constructs a
+ * backdrop, activates a focus trap, locks body scroll, sets aria-modal and
+ * binds Escape — five responsibilities the pattern already owns, and two owners
+ * of one lifecycle cannot be made to work. Its CSS is worse: `.offcanvas` is
+ * `visibility: hidden` while closed, which leaves the open transition nothing
+ * to animate and makes `inert` decorative; its height default is `30vh` and its
+ * backdrop `100vh`, the one unit this pattern forbids because iOS Safari's
+ * collapsing URL bar makes it resolve to the expanded height; and it sizes by a
+ * fixed `height` where the pattern needs a content-driven maximum. Keeping the
+ * class names while overriding all of that would be a costume.
+ *
+ * So the pattern's own structure is written below, and Bootstrap supplies the
+ * vocabulary: every colour, radius and border width reads a --bs-* token, which
+ * is Bootstrap 5.3's own theming API. The geometry is the pattern's, because
+ * Bootstrap has no opinion about it.
+ */
+@import 'bootstrap/dist/css/bootstrap.css';
+
+/* The trigger floats *above* the open sheet by design — tapping it is a close
+   path, so it has to stay hit-testable over the sheet rather than sliding
+   beneath it — and that only reads as "floating above" rather than "covering"
+   if the sheet reserves the trigger's own footprint at its bottom edge. Two
+   rules on two elements therefore depend on the same two lengths, and a size or
+   an offset changed in one of them alone is exactly how the menu's last row
+   ends up underneath the trigger.
+
+   Sizes are in rem so the trigger scales with the user's font preference;
+   3.5rem is 56px at the default root size, comfortably above the 48px floor
+   rather than equal to it.
+
+   --tz-trigger-max-bottom-gap restates MAX_TRIGGER_BOTTOM_GAP from
+   core/index.js, which a stylesheet cannot import. The conformance suite
+   asserts the rendered position against the constant itself, so a value that
+   drifted from it fails a test rather than quietly moving the trigger out of
+   the thumb zone. */
+[data-tz-trigger],
+[data-tz-sheet] {
+  --tz-trigger-size: 3.5rem;
+  --tz-trigger-gap: 1rem;
+  --tz-trigger-max-bottom-gap: 96px;
+}
+
+/* The z-indexes below follow Bootstrap's own stacking scale so that a
+   consumer's Bootstrap chrome stacks against this pattern predictably:
+   .offcanvas-backdrop is 1040 and .offcanvas is 1045. The trigger sits above
+   both, because it stays hit-testable over the open sheet. */
+[data-tz-scrim] {
+  position: fixed;
+  inset: 0;
+  z-index: 1040;
+  background-color: #000;
+  opacity: 0;
+  pointer-events: none;
+  /* The scrim scrolls nothing of its own but sits over a page that does, and
+     pointer-events alone does not stop a touch pan reaching it. pinch-zoom
+     rather than none: this covers the whole viewport while the sheet is open,
+     so blocking zoom here is a screen-wide regression (WCAG 1.4.4). */
+  touch-action: pinch-zoom;
+  transition: opacity 0.3s ease-in-out;
+}
+
+/* 0.5 is what .offcanvas-backdrop.show uses. Stated rather than inherited,
+   since this element is the pattern's and not Bootstrap's. */
+[data-tz-scrim][data-tz-open='true'] {
+  opacity: 0.5;
+  pointer-events: auto;
+}
+
+[data-tz-sheet] {
+  position: fixed;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 1045;
+  display: flex;
+  flex-direction: column;
+  /* dvh, not vh: iOS Safari's collapsing URL bar makes vh resolve to the
+     expanded height, which would push the sheet under the browser chrome.
+     Bootstrap ships no dvh at all — its own offcanvas is 30vh — so this is the
+     pattern's value, not the system's. */
+  max-block-size: 85dvh;
+  /* The menu, not the sheet, scrolls. A single element cannot both scroll
+     natively and own a dismiss drag: touch-action has no way to grant panning
+     in one direction on every engine (WebKit silently degrades pan-up/pan-down
+     to auto), so the sheet is a non-scrolling drag surface with a separately
+     scrollable menu inside it. */
+  overflow: hidden;
+  /* Static and explicit, not inherited: an ancestor's touch-action does not
+     change this element's own computed value, which is what a pan starting on
+     the sheet's own chrome is arbitrated against. */
+  touch-action: pinch-zoom;
+  /* Reserves the trigger's own vertical footprint so the menu's last row never
+     ends up under the trigger floating over it. The safe-area inset is added
+     outright rather than folded into the trigger's (clamped) offset: this only
+     has to be *at least* as large as the trigger's real clearance, and adding
+     the inset can only make that truer. */
+  padding-block-end: calc(var(--tz-trigger-size) + var(--tz-trigger-gap) + env(safe-area-inset-bottom, 0px));
+  border-start-start-radius: var(--bs-border-radius-xl);
+  border-start-end-radius: var(--bs-border-radius-xl);
+  border-top: var(--bs-border-width) solid var(--bs-border-color);
+  background-color: var(--bs-body-bg);
+  color: var(--bs-body-color);
+  transform: translateY(100%);
+  /* Bootstrap exposes no global motion token — only per-component ones — so
+     this takes its value from the component that does this job:
+     --bs-offcanvas-transition is `transform 0.3s ease-in-out`. 300ms sits
+     inside the pattern's bounded range, and the curve is the system's own. */
+  transition: transform 0.3s ease-in-out;
+}
+
+[data-tz-sheet][data-tz-open='true'] {
+  transform: translateY(0);
+}
+
+/* A drag drives the transform inline, and that must not be animated. */
+[data-tz-sheet][data-tz-dragging='true'] {
+  transition: none;
+}
+
+/* Purely a visual affordance and a dedicated non-scrolling drag target — the
+   gesture machine never recognises a drag starting inside the menu, so this is
+   the only touch-drag entry point once the menu has its own scrollable
+   overflow. aria-hidden in the markup: it carries nothing the dialog's own name
+   has not already given a screen reader user. */
+[data-tz-handle] {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  cursor: grab;
+  /* Explicit and static, same reasoning as the sheet. The contract sanctions
+     `none` here, since the handle genuinely needs to own the gesture and the
+     impairment is confined to one 48px control — but refusing the vertical pan
+     is all that ownership requires, and a pinch landing on a real control
+     should still zoom the page. All four shipped ports make the same call. */
+  touch-action: pinch-zoom;
+}
+
+[data-tz-sheet][data-tz-dragging='true'] [data-tz-handle] {
+  cursor: grabbing;
+}
+
+[data-tz-handle]::before {
+  content: '';
+  inline-size: 2.5rem;
+  block-size: 0.25rem;
+  border-radius: var(--bs-border-radius-pill);
+  background-color: var(--bs-secondary-color);
+}
+
+[data-tz-menu] {
+  /* Bootstrap's .nav-link renders 40px at its default 0.5rem padding — under
+     this contract's 48px minimum, silently, and neither the suite nor axe would
+     attribute that to the system's own defaults. Raised through Bootstrap's own
+     token rather than with a min-height, which is how a Bootstrap developer
+     would do it: a 24px line box plus 2rem gives 56px, comfortably above the
+     floor rather than sitting on it. */
+  --bs-nav-link-padding-y: 1rem;
+  flex: 1 1 auto;
+  /* Without this, a flex child's automatic minimum is its content's height, so
+     a long menu would push the sheet past its own maximum instead of scrolling
+     inside it. */
+  min-block-size: 0;
+  overflow-y: auto;
+  /* Unconditional, unlike every other surface here: this region must stay
+     pannable by touch at every scroll position and on every engine. A value
+     that changed with scrollTop is what deadlocks — it blocks the very scroll
+     that would move scrollTop off zero. */
+  touch-action: pan-y pinch-zoom;
+  /* Stops an at-the-boundary scroll from chaining into the page behind it. */
+  overscroll-behavior: contain;
+  padding: 0.5rem;
+}
+
+[data-tz-trigger] {
+  /* .btn's own padding would fight a fixed square, so it is zeroed through
+     Bootstrap's tokens rather than overridden with a raw declaration. Note the
+     default .btn is 36px tall — also under the contract's floor — which is why
+     the size below is explicit rather than left to the component. */
+  --bs-btn-padding-x: 0;
+  --bs-btn-padding-y: 0;
+  position: fixed;
+  left: 50%;
+  /* Placed a gap above the bottom edge, then clamped by the pattern's own
+     ceiling on how far a thumb-reachable trigger may sit from it — so neither a
+     larger gap nor a tall home-indicator inset can push it out of the thumb
+     zone. */
+  bottom: min(calc(var(--tz-trigger-gap) + env(safe-area-inset-bottom, 0px)), var(--tz-trigger-max-bottom-gap));
+  z-index: 1050;
+  display: grid;
+  place-items: center;
+  inline-size: var(--tz-trigger-size);
+  block-size: var(--tz-trigger-size);
+  /* The trigger scrolls nothing, so this can be static: without it a real
+     swipe-to-open is read as an attempt to pan the page and the pointer stream
+     is cancelled before the gesture completes. */
+  touch-action: pinch-zoom;
+  transform: translateX(-50%);
+  transition: transform 0.3s ease-in-out;
+}
+
+[data-tz-trigger][data-tz-tucked='true'] {
+  transform: translateX(-50%) translateY(calc(100% + 2rem + env(safe-area-inset-bottom, 0px)));
+}
+
+/* The breakpoint is core's, not Bootstrap's. They agree at 768px today —
+   Bootstrap's `md` is 768px too — and a port that leaned on that coincidence
+   would drift silently the moment either one moved, so it is stated here
+   against the documented constant instead. */
+@media (min-width: 768px) {
+  [data-tz-trigger],
+  [data-tz-sheet],
+  [data-tz-scrim] {
+    display: none;
+  }
+}
+
+/* Bootstrap's own convention for this preference is a per-component
+   `transition: none` inside the same query, which is what this follows. */
+@media (prefers-reduced-motion: reduce) {
+  [data-tz-trigger],
+  [data-tz-sheet],
+  [data-tz-scrim] {
+    transition-duration: 1ms;
+  }
+  [data-tz-sheet] {
+    transform: none;
+    opacity: 0;
+    pointer-events: none;
+  }
+  [data-tz-sheet][data-tz-open='true'] {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
