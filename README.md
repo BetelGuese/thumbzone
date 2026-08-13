@@ -42,8 +42,11 @@ system without looking foreign in any of them.
 Each is held to 130 conformance instances — 65 per mobile device profile, the
 same groups across two of them, against materially different implementations.
 Six of the 130 drive real touch through Chromium's debug protocol and report as
-skipped on WebKit, so 124 have to pass and none may fail. There is no showcase
-site yet; the demo routes below run locally.
+skipped on WebKit, so 124 have to pass and none may fail: 496 passes across the
+four. A further 24 instances belong to no system — the registry guard, the scan
+for `vh` where `dvh` is required, the contract predicates — and pass too. The
+whole run is 544 instances: 520 passed, 24 skipped, nothing failed, no retries.
+There is no showcase site yet; the demo routes below run locally.
 
 ## What the first port changed
 
