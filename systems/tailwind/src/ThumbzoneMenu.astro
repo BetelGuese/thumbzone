@@ -1,0 +1,132 @@
+---
+import { MIN_HIT_TARGET } from '../../../core/index.js'
+
+/*
+ * The pattern's markup in Tailwind's own vocabulary.
+ *
+ * There is no component to reach past here, which makes this the one port with
+ * nothing to argue with: Tailwind ships no drawer, no sheet and no runtime, so
+ * the markup is the pattern's own and the classes are the whole styling layer.
+ * What is being tested is narrower and more interesting than "does it work" —
+ * whether the CSS this contract requires can be said in utilities at all.
+ *
+ * It nearly can. env(), dvh, min() and calc() all survive arbitrary values; the
+ * per-element touch-action values compose from named utilities; the state rules
+ * are arbitrary variants over the contract's own data attributes. Three things
+ * needed something else, and each is marked below where it appears: the
+ * breakpoint, which is core's rather than Tailwind's; the lengths the trigger
+ * and the sheet must agree on; and the handle's hit target, which comes from a
+ * JavaScript constant.
+ *
+ * Everything below renders the sheet's closed state, which is also what a
+ * reader gets with the module script blocked entirely. The behaviour takes
+ * these same attributes over from there.
+ */
+
+/** Target of the trigger's `aria-controls`, and the sheet's own `id`. */
+const SHEET_ID = 'tz-tailwind-sheet'
+
+interface Props {
+  /** The menu's items, authored most-used-first. */
+  items: string[]
+}
+
+const { items } = Astro.props
+---
+<!-- Scrim, on `touch-pinch-zoom`: the scrim scrolls nothing of its own but sits over a page that does, and `pointer-events` alone does not stop a touch pan reaching it. `pinch-zoom` rather than `none`: this covers the whole viewport while the sheet is open, so blocking zoom here is a screen-wide regression (WCAG 1.4.4), not a local one. -->
+<div
+  data-tz-scrim
+  data-tz-open="false"
+  class="fixed inset-0 z-20 bg-black/50 opacity-0 pointer-events-none
+         transition-opacity duration-200 ease-out
+         data-[tz-open=true]:opacity-100 data-[tz-open=true]:pointer-events-auto
+         touch-pinch-zoom
+         motion-reduce:duration-[1ms]
+         desktop:hidden"
+>
+</div>
+
+<!-- Sheet, on `max-h-[85dvh]`: `dvh`, not `vh` — iOS Safari's collapsing URL bar makes `vh` resolve to the expanded height, which would push the sheet under the browser chrome. And: Tailwind has no logical sizing utility, so this is `max-height` where the reference stylesheet writes `max-block-size`. The pattern is vertical either way; the gap is real and is recorded rather than papered over. -->
+<!-- Sheet, on `pbe-[…]`: reserves the trigger's own vertical footprint so the menu's last row never ends up under the trigger floating over it. The safe-area inset is added outright rather than folded into the trigger's (clamped) offset: this only has to be *at least* as large as the trigger's real clearance, and adding the inset can only make that truer. -->
+<!-- Sheet, on `overflow-hidden`: the menu, not the sheet, scrolls. A single element cannot both scroll natively and own a dismiss drag — `touch-action` has no way to grant panning in one direction on every engine (WebKit silently degrades `pan-up`/`pan-down` to `auto`), so the sheet is a non-scrolling drag surface with a separately scrollable menu inside it. -->
+<!-- Sheet, on `touch-pinch-zoom`: static and explicit, not inherited. An ancestor's `touch-action` does not change this element's own computed value, which is what a pan starting on the sheet's own chrome is arbitrated against. -->
+<!-- Sheet, on `transition-transform`: covers `transform`, `translate`, `scale` and `rotate` — which it must, because the resting position is a `translate` utility while the drag tracks the finger through an inline `transform`. The two compose rather than compete; naming only `transform` would leave the open/close travel unanimated. -->
+<div
+  id={SHEET_ID}
+  data-tz-sheet
+  data-tz-open="false"
+  role="dialog"
+  aria-modal="true"
+  aria-label="Main menu"
+  inert
+  class="fixed inset-x-0 bottom-0 z-30 flex flex-col overflow-hidden
+         max-h-[85dvh]
+         pbe-[calc(var(--tz-trigger-size)+var(--tz-trigger-gap)+env(safe-area-inset-bottom,0px))]
+         rounded-ss-2xl rounded-se-2xl bg-zinc-900 text-zinc-100
+         translate-y-full transition-transform duration-200 ease-out
+         data-[tz-open=true]:translate-y-0
+         data-[tz-dragging=true]:transition-none
+         touch-pinch-zoom
+         motion-reduce:translate-y-0 motion-reduce:opacity-0 motion-reduce:pointer-events-none
+         motion-reduce:duration-[1ms]
+         motion-reduce:data-[tz-open=true]:opacity-100 motion-reduce:data-[tz-open=true]:pointer-events-auto
+         desktop:hidden"
+>
+  <!-- Handle: purely a visual affordance and a dedicated non-scrolling drag target — the gesture machine never recognises a drag starting inside the menu, so this is the only touch-drag entry point once the menu has its own scrollable overflow. `aria-hidden` because it says nothing the dialog's own name has not already said. -->
+  <!-- Handle, on the inline `block-size`: the whole interactive region must clear the contract's 48px minimum, not just the pill drawn inside it — WCAG 2.5.8's 24px floor is not the bar here. Declared from `MIN_HIT_TARGET` rather than from a spacing token that could be tidied under it, and inline because a class name built from a JavaScript value is never scanned, so it would emit nothing at all. -->
+  <!-- Handle, on `touch-pinch-zoom`: the contract sanctions `none` here, since the handle genuinely needs to own the gesture and the impairment is confined to one 48px control — but refusing the vertical pan is all that ownership requires, and a pinch landing on a real control should still zoom the page. All three shipped ports make the same call. -->
+  <!-- Handle, on `before:bg-zinc-500`: measures 3.67:1 against the sheet's bg-zinc-900 — clears WCAG 1.4.11's 3:1 floor for non-text UI components (verified directly against both this pill's own colour and the sheet's, not assumed). -->
+  <div
+    data-tz-handle
+    aria-hidden="true"
+    class="grid shrink-0 place-items-center cursor-grab touch-pinch-zoom
+           before:block before:h-1 before:w-10 before:rounded-full before:bg-zinc-500
+           [[data-tz-dragging=true]_&]:cursor-grabbing"
+    style={`block-size:${MIN_HIT_TARGET}px`}
+  >
+  </div>
+
+  <!-- Menu, on `min-h-0`: without it a flex child's automatic minimum is its content's height, so a long menu would push the sheet past its own maximum instead of scrolling inside it. -->
+  <!-- Menu, on `touch-pan-y touch-pinch-zoom`: unconditional, unlike every other surface here. This region must stay pannable by touch at every scroll position and on every engine; a value that changed with `scrollTop` is what deadlocks, because it blocks the very scroll that would move `scrollTop` off zero. -->
+  <ul
+    data-tz-menu
+    class="min-h-0 flex-1 list-none overflow-y-auto overscroll-contain p-2
+           touch-pan-y touch-pinch-zoom"
+  >
+    {items.map((item) => (
+      <li>
+        <a
+          href="#"
+          class="flex min-h-12 items-center rounded-lg px-4 text-base
+                 hover:bg-zinc-800
+                 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-100"
+        >{item}</a>
+      </li>
+    ))}
+  </ul>
+</div>
+
+<!-- Trigger, on `bottom-[min(…)]`: placed a gap above the bottom edge, then clamped by the pattern's own ceiling on how far a thumb-reachable trigger may sit from it — so neither a larger gap nor a tall home-indicator inset can push it out of the thumb zone. -->
+<!-- Trigger, on `cursor-pointer`: Tailwind's preflight resets a button's cursor to `default`, so this is restoring the affordance the reset removed rather than decorating it. -->
+<!-- Trigger, on `aria-label`: the name names the menu and stays put in both states — `aria-expanded` is what reports open or closed, so a name that changed with it would say the same thing twice, and the pattern deliberately leaves an authored name alone. -->
+<!-- Trigger, on `touch-pinch-zoom`: the trigger scrolls nothing, so this can be static. Without it a real swipe-to-open is read as an attempt to pan the page and the pointer stream is cancelled before the gesture completes. -->
+<button
+  type="button"
+  data-tz-trigger
+  aria-expanded="false"
+  aria-controls={SHEET_ID}
+  aria-label="Navigation menu"
+  class="fixed left-1/2 z-40 grid place-items-center
+         size-[var(--tz-trigger-size)]
+         bottom-[min(calc(var(--tz-trigger-gap)+env(safe-area-inset-bottom,0px)),var(--tz-trigger-max-bottom-gap))]
+         cursor-pointer rounded-full bg-orange-500 text-zinc-950 shadow-lg
+         -translate-x-1/2 transition-transform duration-200 ease-out
+         data-[tz-tucked=true]:translate-y-[calc(100%+2rem+env(safe-area-inset-bottom,0px))]
+         touch-pinch-zoom
+         motion-reduce:duration-[1ms]
+         desktop:hidden"
+>
+  <svg width="20" height="14" viewBox="0 0 20 14" aria-hidden="true">
+    <path d="M0 1h20M0 7h20M0 13h20" stroke="currentColor" stroke-width="2" />
+  </svg>
+</button>

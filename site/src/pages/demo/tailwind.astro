@@ -1,12 +1,71 @@
 ---
 import DemoLayout from '../../layouts/DemoLayout.astro'
+import ThumbzoneMenu from '../../../../systems/tailwind/src/ThumbzoneMenu.astro'
 import '../../../../systems/tailwind/src/styles.css'
+
+const items = ['Home', 'Search', 'Library', 'Profile', 'Settings']
 ---
 <DemoLayout system="tailwind">
   <main data-tz-app>
-    <h1 class="text-2xl font-bold text-zinc-100">thumbzone — Tailwind CSS</h1>
-    <p class="rounded-2xl bg-zinc-800 px-4 py-2 text-zinc-300">Pipeline probe.</p>
-    <p class="desktop:hidden">Hidden above the pattern's own breakpoint.</p>
-    <p class="pbe-[calc(var(--tz-trigger-size)+var(--tz-trigger-gap))]">Shared-length probe.</p>
+    <h1>thumbzone — Tailwind CSS</h1>
+    {Array.from({ length: 40 }, (_, i) => <p>Scrollable content line {i + 1}.</p>)}
   </main>
+  <ThumbzoneMenu items={items} />
 </DemoLayout>
+
+<style>
+  /* Restores the demo page's own prose spacing, which Tailwind's preflight
+     removes along with every other user-agent default.
+
+     Not cosmetic. The vanilla and Material UI routes get the UA's block margins
+     on this same content, and that is what makes the page under the sheet a
+     genuinely scrollable one: with the margins gone, the identical 40
+     paragraphs run several hundred pixels shorter and leave the document with
+     less scroll range than a single scroll gesture covers. The trigger's
+     scroll-aware tuck is then unobservable — not because the behaviour is
+     wrong, but because every scroll lands at the end of the document, where the
+     pattern deliberately untucks.
+
+     Scoped rather than global: it applies to this route's own content and must
+     not reach the port's markup, which styles itself in utilities. */
+  h1 {
+    font-size: 2em;
+    font-weight: bold;
+    margin-block: 0.67em;
+  }
+
+  p {
+    margin-block: 1em;
+  }
+</style>
+
+<script>
+  import { initThumbzone } from '../../../../systems/tailwind/src/thumbzone.js'
+
+  const thumbzone = initThumbzone({
+    trigger: document.querySelector('[data-tz-trigger]'),
+    sheet: document.querySelector('[data-tz-sheet]'),
+    scrim: document.querySelector('[data-tz-scrim]'),
+    menu: document.querySelector('[data-tz-menu]'),
+    inertRoot: document.querySelector('[data-tz-app]'),
+  })
+
+  // Exposed only so e2e tests can drive the imperative API (destroy(), in
+  // particular, has no attribute-driven equivalent to trigger from a test).
+  // @ts-expect-error — deliberate test hook, not part of the page's own contract.
+  window.__thumbzone = thumbzone
+  // Exposed so a test can destroy() this instance and re-initThumbzone() the
+  // same elements after setting a pre-init inline style on them — there is no
+  // other way to exercise "what was here before initThumbzone ran" from
+  // outside the module.
+  // @ts-expect-error — deliberate test hook, not part of the page's own contract.
+  window.__initThumbzone = initThumbzone
+  // Already resolved, and this is the one case that is correct for: the
+  // component compiles to static HTML at build time and this port ships no
+  // runtime, so nothing arrives after the script that wired the pattern and
+  // there is nothing for the suite to wait on. Published all the same rather
+  // than left out as a special case — a suite that had to ask which systems
+  // have one would be back to knowing about systems.
+  // @ts-expect-error — deliberate test hook, not part of the page's own contract.
+  window.__thumbzoneReady = Promise.resolve()
+</script>
