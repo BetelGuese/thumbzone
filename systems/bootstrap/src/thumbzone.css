@@ -16,8 +16,9 @@
  * binds Escape — five responsibilities the pattern already owns, and two owners
  * of one lifecycle cannot be made to work. Its CSS is worse: `.offcanvas` is
  * `visibility: hidden` while closed, which leaves the open transition nothing
- * to animate and makes `inert` decorative; its height default is `30vh` and its
- * backdrop `100vh`, the one unit this pattern forbids because iOS Safari's
+ * to animate and makes `inert` decorative; its panel height defaults to a
+ * viewport-height unit and its backdrop is a full-viewport box in the same
+ * unit, the one unit this pattern forbids because iOS Safari's
  * collapsing URL bar makes it resolve to the expanded height; and it sizes by a
  * fixed `height` where the pattern needs a content-driven maximum. Keeping the
  * class names while overriding all of that would be a costume.
@@ -88,7 +89,8 @@
   flex-direction: column;
   /* dvh, not vh: iOS Safari's collapsing URL bar makes vh resolve to the
      expanded height, which would push the sheet under the browser chrome.
-     Bootstrap ships no dvh at all — its own offcanvas is 30vh — so this is the
+     Bootstrap ships no dvh at all — its own offcanvas is sized in
+     viewport-height units — so this is the
      pattern's value, not the system's. */
   max-block-size: 85dvh;
   /* The menu, not the sheet, scrolls. A single element cannot both scroll
