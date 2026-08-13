@@ -88,6 +88,7 @@ const { items } = Astro.props
 
   <!-- Menu, on `min-h-0`: without it a flex child's automatic minimum is its content's height, so a long menu would push the sheet past its own maximum instead of scrolling inside it. -->
   <!-- Menu, on `touch-pan-y touch-pinch-zoom`: unconditional, unlike every other surface here. This region must stay pannable by touch at every scroll position and on every engine; a value that changed with `scrollTop` is what deadlocks, because it blocks the very scroll that would move `scrollTop` off zero. -->
+  <!-- Row, on `min-h-12`: 48px under preflight's border-box, which is the contract's MIN_HIT_TARGET floor itself rather than comfortably above it as vanilla's ~80px row is. Deliberate: sitting exactly on the floor is still compliant, not an oversight to tidy away. -->
   <ul
     data-tz-menu
     class="min-h-0 flex-1 list-none overflow-y-auto overscroll-contain p-2

@@ -10,9 +10,12 @@ import '../../../../systems/tailwind/src/styles.css'
 // vanilla-overflow.astro does for the reference implementation.
 //
 // Twenty items comfortably overflows the sheet on both device profiles. Each
-// row is floored at the contract's 48px minimum by the port's own styling, so
-// the list alone runs past 960px, against a budget the sheet's own 85dvh has
-// already reduced by the handle's height and the trigger's reserved clearance.
+// row sits at exactly the contract's 48px minimum (min-h-12, floored under
+// preflight's border-box), so the list itself is exactly 960px; the menu's
+// own p-2 padding adds 8px top and bottom, bringing the measured scrollHeight
+// to 976px — against a budget the sheet's own 85dvh (roughly 780-790px on the
+// two device profiles) has already reduced further by the handle's height and
+// the trigger's reserved clearance.
 const items = Array.from({ length: 20 }, (_, i) => `Item ${i + 1}`)
 ---
 <DemoLayout system="tailwind">

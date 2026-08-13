@@ -130,28 +130,35 @@ vocabulary, so expect to meet them again.
   the utilities using it still read as utilities.
 - **A length two elements have to agree on.** The trigger floats above the open
   sheet, and the sheet has to reserve the trigger's own footprint or the menu's
-  last row ends up underneath it — two rules, on two elements, depending on the
+  last row ends up underneath it — one rule on each element, depending on the
   same two lengths. A utility class carries a *value*, not a reference, so it
   cannot say "the same length as that other element's". Nor can you assemble the
   class name from a shared constant: the scanner reads source text, so a name
   built by interpolation never appears in it and nothing is emitted at all.
-  Three custom properties on `[data-tz-trigger], [data-tz-sheet]`, read from
-  both elements' arbitrary values, is the answer.
+  Two custom properties on `[data-tz-trigger], [data-tz-sheet]` — the trigger's
+  size and its gap from the edge — read from both elements' arbitrary values,
+  is the answer.
 - **A value that lives in JavaScript.** `MIN_HIT_TARGET` is the handle's height,
   and for the same scanning reason it cannot be a class either. It is an inline
-  style.
+  style. `--tz-trigger-max-bottom-gap` belongs in this category too, not the one
+  above it: only the trigger reads it. It restates `MAX_TRIGGER_BOTTOM_GAP` from
+  `core/index.js` as a third custom property alongside the two shared ones,
+  because a stylesheet cannot import a JavaScript constant any more than it can
+  assemble a class name from one.
 
 **The failure mode of an invalid utility is silence.** It emits nothing, the
 page still renders, and it renders almost right — a dropped
 `env(safe-area-inset-bottom)` or a `touch-action` that never compiled looks
 like nothing until the one device that needed it. A port on a utility system
 therefore owes itself a read of the built CSS rather than a look at the screen.
-This one verified twelve contract requirements that way, each by locating the
-rule its class should have produced. Anchor those reads on something the build
-does not rewrite: the pipeline minifies to the shortest equivalent, so
-`duration-200` arrives as `.2s` rather than `200ms` and the `768px` media query
-as range syntax, and a check pinned to the literal you authored reports a
-failure that is only the serialisation.
+This port verified every requirement that lives or dies on a class actually
+compiling — a breakpoint, a shared length, a `touch-action` value, a timing
+curve — the same way: by locating, in the built CSS, the rule its class should
+have produced, rather than trusting that it did. Anchor those reads on
+something the build does not rewrite: the pipeline minifies to the shortest
+equivalent, so `duration-200` arrives as `.2s` rather than `200ms` and the
+`768px` media query as range syntax, and a check pinned to the literal you
+authored reports a failure that is only the serialisation.
 
 **Two of this port's rules win on emit order rather than specificity.**
 `motion-reduce:` utilities are emitted after their unvariant counterparts at
@@ -248,6 +255,9 @@ spacing the reset removed, scoped to the route's prose so it cannot reach the
 port's markup, which styles itself. Not in the pattern, and not in the suite. A
 demo route is a fixture as much as a demonstration, and it owes the suite the
 same scrollable range every other route gives it.
+
+It already came round again within this same branch, when the Tailwind CSS
+port's own preflight hit its demo route the same way and took the same fix.
 
 The third one is what a framework-based port needs, and it is worth understanding
 before you write one. If your port renders its markup on the server and hydrates
