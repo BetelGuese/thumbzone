@@ -217,10 +217,11 @@ did. Each entry scans the whole repository for candidate class names and
 compiles every candidate valid under *its own* theme, regardless of which file
 wrote it: shadcn/ui's CSS bundle is 17333 bytes with this port absent and
 19756 with it present — a delta of 2423 bytes, all of it rules shadcn has no
-element for. The delta is the finding, not the endpoints: each port added to
-this repository shifts both figures by its own contribution and leaves the
-gap between them alone, so the absolute pair will move again the next port
-that lands while the delta holds. What does not cross is anything needing a
+element for. The delta is the more durable half of the measurement, not the
+endpoints: the Bootstrap port shifted both figures by the same +117 bytes and
+left the 2423-byte gap between them alone. That is one later port, not a
+rule — re-measure the pair when the next one lands, and treat a moved delta as
+a finding rather than a mistake. What does not cross is anything needing a
 declaration the other entry lacks — this port's custom `desktop` variant,
 shadcn's `@theme` colour tokens. It is inert on two independent grounds: no
 element on the other route carries those classes, and the `--tz-*` custom
