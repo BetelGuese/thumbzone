@@ -1,5 +1,11 @@
 import { test, expect } from '@playwright/test'
-import { DESKTOP_BREAKPOINT } from '../core/index.js'
+import {
+  DESKTOP_BREAKPOINT,
+  DISMISS_RATIO,
+  FLING_VELOCITY,
+  MAX_TRIGGER_BOTTOM_GAP,
+  MIN_HIT_TARGET,
+} from '../core/index.js'
 import { PLANNED_SYSTEMS, SHIPPED_SYSTEMS } from '../systems/registry'
 
 // Project-level, not per-system: this guards one page rather than iterating
@@ -205,6 +211,32 @@ test.describe('showcase', () => {
         `${system.label}'s note is not shown beside its link`,
       ).toBeVisible()
     }
+  })
+
+  // Imported rather than retyped, so the page cannot drift from the contract.
+  // Asserting the rendered text is what proves the import is actually
+  // reaching the markup: a page that imported the constants and then wrote
+  // the numbers out by hand would look identical in source review.
+  test('states the contract’s figures as the code defines them', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 })
+    await page.goto('/')
+    const contract = page.locator('[data-tz-contract]')
+    await expect(contract).toContainText(String(DESKTOP_BREAKPOINT))
+    await expect(contract).toContainText(String(MIN_HIT_TARGET))
+    await expect(contract).toContainText(String(MAX_TRIGGER_BOTTOM_GAP))
+    await expect(contract).toContainText(String(DISMISS_RATIO * 100))
+    await expect(contract).toContainText(String(FLING_VELOCITY))
+  })
+
+  test('draws the reach argument rather than only asserting it', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 })
+    await page.goto('/')
+    const diagram = page.locator('[data-tz-reach]')
+    await expect(diagram).toBeVisible()
+    // A decorative graphic is fine; an unlabelled one is not. The diagram
+    // carries the page's headline claim, so it needs a text equivalent.
+    await expect(diagram).toHaveAttribute('role', 'img')
+    await expect(diagram).toHaveAccessibleName(/.+/)
   })
 })
 
