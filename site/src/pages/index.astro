@@ -75,3 +75,59 @@ const initialSystem = SHIPPED_SYSTEMS[0]
     </main>
   </body>
 </html>
+
+<script>
+  import { DESKTOP_BREAKPOINT } from '../../../core/index.js'
+
+  const host = document.querySelector('[data-tz-frame-host]')
+  const links = document.querySelectorAll('a[data-tz-system]')
+
+  // Below the breakpoint the frame is hidden and these links are the page's
+  // real navigation: a reader on a phone wants the demo full-screen under an
+  // actual thumb, not a simulation of a phone inside a phone. Matching the
+  // same width the frame is shown at keeps one rule governing both.
+  const framesAreShown = window.matchMedia(`(min-width: ${DESKTOP_BREAKPOINT}px)`)
+
+  function swap(route, label) {
+    const current = host?.querySelector('iframe')
+    if (!current) return
+
+    // Replaced rather than re-pointed. Assigning `src` to a frame already in
+    // the document navigates it, and that navigation pushes an entry onto
+    // *this* page's session history — so a reader who tried three systems and
+    // pressed Back would walk backwards through the switcher instead of
+    // leaving. A newly inserted frame's first load is a replacement, not a
+    // push. It also guarantees a clean document: these routes wire a pointer
+    // state machine, a focus trap and a scroll tracker at init, and a reused
+    // frame would carry whatever state the last one was left in.
+    const next = document.createElement('iframe')
+    // Dimensions are copied from the element the server rendered rather than
+    // recomputed here, so the width that is clamped against the breakpoint at
+    // build time has exactly one source.
+    next.width = current.width
+    next.height = current.height
+    next.setAttribute('data-tz-frame', '')
+    next.title = `${label} demo`
+    next.src = route
+    current.replaceWith(next)
+  }
+
+  for (const link of links) {
+    link.addEventListener('click', (event) => {
+      // Let the browser do its normal thing when the frame is not on screen,
+      // and for any click the reader meant to open elsewhere.
+      if (!framesAreShown.matches) return
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return
+
+      event.preventDefault()
+      swap(link.getAttribute('href') ?? '', link.textContent?.trim() ?? '')
+
+      for (const other of links) other.removeAttribute('aria-current')
+      link.setAttribute('aria-current', 'page')
+    })
+  }
+
+  // The server renders no aria-current, because without scripting these are
+  // ordinary links to other pages and none of them is the current one.
+  if (framesAreShown.matches) links[0]?.setAttribute('aria-current', 'page')
+</script>

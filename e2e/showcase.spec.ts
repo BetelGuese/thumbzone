@@ -78,4 +78,56 @@ test.describe('showcase', () => {
     // about, so a hand-typed route going stale fails here.
     expect(SHIPPED_SYSTEMS.map((system) => system.route)).toContain(src)
   })
+
+  // A dead switcher is invisible from the page's appearance — the frame still
+  // shows a working demo, just always the same one. Asserting the framed
+  // document actually changed is the only thing that catches it.
+  test('swaps the framed system without navigating away', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 })
+    await page.goto('/')
+
+    // Guards this test against a one-system registry, where "switching"
+    // would be unobservable and the assertions below would pass trivially.
+    expect(SHIPPED_SYSTEMS.length).toBeGreaterThan(1)
+    const target = SHIPPED_SYSTEMS[1]
+
+    await page.locator(`a[data-tz-system="${target.id}"]`).click()
+
+    await expect(page.locator('iframe[data-tz-frame]')).toHaveAttribute('src', target.route)
+    // The page itself must not have navigated: the whole point of
+    // intercepting is that the reader stays on the argument.
+    expect(new URL(page.url()).pathname).toBe('/')
+    await expect(page.locator(`a[data-tz-system="${target.id}"]`)).toHaveAttribute('aria-current', 'page')
+    // Exactly one link is current, so the previous one was cleared.
+    await expect(page.locator('a[data-tz-system][aria-current="page"]')).toHaveCount(1)
+  })
+
+  test('leaves the trigger reachable inside the framed demo after a swap', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 })
+    await page.goto('/')
+    const target = SHIPPED_SYSTEMS[1]
+    await page.locator(`a[data-tz-system="${target.id}"]`).click()
+
+    // Reaches into the framed document, which is where the claim actually
+    // lives: a swap that loaded the route but produced a frame too wide for
+    // the pattern would pass every assertion above.
+    const framed = page.frameLocator('iframe[data-tz-frame]')
+    await expect(framed.locator('[data-tz-trigger]')).toBeVisible()
+  })
+})
+
+// The links are the page's whole control surface, and the script only
+// enhances them. With scripting off they must still go somewhere real —
+// this is the same fallback the below-breakpoint path relies on, so a
+// regression here breaks both at once.
+test.describe('showcase without scripting', () => {
+  test.use({ javaScriptEnabled: false })
+
+  test('falls back to navigating to the demo route', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 })
+    await page.goto('/')
+    const target = SHIPPED_SYSTEMS[1]
+    await page.locator(`a[data-tz-system="${target.id}"]`).click()
+    await expect(page).toHaveURL(new RegExp(`${target.route}$`))
+  })
 })
