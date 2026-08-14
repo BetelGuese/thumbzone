@@ -239,6 +239,10 @@ npm install
 npm run dev            # http://localhost:4321
 ```
 
+`/` is the showcase: the argument, the contract's own figures, and a live demo
+framed at a phone's width with a switcher for the five systems — narrow the
+window below 768px and the frame gives way to direct links to the routes below.
+
 Demo routes: `/demo/vanilla`, `/demo/mui`, `/demo/shadcn`, `/demo/tailwind` and
 `/demo/bootstrap`, each with an `-overflow` variant carrying a menu taller than
 the sheet, for testing internal scrolling against the drag gesture.
