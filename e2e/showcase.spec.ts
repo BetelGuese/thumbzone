@@ -151,6 +151,9 @@ test.describe('showcase', () => {
     await expect(host).toBeAttached()
     await expect(host).toBeHidden()
 
+    // Guards the loop below against vacuity: an empty registry would make
+    // every assertion inside it pass without comparing anything.
+    expect(SHIPPED_SYSTEMS.length).toBeGreaterThan(0)
     for (const system of SHIPPED_SYSTEMS) {
       await expect(page.locator(`a[data-tz-system="${system.id}"]`)).toBeVisible()
     }
@@ -181,6 +184,9 @@ test.describe('showcase', () => {
     await page.setViewportSize({ width: 1280, height: 900 })
     await page.goto('/')
 
+    // Guards the loop below against vacuity: an empty registry would make
+    // every assertion inside it pass without comparing anything.
+    expect(SHIPPED_SYSTEMS.length).toBeGreaterThan(0)
     for (const system of SHIPPED_SYSTEMS) {
       const note = page.locator(`[data-tz-note="${system.id}"]`)
       await expect(note, `${system.label} has no note`).toHaveCount(1)
@@ -218,6 +224,9 @@ test.describe('showcase', () => {
     await page.setViewportSize({ width: DESKTOP_BREAKPOINT - 1, height: 900 })
     await page.goto('/')
 
+    // Guards the loop below against vacuity: an empty registry would make
+    // every assertion inside it pass without comparing anything.
+    expect(SHIPPED_SYSTEMS.length).toBeGreaterThan(0)
     for (const system of SHIPPED_SYSTEMS) {
       await expect(
         page.locator(`[data-tz-note="${system.id}"]`),
