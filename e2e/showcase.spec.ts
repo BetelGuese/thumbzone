@@ -236,9 +236,11 @@ test.describe('showcase', () => {
   })
 
   // Imported rather than retyped, so the page cannot drift from the contract.
-  // Asserting the rendered text is what proves the import is actually
-  // reaching the markup: a page that imported the constants and then wrote
-  // the numbers out by hand would look identical in source review.
+  // What this catches is that drift, and only that: a page that hardcoded the
+  // same figures would pass it unchanged, so it is no evidence the import
+  // reaches the markup. Its value is that changing a constant and leaving the
+  // page behind fails here instead of shipping a page quoting numbers the
+  // suite no longer enforces.
   test('states the contract’s figures as the code defines them', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 })
     await page.goto('/')
