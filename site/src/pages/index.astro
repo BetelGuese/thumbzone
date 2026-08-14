@@ -134,7 +134,7 @@ const NOTES: Record<string, { text: string; href: string; linkText: string }> = 
         </svg>
       </header>
 
-      <section aria-labelledby="tz-demo-heading">
+      <section data-tz-demo aria-labelledby="tz-demo-heading">
         <h2 id="tz-demo-heading">Five design systems, one pattern</h2>
         <nav aria-label="Choose a design system">
           <ul>
@@ -153,7 +153,10 @@ const NOTES: Record<string, { text: string; href: string; linkText: string }> = 
           </ul>
         </nav>
 
-        <div data-tz-frame-host>
+        {/* The width is handed to CSS rather than repeated in it, so the panel
+            drawn around the frame is sized from the same clamped figure the
+            frame itself carries and cannot drift from it. */}
+        <div data-tz-frame-host style={`--tz-frame-inline-size: ${FRAME_WIDTH}px`}>
           <iframe
             data-tz-frame
             src={initialSystem.route}
@@ -183,8 +186,9 @@ const NOTES: Record<string, { text: string; href: string; linkText: string }> = 
           <li>Zero axe violations across WCAG 2.0, 2.1 and 2.2 A and AA, sheet closed and open.</li>
         </ul>
         <p>
-          <a href={`${REPO}#what-is-enforced-not-just-claimed`}>The full list</a> ·
-          <a href={`${REPO}/actions/workflows/ci.yml`}>Every run</a>
+          {/* Kept on one line: a newline after the separator is trimmed rather
+              than collapsed to a space, which runs the two links together. */}
+          <a href={`${REPO}#what-is-enforced-not-just-claimed`}>The full list</a> · <a href={`${REPO}/actions/workflows/ci.yml`}>Every run</a>
         </p>
       </section>
 
@@ -204,22 +208,231 @@ const NOTES: Record<string, { text: string; href: string; linkText: string }> = 
 </html>
 
 <style>
+  /* Set like the document it describes. System sans carries the argument;
+     monospace carries every value the suite actually fixes — system names,
+     dimensions, clause numbers — so what is enforced never looks like what
+     is merely asserted. Nothing here encodes meaning in hue, which is what
+     lets the page survive either colour scheme, and greyscale, intact. */
+  html {
+    box-sizing: border-box;
+    color-scheme: light dark;
+
+    --tz-page: #fbfbfa;
+    --tz-ink: #16181d;
+    --tz-quiet: #585d66;
+    --tz-rule: #d8d9dd;
+    --tz-panel: #f1f1ef;
+
+    --tz-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --tz-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  }
+
+  /* Written out rather than derived from the values above. A page arguing
+     that a reader's circumstances are worth designing around cannot treat
+     the scheme they chose as an afterthought — so both sets were measured,
+     and the muted ink clears 4.5:1 against its own page colour in each. */
+  @media (prefers-color-scheme: dark) {
+    html {
+      --tz-page: #0d0f12;
+      --tz-ink: #e9ebee;
+      --tz-quiet: #9aa1aa;
+      --tz-rule: #272b32;
+      --tz-panel: #14171a;
+    }
+  }
+
+  /* Stated outright rather than set once on the root and inherited from
+     there. This page's styles are scoped by an attribute the compiler
+     splices into every selector, including this one — which leaves the
+     universal rule out-specifying the root rule it would be depending on,
+     so the root resolves the inherited value against no parent at all and
+     the initial value cascades everywhere instead. */
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  body {
+    margin: 0;
+    background: var(--tz-page);
+    color: var(--tz-ink);
+    font-family: var(--tz-sans);
+    line-height: 1.6;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  [data-tz-showcase] {
+    counter-reset: tz-section;
+    max-inline-size: 64rem;
+    margin-inline: auto;
+    padding: clamp(2rem, 5vw, 4rem) clamp(1.25rem, 4vw, 3rem);
+  }
+
+  /* Links carry no colour of their own — the page has no accent to spend, and
+     one introduced here would be the only thing on it encoding meaning in
+     hue. The rule beneath the text is what marks them, so it is set at the
+     muted ink rather than at the hairline colour: a separator nobody can see
+     is not an affordance. */
+  [data-tz-showcase] a {
+    color: inherit;
+    text-decoration-color: var(--tz-quiet);
+    text-decoration-thickness: 1px;
+  }
+
+  /* Both properties, because most of these links sit inside muted prose,
+     where they already share their surroundings' colour: raising the text to
+     full strength is what actually reads as a response to the pointer. */
+  [data-tz-showcase] a:hover {
+    color: var(--tz-ink);
+    text-decoration-color: currentColor;
+  }
+
+  /* Nothing above removes the browser's own indicator, so this strengthens
+     one that is already there rather than standing in for it — an engine
+     that does not recognise the modifier in this selector leaves a reader
+     who never touches a pointer with the default, not with nothing.
+     Spelled out in longhands deliberately: the shorthand's property name is
+     also the name of a utility, and one of the ports compiles bare words
+     found anywhere in this source tree into its own stylesheet. */
+  [data-tz-showcase] a:focus-visible {
+    outline-style: solid;
+    outline-width: 2px;
+    outline-color: var(--tz-ink);
+    outline-offset: 3px;
+    border-radius: 1px;
+  }
+
+  header {
+    padding-block-end: clamp(2rem, 5vw, 3.5rem);
+  }
+
+  /* The wordmark, not the headline: the project's name set small and quiet
+     in the same face as its measurements, leaving the claim underneath it
+     to carry the weight. */
+  header h1 {
+    margin: 0;
+    font-family: var(--tz-mono);
+    font-size: 0.875rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    color: var(--tz-quiet);
+  }
+
+  /* The paragraph immediately after the wordmark is the claim; the one after
+     that is the evidence for it. Selected by position rather than by a hook
+     of its own, because its position in the markup is what makes it the
+     claim. */
+  header h1 + p {
+    margin: clamp(1.5rem, 4vw, 2.5rem) 0 0;
+    max-inline-size: 17ch;
+    font-size: clamp(2.25rem, 7vw, 3.75rem);
+    font-weight: 600;
+    line-height: 1.03;
+    letter-spacing: -0.03em;
+  }
+
+  header h1 + p + p {
+    margin: 1.5rem 0 0;
+    max-inline-size: 58ch;
+    color: var(--tz-quiet);
+  }
+
   /* Given a size of its own because an inline drawing with no intrinsic
-     dimensions falls back to 300×150, which renders the labels too small to
-     read. Bounded rather than full-bleed: the two outlines are compared with
-     each other, and a drawing wider than the prose around it separates them
-     further than the eye can hold. */
+     dimensions falls back to 300×150, which renders its own labels at about
+     6.75px. The ceiling is the same concern from the other side: the two
+     outlines are read against each other, and a drawing wider than the prose
+     beside it separates them further than the eye can hold in one glance.
+     Its labels scale with the box, so on a narrow screen the surround gives
+     up its own padding before the drawing gives up any width. */
   [data-tz-reach] {
     display: block;
-    width: 100%;
-    max-width: 32rem;
-    height: auto;
+    inline-size: 100%;
+    max-inline-size: 34rem;
+    block-size: auto;
+    margin-block-start: clamp(2rem, 5vw, 3rem);
+    padding: clamp(0.25rem, 2vw, 1.25rem);
+    background: var(--tz-panel);
+    border: 1px solid var(--tz-rule);
+    color: var(--tz-ink);
+  }
+
+  [data-tz-showcase] > section {
+    counter-increment: tz-section;
+    border-block-start: 1px solid var(--tz-rule);
+    padding-block: clamp(2rem, 5vw, 3rem);
+  }
+
+  [data-tz-showcase] h2 {
+    margin: 0 0 1.5rem;
+    font-size: clamp(1.25rem, 2.5vw, 1.5rem);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  /* Numbered the way the document it describes is numbered. The leading zero
+     keeps the index one width however far the count runs. */
+  [data-tz-showcase] h2::before {
+    content: counter(tz-section, decimal-leading-zero);
+    margin-inline-end: 0.9em;
+    font-family: var(--tz-mono);
+    font-size: 0.7em;
+    font-weight: 400;
+    color: var(--tz-quiet);
+  }
+
+  [data-tz-showcase] section > p {
+    margin: 0 0 1.25rem;
+    max-inline-size: 62ch;
+    color: var(--tz-quiet);
+  }
+
+  [data-tz-showcase] nav ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border-block-start: 1px solid var(--tz-rule);
+  }
+
+  [data-tz-showcase] nav li {
+    padding: 0.9rem 0 0.9rem 0.9rem;
+    border-block-end: 1px solid var(--tz-rule);
+    border-inline-start: 2px solid transparent;
+  }
+
+  /* Five labels in a ruled list inside a named navigation landmark, so they
+     are legible as controls without each one carrying its own mark; the row
+     they sit in, the edge marker and the focus indicator do that work. The rule
+     beneath the label is still drawn, merely left uncoloured, so revealing
+     it on hover reflows nothing and the row keeps its height whatever the
+     reader is doing.
+
+     Selected through the ancestor rather than on its own, which reads as
+     redundant and is not: scoping splices an extra attribute into every
+     compound selector, so the general rule above would otherwise out-specify
+     this one and colour all five. */
+  [data-tz-showcase] nav a[data-tz-system] {
+    font-family: var(--tz-mono);
+    font-size: 0.9375rem;
+    font-weight: 500;
+    text-decoration-color: transparent;
+  }
+
+  [data-tz-showcase] nav a[data-tz-system]:hover {
+    text-decoration-color: currentColor;
+  }
+
+  [data-tz-note] {
+    margin: 0.75rem 0 0;
+    max-inline-size: 52ch;
+    font-size: 0.9375rem;
+    color: var(--tz-quiet);
   }
 
   /* Mobile first: a reader already holding a phone does not need a
-     simulation of one. The frame is hidden and the switcher links are
-     ordinary navigation to the demo routes, full-screen and under a real
-     thumb.
+     simulation of one. Below the breakpoint the frame does not appear at
+     all, and the switcher links are ordinary navigation to the demo routes,
+     full-screen and under a real thumb.
 
      The width is a literal because a CSS media condition cannot read a
      custom property, which is the same constraint
@@ -227,13 +440,66 @@ const NOTES: Record<string, { text: string; href: string; linkText: string }> = 
      DESKTOP_BREAKPOINT by e2e/showcase.spec.ts, probed at the boundary
      rather than well past it. */
   [data-tz-frame-host] {
+    --tz-frame-pad: clamp(0.75rem, 2vw, 1.25rem);
+
     display: none;
+    text-align: center;
+    padding: var(--tz-frame-pad);
+    background: var(--tz-panel);
+    border: 1px solid var(--tz-rule);
   }
 
   @media (min-width: 768px) {
+    /* Bounded by the frame's own width plus what is drawn around it, so the
+       panel closes on the demo instead of stretching a plate of empty ground
+       across the page at the widths where this is still one column. The
+       padding is added to that figure rather than taken out of it — this
+       sizes the surround, and leaves what the frame renders at alone. */
     [data-tz-frame-host] {
       display: block;
+      margin: 2rem auto 0;
+      max-inline-size: calc(var(--tz-frame-inline-size) + 2 * var(--tz-frame-pad) + 2px);
     }
+  }
+
+  /* Deliberately reaches past this page's scoping. Switching systems
+     replaces the frame with an element the script creates itself, which
+     carries none of the generated attributes a scoped rule matches on — so a
+     scoped version of this would style the frame the server rendered and
+     then stop applying the moment a reader chose anything else, which is
+     precisely the state nobody reviews.
+
+     No width and no box of its own, either. The width is the attribute the
+     server computed against DESKTOP_BREAKPOINT: a rule that overrode it
+     would let the framed demo widen enough to put away its own trigger and
+     sheet, and an edge drawn here would come out of the viewport inside
+     instead, framing the demo at a width it was never sized for. The
+     surround is drawn by the panel around it, where it costs the demo
+     nothing. */
+  [data-tz-frame-host] :global(iframe[data-tz-frame]) {
+    display: block;
+    margin-inline: auto;
+    border: 0;
+    background: var(--tz-page);
+  }
+
+  [data-tz-frame-caption] {
+    margin: 0.85rem 0 0;
+    font-family: var(--tz-mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.04em;
+    color: var(--tz-quiet);
+  }
+
+  /* Left inside the framed area on purpose. It qualifies the frame and
+     nothing else, so where no frame appears it has nothing to qualify — and
+     a reader below the breakpoint is already doing the thing it asks for. */
+  [data-tz-caveat] {
+    margin: 0.85rem auto 0;
+    max-inline-size: 36ch;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    color: var(--tz-quiet);
   }
 
   /* Below the breakpoint every note is shown, beside the link it describes:
@@ -253,6 +519,108 @@ const NOTES: Record<string, { text: string; href: string; linkText: string }> = 
 
     [data-tz-current] [data-tz-note] {
       display: block;
+    }
+
+    /* The rule down the edge of a row means "this is the system in the
+       frame", so it is drawn only where a frame exists. The server marks the
+       first system whatever the width, and marking it below the breakpoint
+       would announce a choice the reader never made. */
+    [data-tz-showcase] nav li[data-tz-current] {
+      border-inline-start-color: var(--tz-ink);
+    }
+  }
+
+  /* Two columns once — and only once — there is room for the switcher's
+     prose beside a 390px frame without either being squeezed. Deliberately
+     not the contract's breakpoint: nothing about the pattern changes here,
+     only how much room the page has to lay itself out in. The frame's track
+     is sized to its own content, so nothing in this rule can widen or narrow
+     what the server rendered. */
+  @media (min-width: 62rem) {
+    [data-tz-demo] {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      column-gap: clamp(2rem, 4vw, 3.5rem);
+      align-items: start;
+    }
+
+    [data-tz-demo] h2 {
+      grid-column: 1 / -1;
+    }
+
+    [data-tz-frame-host] {
+      margin: 0;
+    }
+  }
+
+  /* Numbered clauses, monospaced and ruled off from each other, because that
+     is what the list is: four of the checks the suite runs, quoted from the
+     constants it runs them against. */
+  [data-tz-contract] {
+    counter-reset: tz-clause;
+    margin: 0 0 1.5rem;
+    padding: 0;
+    max-inline-size: 64ch;
+    list-style: none;
+    border-block-start: 1px solid var(--tz-rule);
+  }
+
+  [data-tz-contract] li {
+    counter-increment: tz-clause;
+    display: grid;
+    grid-template-columns: 2.25rem 1fr;
+    padding-block: 0.85rem;
+    border-block-end: 1px solid var(--tz-rule);
+    font-family: var(--tz-mono);
+    font-size: 0.875rem;
+    line-height: 1.55;
+  }
+
+  [data-tz-contract] li::before {
+    content: counter(tz-clause, decimal-leading-zero);
+    color: var(--tz-quiet);
+  }
+
+  [data-tz-planned] {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 0 0 1.5rem;
+    padding: 0;
+    list-style: none;
+  }
+
+  [data-tz-planned] li {
+    padding: 0.3rem 0.7rem;
+    border: 1px solid var(--tz-rule);
+    font-family: var(--tz-mono);
+    font-size: 0.8125rem;
+    color: var(--tz-quiet);
+  }
+
+  [data-tz-showcase] footer {
+    padding-block-start: 1.5rem;
+    border-block-start: 1px solid var(--tz-rule);
+  }
+
+  [data-tz-showcase] footer p {
+    margin: 0;
+    font-family: var(--tz-mono);
+    font-size: 0.8125rem;
+    color: var(--tz-quiet);
+  }
+
+  /* The only things that move are a rule arriving beneath a switcher label
+     and the edge marker changing colour. Both are declared here rather than
+     switched off further down, so a reader who has asked for less motion is
+     never sent any and then told to ignore it. */
+  @media (prefers-reduced-motion: no-preference) {
+    [data-tz-showcase] a,
+    [data-tz-showcase] nav li {
+      transition:
+        color 120ms ease-out,
+        text-decoration-color 120ms ease-out,
+        border-inline-start-color 120ms ease-out;
     }
   }
 </style>

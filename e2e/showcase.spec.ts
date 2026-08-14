@@ -7,6 +7,7 @@ import {
   MIN_HIT_TARGET,
 } from '../core/index.js'
 import { PLANNED_SYSTEMS, SHIPPED_SYSTEMS } from '../systems/registry'
+import { buildAxe } from './support/axe'
 
 // Project-level, not per-system: this guards one page rather than iterating
 // ports, so it sits alongside registry.spec.ts rather than using
@@ -238,6 +239,29 @@ test.describe('showcase', () => {
     await expect(diagram).toHaveAttribute('role', 'img')
     await expect(diagram).toHaveAccessibleName(/.+/)
   })
+
+  // Held to the same gate as every port, through the same builder, so the page
+  // arguing for accessible navigation cannot itself fall short of it. Both
+  // sides of the breakpoint, because the two are genuinely different pages:
+  // above it the frame and one caption are on screen, below it the frame is
+  // gone and five notes have taken its place.
+  //
+  // Excludes the framed document deliberately. axe traverses frames by
+  // default, so left alone this would re-audit a demo route that every
+  // system's own axe run already covers — measuring someone else's port and
+  // reporting it as this page's result. What is under test here is the
+  // showcase's own markup.
+  for (const width of [1280, DESKTOP_BREAKPOINT - 1]) {
+    test(`has no accessibility violations at ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 })
+      await page.goto('/')
+      const results = await buildAxe(page).exclude('iframe').analyze()
+      const summary = results.violations
+        .map((violation) => `${violation.id}: ${violation.help} (${violation.nodes.length} node(s))`)
+        .join('\n')
+      expect(results.violations, summary).toEqual([])
+    })
+  }
 })
 
 // The links are the page's whole control surface, and the script only
