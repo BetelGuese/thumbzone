@@ -5,13 +5,13 @@ import { openSheetAndSettle } from './support/sheet'
 import { describeForEachSystem } from './support/systems'
 
 // Project-level, not per-system: this is a property of the installed
-// axe-core and the options above, not of anything a system renders, so
-// running it once per registered system would repeat identical work for an
-// identical answer. It exists because the two tests below trust
-// `results.violations` to mean "checked against the full WCAG 2.x A/AA
-// surface" — a trust this proves against a real analyze() call rather than
-// against axe's rule *registry*, which (see buildAxe above) is not the same
-// thing as what a given run actually executes.
+// axe-core and the options buildAxe sets in ./support/axe, not of anything a
+// system renders, so running it once per registered system would repeat
+// identical work for an identical answer. It exists because the two tests
+// below trust `results.violations` to mean "checked against the full WCAG 2.x
+// A/AA surface" — a trust this proves against a real analyze() call rather
+// than against axe's rule *registry*, which (see buildAxe's own comment in
+// ./support/axe) is not the same thing as what a given run actually executes.
 test.describe('axe tag sanity', () => {
   test('every requested tag actually runs at least one rule', async ({ page }) => {
     await page.goto(SHIPPED_SYSTEMS[0].route)
