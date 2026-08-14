@@ -409,22 +409,20 @@ const NOTES: Record<string, { text: string; href: string; linkText: string }> = 
     border-inline-start: 2px solid transparent;
   }
 
-  /* Five labels in a ruled list inside a named navigation landmark, so they
-     are legible as controls without each one carrying its own mark; the row
-     they sit in, the edge marker and the focus indicator do that work. The rule
-     beneath the label is still drawn, merely left uncoloured, so revealing
-     it on hover reflows nothing and the row keeps its height whatever the
-     reader is doing.
-
-     Selected through the ancestor rather than on its own, which reads as
-     redundant and is not: scoping splices an extra attribute into every
-     compound selector, so the general rule above would otherwise out-specify
-     this one and colour all five. */
+  /* Marked like every other link on the page, and for a stronger reason than
+     any of them: below the breakpoint these five are the page's only route to
+     a demo, and nothing else here identifies them as a route to anything. The
+     three things that stand in for a mark further down all need conditions
+     this width does not have — the edge marker is drawn from the breakpoint
+     up, hover does not happen under a thumb, and a focus indicator asks the
+     reader to focus something they have no reason to think is focusable. A
+     page arguing that a thumb's reach is worth designing around cannot leave
+     its own navigation looking like headings, least of all while the aside in
+     each note is marked properly. */
   [data-tz-showcase] nav a[data-tz-system] {
     font-family: var(--tz-mono);
     font-size: 0.9375rem;
     font-weight: 500;
-    text-decoration-color: transparent;
   }
 
   [data-tz-showcase] nav a[data-tz-system]:hover {
@@ -562,6 +560,21 @@ const NOTES: Record<string, { text: string; href: string; linkText: string }> = 
        would announce a choice the reader never made. */
     [data-tz-showcase] nav li[data-tz-current] {
       border-inline-start-color: var(--tz-ink);
+    }
+
+    /* Only from here up, and only because from here up the label is not the
+       only thing saying these are controls: the edge marker above names the
+       one in the frame, and a reader at this width has a pointer, which
+       brings the rule back on hover. The rule is still drawn, merely left
+       uncoloured, so revealing it reflows nothing and the row keeps its
+       height whatever the reader is doing.
+
+       Selected through the ancestor rather than on its own, which reads as
+       redundant and is not: scoping splices an extra attribute into every
+       compound selector, so the general link rule would otherwise
+       out-specify this one and colour all five. */
+    [data-tz-showcase] nav a[data-tz-system] {
+      text-decoration-color: transparent;
     }
   }
 
