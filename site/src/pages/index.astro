@@ -223,6 +223,15 @@ const NOTES: Record<string, { text: string; href: string; linkText: string }> = 
     --tz-rule: #d8d9dd;
     --tz-panel: #f1f1ef;
 
+    /* The ground the framed demo stands on, and deliberately absent from the
+       dark set below. Every port's colours were chosen against a light ground
+       and are held to a contrast gate measured there; a screen that followed
+       the reader's scheme instead would be recolouring five ports from the
+       outside, on this page only, with no evidence any of them still passed.
+       So the screen keeps this surface in both schemes and the surround does
+       the adapting. */
+    --tz-screen: #fbfbfa;
+
     --tz-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     --tz-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
   }
@@ -441,12 +450,19 @@ const NOTES: Record<string, { text: string; href: string; linkText: string }> = 
      rather than well past it. */
   [data-tz-frame-host] {
     --tz-frame-pad: clamp(0.75rem, 2vw, 1.25rem);
+    --tz-screen-radius: 0.75rem;
 
     display: none;
     text-align: center;
     padding: var(--tz-frame-pad);
     background: var(--tz-panel);
     border: 1px solid var(--tz-rule);
+    /* Concentric with the screen it surrounds — the same radius plus the
+       padding between the two, which is what makes the surround read as
+       something built to hold the screen rather than a plate that happens to
+       be behind it. That reading is what a dark scheme needs from it: the one
+       light rectangle on the page has to look deliberate. */
+    border-radius: calc(var(--tz-screen-radius) + var(--tz-frame-pad));
   }
 
   @media (min-width: 768px) {
@@ -469,18 +485,37 @@ const NOTES: Record<string, { text: string; href: string; linkText: string }> = 
      then stop applying the moment a reader chose anything else, which is
      precisely the state nobody reviews.
 
-     No width and no box of its own, either. The width is the attribute the
+     No width and no edge of its own, either. The width is the attribute the
      server computed against DESKTOP_BREAKPOINT: a rule that overrode it
      would let the framed demo widen enough to put away its own trigger and
      sheet, and an edge drawn here would come out of the viewport inside
      instead, framing the demo at a width it was never sized for. The
      surround is drawn by the panel around it, where it costs the demo
-     nothing. */
+     nothing. A corner radius costs it nothing either — it clips, it does not
+     lay out — so that is where the screen gets its shape.
+
+     The colour scheme is the load-bearing declaration here. A demo route
+     declares none of its own, so it is rendered light; its root and its body
+     are both transparent, which leaves the browser to paint the canvas under
+     them. Where this element's scheme and the framed document's agree, that
+     canvas stays transparent and whatever is declared here shows through;
+     where they differ, the browser paints an opaque one of its own on top —
+     so a reader in a dark scheme got a white slab, and a background declared
+     here went underneath it and never appeared at all. Pinning this element
+     to light makes the two agree in either scheme, which both hands the rule
+     below a canvas it can actually set and keeps the ports on the ground
+     their colours were chosen and contrast-tested against. Deliberately done
+     from the showcase and not in the demo layout: that layout is shared by
+     all five routes and answerable to the conformance suite, and teaching it
+     to follow the reader's scheme would restyle five ports on the strength of
+     one page's appearance. */
   [data-tz-frame-host] :global(iframe[data-tz-frame]) {
     display: block;
     margin-inline: auto;
     border: 0;
-    background: var(--tz-page);
+    border-radius: var(--tz-screen-radius);
+    color-scheme: light;
+    background: var(--tz-screen);
   }
 
   [data-tz-frame-caption] {
