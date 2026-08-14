@@ -1,7 +1,20 @@
 ---
+import { DESKTOP_BREAKPOINT } from '../../../core/index.js'
 import { PLANNED_SYSTEMS, SHIPPED_SYSTEMS } from '../../../systems/registry'
 
 const REPO = 'https://github.com/BetelGuese/thumbzone'
+
+// A common logical phone width, clamped below the width at which the pattern
+// hides itself. The clamp is the point: a frame at or above the breakpoint
+// would render a demo with no trigger, no sheet and no scrim — the port
+// behaving exactly as the contract requires — and the page would look fine
+// while demonstrating nothing. Deriving the bound from the constant rather
+// than writing a number here means that mistake is not available to make.
+const PHONE_WIDTH = 390
+const FRAME_WIDTH = Math.min(PHONE_WIDTH, DESKTOP_BREAKPOINT - 1)
+const FRAME_HEIGHT = 780
+
+const initialSystem = SHIPPED_SYSTEMS[0]
 ---
 <html lang="en">
   <head>
@@ -35,6 +48,17 @@ const REPO = 'https://github.com/BetelGuese/thumbzone'
             }
           </ul>
         </nav>
+
+        <div data-tz-frame-host>
+          <iframe
+            data-tz-frame
+            src={initialSystem.route}
+            title={`${initialSystem.label} demo`}
+            width={FRAME_WIDTH}
+            height={FRAME_HEIGHT}
+          ></iframe>
+          <p data-tz-frame-caption>{FRAME_WIDTH} × {FRAME_HEIGHT}</p>
+        </div>
       </section>
 
       <section aria-labelledby="tz-planned-heading">
