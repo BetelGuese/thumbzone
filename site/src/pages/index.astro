@@ -1,10 +1,53 @@
 ---
-import { SHIPPED_SYSTEMS } from '../../../systems/registry'
+import { PLANNED_SYSTEMS, SHIPPED_SYSTEMS } from '../../../systems/registry'
+
+const REPO = 'https://github.com/BetelGuese/thumbzone'
 ---
 <html lang="en">
-  <head><meta charset="utf-8" /><title>thumbzone</title></head>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>thumbzone — a mobile menu where the thumb already is</title>
+    <meta
+      name="description"
+      content="The mobile hamburger menu belongs at the bottom centre, not in a top corner. One pattern, five design systems, one executable conformance suite."
+    />
+  </head>
   <body>
-    <h1>thumbzone</h1>
-    <ul>{SHIPPED_SYSTEMS.map((system) => <li><a href={system.route}>{system.label}</a></li>)}</ul>
+    <main data-tz-showcase>
+      <header>
+        <h1>thumbzone</h1>
+        <p>Your menu is in the wrong corner.</p>
+      </header>
+
+      <section aria-labelledby="tz-demo-heading">
+        <h2 id="tz-demo-heading">Five design systems, one pattern</h2>
+        <nav aria-label="Choose a design system">
+          <ul>
+            {
+              SHIPPED_SYSTEMS.map((system) => (
+                <li>
+                  <a href={system.route} data-tz-system={system.id}>
+                    {system.label}
+                  </a>
+                </li>
+              ))
+            }
+          </ul>
+        </nav>
+      </section>
+
+      <section aria-labelledby="tz-planned-heading">
+        <h2 id="tz-planned-heading">Awaiting a port</h2>
+        <ul data-tz-planned>
+          {PLANNED_SYSTEMS.map((system) => <li>{system.label}</li>)}
+        </ul>
+        <p><a href={`${REPO}/blob/main/CONTRIBUTING.md`}>How to add one</a></p>
+      </section>
+
+      <footer>
+        <p><a href={REPO}>Source</a> · MIT</p>
+      </footer>
+    </main>
   </body>
 </html>
