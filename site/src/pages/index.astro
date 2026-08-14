@@ -76,6 +76,28 @@ const initialSystem = SHIPPED_SYSTEMS[0]
   </body>
 </html>
 
+<style>
+  /* Mobile first: a reader already holding a phone does not need a
+     simulation of one. The frame is hidden and the switcher links are
+     ordinary navigation to the demo routes, full-screen and under a real
+     thumb.
+
+     The width is a literal because a CSS media condition cannot read a
+     custom property, which is the same constraint
+     systems/vanilla/src/thumbzone.css works under. It is held to
+     DESKTOP_BREAKPOINT by e2e/showcase.spec.ts, probed at the boundary
+     rather than well past it. */
+  [data-tz-frame-host] {
+    display: none;
+  }
+
+  @media (min-width: 768px) {
+    [data-tz-frame-host] {
+      display: block;
+    }
+  }
+</style>
+
 <script>
   import { DESKTOP_BREAKPOINT } from '../../../core/index.js'
 

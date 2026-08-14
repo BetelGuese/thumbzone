@@ -114,6 +114,44 @@ test.describe('showcase', () => {
     const framed = page.frameLocator('iframe[data-tz-frame]')
     await expect(framed.locator('[data-tz-trigger]')).toBeVisible()
   })
+
+  // Probed at the boundary itself rather than at some comfortable width well
+  // past it, for the same reason e2e/trigger.spec.ts probes there: a rule
+  // written with the wrong comparator, or leaving a gap around the boundary,
+  // satisfies a 1024px check while being wrong at exactly the width that
+  // defines it. The media query is a literal 768px because a CSS media
+  // condition cannot read a custom property; this is what holds it to the
+  // imported constant.
+  test('replaces the frame with real links below the breakpoint', async ({ page }) => {
+    await page.setViewportSize({ width: DESKTOP_BREAKPOINT - 1, height: 900 })
+    await page.goto('/')
+
+    // Attached but not visible, so "hidden by CSS" is told apart from
+    // "the element was dropped and this passes for the wrong reason".
+    const host = page.locator('[data-tz-frame-host]')
+    await expect(host).toBeAttached()
+    await expect(host).toBeHidden()
+
+    for (const system of SHIPPED_SYSTEMS) {
+      await expect(page.locator(`a[data-tz-system="${system.id}"]`)).toBeVisible()
+    }
+  })
+
+  test('shows the frame from the breakpoint up', async ({ page }) => {
+    await page.setViewportSize({ width: DESKTOP_BREAKPOINT, height: 900 })
+    await page.goto('/')
+    await expect(page.locator('[data-tz-frame-host]')).toBeVisible()
+  })
+
+  test('navigates rather than swapping below the breakpoint', async ({ page }) => {
+    await page.setViewportSize({ width: DESKTOP_BREAKPOINT - 1, height: 900 })
+    await page.goto('/')
+    const target = SHIPPED_SYSTEMS[1]
+    await page.locator(`a[data-tz-system="${target.id}"]`).click()
+    // The script declines to intercept here, so the reader gets the demo
+    // full-screen — which is the whole point of collapsing the frame.
+    await expect(page).toHaveURL(new RegExp(`${target.route}$`))
+  })
 })
 
 // The links are the page's whole control surface, and the script only
