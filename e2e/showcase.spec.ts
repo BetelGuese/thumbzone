@@ -152,6 +152,60 @@ test.describe('showcase', () => {
     // full-screen — which is the whole point of collapsing the frame.
     await expect(page).toHaveURL(new RegExp(`${target.route}$`))
   })
+
+  // The copy lives in a map in the page rather than in systems/registry.ts:
+  // that file is the shipped porter contract, and adding a presentation
+  // field would make one document serve two audiences. This is what keeps
+  // the two in step instead — a sixth port cannot land and quietly render a
+  // blank panel.
+  test('says what every shipped system had to reach past', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 })
+    await page.goto('/')
+
+    for (const system of SHIPPED_SYSTEMS) {
+      const note = page.locator(`[data-tz-note="${system.id}"]`)
+      await expect(note, `${system.label} has no note`).toHaveCount(1)
+      // textContent, not innerText: on desktop only the current system's note
+      // is displayed, and innerText reports *rendered* text — it returns an
+      // empty string for a hidden element, so this would fail for every
+      // system except the one on screen.
+      const text = ((await note.textContent()) ?? '').trim()
+      expect(text.length, `${system.label}'s note is too short to say anything`).toBeGreaterThan(40)
+      await expect(note.locator('a')).toHaveCount(1)
+    }
+  })
+
+  // On desktop the note is a caption for the frame, so exactly one belongs on
+  // screen — the one describing the system actually framed.
+  test('shows only the framed system’s note on desktop, and moves it on a swap', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 })
+    await page.goto('/')
+
+    await expect(page.locator('[data-tz-note]:visible')).toHaveCount(1)
+    await expect(page.locator(`[data-tz-note="${SHIPPED_SYSTEMS[0].id}"]`)).toBeVisible()
+
+    const target = SHIPPED_SYSTEMS[1]
+    await page.locator(`a[data-tz-system="${target.id}"]`).click()
+    await expect(page.locator(`[data-tz-note="${target.id}"]`)).toBeVisible()
+    await expect(page.locator('[data-tz-note]:visible')).toHaveCount(1)
+  })
+
+  // Below the breakpoint there is no frame for a caption to caption, and the
+  // switcher links are the page's real navigation — so each note belongs
+  // beside the link it describes. Leaving the desktop behaviour in place here
+  // would show one system's note against five systems' links, which reads as
+  // though it applied to all of them.
+  test('gives every system its own note below the breakpoint', async ({ page }) => {
+    await page.setViewportSize({ width: DESKTOP_BREAKPOINT - 1, height: 900 })
+    await page.goto('/')
+
+    for (const system of SHIPPED_SYSTEMS) {
+      await expect(
+        page.locator(`[data-tz-note="${system.id}"]`),
+        `${system.label}'s note is not shown beside its link`,
+      ).toBeVisible()
+    }
+  })
 })
 
 // The links are the page's whole control surface, and the script only

@@ -15,6 +15,58 @@ const FRAME_WIDTH = Math.min(PHONE_WIDTH, DESKTOP_BREAKPOINT - 1)
 const FRAME_HEIGHT = 780
 
 const initialSystem = SHIPPED_SYSTEMS[0]
+
+/**
+ * One line per system: what that design system's own primitive could not do,
+ * and where the full account lives.
+ *
+ * Deliberately not in systems/registry.ts. That file is the contract a porter
+ * reads, and a field that exists only to render a landing page would make it
+ * serve two audiences at once. The coupling is held by e2e/showcase.spec.ts
+ * instead, which fails if a shipped system has no entry here.
+ */
+const NOTES: Record<string, { text: string; href: string; linkText: string }> = {
+  vanilla: {
+    text:
+      'The normative reference. Dependency-free, and a 61-line adapter over the shared ' +
+      'behaviour — no framework to bind to and no drawer to reach past.',
+    href: `${REPO}#what-is-enforced-not-just-claimed`,
+    linkText: 'What conformance means',
+  },
+  mui: {
+    text:
+      'Material UI’s temporary Drawer writes its transform imperatively, and its Modal hides ' +
+      'siblings from assistive technology — including the trigger, which has to stay reachable ' +
+      'to close the sheet. The port uses the docked variant and owns the motion itself.',
+    href: `${REPO}#what-the-first-port-changed`,
+    linkText: 'What the first port changed',
+  },
+  shadcn: {
+    text:
+      'shadcn’s Drawer is Vaul, which independently arrives at the same dismiss ratio and the ' +
+      'same release curve — and at one different fling constant, hard-coded with no prop to ' +
+      'configure it. The port drives the shared maths, so the agreement stands as corroboration ' +
+      'rather than as a dependency.',
+    href: `${REPO}#what-the-second-port-confirmed`,
+    linkText: 'What the second port confirmed',
+  },
+  tailwind: {
+    text:
+      'No component primitive at all — the first port written in utility classes. Three ' +
+      'requirements need something else: the breakpoint, a length two elements have to agree ' +
+      'on, and a value that lives in JavaScript.',
+    href: `${REPO}#what-the-third-port-established`,
+    linkText: 'What the third port established',
+  },
+  bootstrap: {
+    text:
+      'Bootstrap’s Offcanvas runs a lifecycle of its own — backdrop, focus trap, scroll lock, ' +
+      'Escape — all of it already owned here. CSS only; no Bootstrap JavaScript is imported ' +
+      'anywhere, and a check enforces it.',
+    href: `${REPO}#what-the-fourth-port-settled`,
+    linkText: 'What the fourth port settled',
+  },
+}
 ---
 <html lang="en">
   <head>
@@ -39,10 +91,13 @@ const initialSystem = SHIPPED_SYSTEMS[0]
           <ul>
             {
               SHIPPED_SYSTEMS.map((system) => (
-                <li>
+                <li data-tz-current={system.id === initialSystem.id ? '' : undefined}>
                   <a href={system.route} data-tz-system={system.id}>
                     {system.label}
                   </a>
+                  <p data-tz-note={system.id}>
+                    {NOTES[system.id]?.text} <a href={NOTES[system.id]?.href}>{NOTES[system.id]?.linkText}</a>
+                  </p>
                 </li>
               ))
             }
@@ -96,6 +151,26 @@ const initialSystem = SHIPPED_SYSTEMS[0]
       display: block;
     }
   }
+
+  /* Below the breakpoint every note is shown, beside the link it describes:
+     there is no frame here for a caption to caption, and the links are the
+     page's real navigation. Showing one system's note against five systems'
+     links would read as though it applied to all of them.
+
+     From the breakpoint up the note becomes a caption for the framed demo,
+     so exactly one belongs on screen. Driven by data-tz-current rather than
+     by aria-current, so the server can mark the initially framed system
+     without asserting anything about navigation for a reader with no
+     scripting. */
+  @media (min-width: 768px) {
+    [data-tz-note] {
+      display: none;
+    }
+
+    [data-tz-current] [data-tz-note] {
+      display: block;
+    }
+  }
 </style>
 
 <script>
@@ -146,6 +221,11 @@ const initialSystem = SHIPPED_SYSTEMS[0]
 
       for (const other of links) other.removeAttribute('aria-current')
       link.setAttribute('aria-current', 'page')
+
+      for (const item of document.querySelectorAll('[data-tz-current]')) {
+        item.removeAttribute('data-tz-current')
+      }
+      link.closest('li')?.setAttribute('data-tz-current', '')
     })
   }
 
