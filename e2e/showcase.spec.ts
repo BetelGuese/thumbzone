@@ -9,6 +9,18 @@ import {
 import { PLANNED_SYSTEMS, SHIPPED_SYSTEMS } from '../systems/registry'
 import { buildAxe } from './support/axe'
 
+// Assembled from two pieces rather than written out, which looks pointless and
+// is not. Tailwind's scanner reads raw file text across the whole repository —
+// this directory included — and has no concept of a test, a string or a
+// selector: it lifts candidates out of whatever it finds and compiles every one
+// its theme recognises. Spelled whole, this selector is such a candidate, and
+// an unmatchable rule for it ships inside both the shadcn and Tailwind ports'
+// stylesheets. Splitting it is what keeps those bundles byte-identical with the
+// ones the same build produces without this page. The hazard already reached
+// those bundles through comments and through prose; a selector string in a spec
+// file is a third route to it, and the one nobody was watching.
+const NOTE_ON_SCREEN = '[data-tz-note]' + ':visible'
+
 // Project-level, not per-system: this guards one page rather than iterating
 // ports, so it sits alongside registry.spec.ts rather than using
 // describeForEachSystem. It still reads the registry for everything it
@@ -188,13 +200,13 @@ test.describe('showcase', () => {
     await page.setViewportSize({ width: 1280, height: 900 })
     await page.goto('/')
 
-    await expect(page.locator('[data-tz-note]:visible')).toHaveCount(1)
+    await expect(page.locator(NOTE_ON_SCREEN)).toHaveCount(1)
     await expect(page.locator(`[data-tz-note="${SHIPPED_SYSTEMS[0].id}"]`)).toBeVisible()
 
     const target = SHIPPED_SYSTEMS[1]
     await page.locator(`a[data-tz-system="${target.id}"]`).click()
     await expect(page.locator(`[data-tz-note="${target.id}"]`)).toBeVisible()
-    await expect(page.locator('[data-tz-note]:visible')).toHaveCount(1)
+    await expect(page.locator(NOTE_ON_SCREEN)).toHaveCount(1)
   })
 
   // Below the breakpoint there is no frame for a caption to caption, and the
