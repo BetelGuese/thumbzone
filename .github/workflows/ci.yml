@@ -31,6 +31,15 @@ jobs:
 
   e2e:
     runs-on: ubuntu-latest
+    # A ceiling, not a target: the suite runs in about six minutes, and this is
+    # here for the case where it does not finish at all. `playwright install
+    # --with-deps` shells out to apt-get and has wedged for 33 minutes against a
+    # slow mirror — and because the Pages deploy is gated on this workflow
+    # *succeeding*, a hang produces no deploy and no failure either, just a site
+    # that silently never changes. That is the same reasoning that pairs
+    # failOnFlakyTests with retries below: a silent non-result is worse than a
+    # loud failure.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
