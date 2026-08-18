@@ -3,6 +3,16 @@ import react from '@astrojs/react'
 import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
+  site: 'https://betelguese.github.io',
+  // Env-gated, and set only by the Pages deployment. Every registered route
+  // is root-relative, and the conformance suite drives them from the registry
+  // verbatim — applying a base unconditionally would move all 650 per-system
+  // instances out from under it. Local development and the suite therefore
+  // serve from the root, and the deployed site is the only build that carries
+  // a base. That asymmetry is the reason `site/src/lib/routes.ts` is unit
+  // tested and the deployment build is checked separately: nothing the suite
+  // asserts about a route can fail for the based case.
+  base: process.env.TZ_BASE || undefined,
   srcDir: './site/src',
   publicDir: './site/public',
   outDir: './dist',
