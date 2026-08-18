@@ -1,0 +1,42 @@
+/* Typography for the reference implementation's demo pages.
+ *
+ * Kept apart from thumbzone.css, which is the pattern's own stylesheet and has
+ * to stay portable: a page's body type is the demo's, not the pattern's, and a
+ * consumer adopting this port should inherit the trigger and the sheet without
+ * also inheriting an opinion about their prose.
+ *
+ * Shared by both vanilla routes rather than written into each, for the same
+ * reason the Tailwind and Bootstrap ports keep their markup in one component:
+ * two copies of a fixture drift, and this one's height is load-bearing.
+ *
+ * The stack is resolved by the operating system rather than downloaded. That
+ * is not a compromise here — this port's defining property is having no
+ * dependencies, and it is the reference every other system is measured
+ * against, so a web font would contradict the one thing it exists to show. It
+ * also resolves to the platform's own face on each target device, which is the
+ * closest a dependency-free port gets to looking native everywhere.
+ */
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  line-height: 1.6;
+  /* Room at the inline edges so prose is not flush against the viewport, and
+     at the end of the document so the last line clears the floating trigger. */
+  margin: 0;
+  padding: 1.5rem 1.25rem 6rem;
+  color: #1a1c20;
+  background: #fdfdfc;
+}
+
+h1 {
+  font-size: 1.5rem;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  margin: 0 0 1.25rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    color: #e8e9ec;
+    background: #14161a;
+  }
+}
