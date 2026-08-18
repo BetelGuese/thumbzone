@@ -162,25 +162,25 @@ const NOTES: Record<string, { text: string; href: string; linkText: string }> = 
             }
           </ul>
         </nav>
-
-        {/* The width is handed to CSS rather than repeated in it, so the panel
-            drawn around the frame is sized from the same clamped figure the
-            frame itself carries and cannot drift from it. */}
-        <div data-tz-frame-host style={`--tz-frame-inline-size: ${FRAME_WIDTH}px`}>
-          <iframe
-            data-tz-frame
-            src={joinBase(BASE, initialSystem.route)}
-            title={`${initialSystem.label} demo`}
-            width={FRAME_WIDTH}
-            height={FRAME_HEIGHT}
-          ></iframe>
-          <p data-tz-frame-caption>{FRAME_WIDTH} × {FRAME_HEIGHT}</p>
-          <p data-tz-caveat>
-            This is a viewport, not a phone, and a mouse is not a thumb. Open it on one to judge
-            the gesture; the argument is about reach, and reach is something you feel.
-          </p>
-        </div>
       </section>
+
+      {/* The width is handed to CSS rather than repeated in it, so the panel
+          drawn around the frame is sized from the same clamped figure the
+          frame itself carries and cannot drift from it. */}
+      <div data-tz-frame-host style={`--tz-frame-inline-size: ${FRAME_WIDTH}px`}>
+        <iframe
+          data-tz-frame
+          src={joinBase(BASE, initialSystem.route)}
+          title={`${initialSystem.label} demo`}
+          width={FRAME_WIDTH}
+          height={FRAME_HEIGHT}
+        ></iframe>
+        <p data-tz-frame-caption>{FRAME_WIDTH}px wide</p>
+        <p data-tz-caveat>
+          This is a viewport, not a phone, and a mouse is not a thumb. Open it on one to judge
+          the gesture; the argument is about reach, and reach is something you feel.
+        </p>
+      </div>
 
       <section aria-labelledby="tz-contract-heading">
         <h2 id="tz-contract-heading">Enforced, not claimed</h2>
@@ -486,6 +486,51 @@ const NOTES: Record<string, { text: string; href: string; linkText: string }> = 
     }
   }
 
+  /* Two columns once there is genuinely room for both, and not before.
+     Measured on the deployed single-column page: the frame's top edge sat at
+     y=948, which put it below the fold on every laptop height tested (800,
+     900 and 1080) — so a visitor's first screen was the claim and the diagram
+     with nothing interactive on it, and no signal that a live demo existed at
+     all. The reading column meanwhile ended around 900px on a 1440px viewport,
+     leaving the right third empty. One change answers both: the frame moves
+     into that space, above the fold.
+
+     The threshold is the width at which the reading measure and the frame's
+     own surround both fit without either being squeezed. Measured rather than
+     guessed: at 1080px the text column still holds 459px and nothing overflows
+     horizontally, and the demo clears the fold on an 800px-tall viewport.
+     Narrower than that and one column is the better layout, so it stays. */
+  @media (min-width: 1080px) {
+    [data-tz-showcase] {
+      max-inline-size: 78rem;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      column-gap: clamp(2rem, 4vw, 4rem);
+      align-items: start;
+    }
+
+    /* Everything that is read stays in one column, in document order. The
+       frame is placed beside it rather than moved before it: its DOM position
+       is still after the switcher that drives it, so the reading and focus
+       order remain heading, then systems, then the demo they select. Grid is
+       changing where it is drawn, not what order it is in. */
+    [data-tz-showcase] > header,
+    [data-tz-showcase] > section,
+    [data-tz-showcase] > footer {
+      grid-column: 1;
+    }
+
+    [data-tz-frame-host] {
+      grid-column: 2;
+      grid-row: 1 / -1;
+      margin: 0;
+      /* Held in view while the column beside it is read, so the demo does not
+         scroll away from the argument it is there to support. */
+      position: sticky;
+      inset-block-start: clamp(1rem, 4dvh, 2.5rem);
+    }
+  }
+
   /* Deliberately reaches past this page's scoping. Switching systems
      replaces the frame with an element the script creates itself, which
      carries none of the generated attributes a scoped rule matches on — so a
@@ -524,6 +569,17 @@ const NOTES: Record<string, { text: string; href: string; linkText: string }> = 
     border-radius: var(--tz-screen-radius);
     color-scheme: light;
     background: var(--tz-screen);
+    /* Never taller than the viewport it is being read in. The trigger this
+       whole page is about sits at the frame's *bottom* edge, so a frame that
+       overflows does not merely get cropped — it hides the one control a
+       visitor is meant to reach for, while still looking like a working demo.
+       Height is the safe dimension to give up: the width is what has to stay
+       under the breakpoint, and it is untouched here.
+
+       dvh rather than vh, per the unit the suite scans this file for: a
+       collapsing mobile URL bar makes vh the wrong measure, and the guard
+       does not accept it anywhere under site/src. */
+    block-size: min(780px, calc(100dvh - 11rem));
   }
 
   [data-tz-frame-caption] {
