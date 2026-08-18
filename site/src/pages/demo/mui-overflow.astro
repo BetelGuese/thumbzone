@@ -1,6 +1,7 @@
 ---
 import DemoLayout from '../../layouts/DemoLayout.astro'
 import ThumbzoneMenu from '../../../../systems/mui/src/ThumbzoneMenu.tsx'
+import '../../../../systems/mui/src/fonts'
 
 // A dedicated fixture, not a query-param variant of /demo/mui — this project
 // builds to a static site, so a query-param-gated item list would only ever
@@ -52,3 +53,7 @@ const items = Array.from({ length: 30 }, (_, i) => `Item ${i + 1}`)
       inertRoot: document.querySelector('[data-tz-app]'),
     })
 </script>
+
+<style is:global>
+  @import '../../../../systems/mui/src/demo.css';
+</style>
