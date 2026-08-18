@@ -45,7 +45,46 @@ jobs:
       # generated — .astro/ is gitignored, so nothing else here would create
       # it. Same reason ci.yml runs this before its typecheck.
       - run: npx astro sync
+
+      # The base is derived from the repository name rather than written out,
+      # so renaming the repository cannot leave a stale literal behind that
+      # silently publishes every link one path segment too high.
       - run: npm run build
+        env:
+          TZ_BASE: /${{ github.event.repository.name }}
+
+      # The conformance suite cannot cover this. It drives routes from the
+      # registry against a build with no base, where the join is the identity
+      # — so every assertion it makes about a route stays green whether the
+      # deployed build is right or wrong. This is the only check that sees a
+      # based build, and it reads the built output rather than the source,
+      # because the source is not what gets served.
+      - name: Verify no link escapes the base
+        env:
+          TZ_BASE: /${{ github.event.repository.name }}
+        run: |
+          set -euo pipefail
+
+          # Positive control first: a build that emitted no demo links at all
+          # would satisfy the negative check below while proving nothing, and
+          # this project has a standing rule against assertions that pass for
+          # the wrong reason.
+          found=$(grep -coE "(href|src)=\"$TZ_BASE/demo/" dist/index.html || true)
+          if [ "$found" -eq 0 ]; then
+            echo "No based demo links found in dist/index.html — the check has nothing to verify."
+            exit 1
+          fi
+          echo "Found $found based demo reference(s)."
+
+          # Any demo link that is root-relative but not under the base points
+          # above the deployment and will 404.
+          if grep -nE "(href|src)=\"/demo/" dist/index.html; then
+            echo "The links above are missing the base and would 404 once deployed."
+            echo "Route literals must be joined with joinBase() — see site/src/lib/routes.ts."
+            exit 1
+          fi
+          echo "Every demo link is under $TZ_BASE."
+
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
