@@ -11,6 +11,10 @@ thumbzone moves it to the bottom centre — the one point comfortably reachable 
 either thumb, one-handed — and proves the pattern works in every major design
 system without looking foreign in any of them.
 
+**[See it running →](https://betelguese.github.io/thumbzone/)** — a live demo of
+every shipped system, framed at phone width. Best opened on a phone, where the
+argument is about reach and reach is something you feel.
+
 ```
         top-left trigger              thumb-zone trigger
     ┌──────────────────┐          ┌──────────────────┐
@@ -245,7 +249,10 @@ window below 768px and the frame gives way to direct links to the routes below.
 
 Demo routes: `/demo/vanilla`, `/demo/mui`, `/demo/shadcn`, `/demo/tailwind` and
 `/demo/bootstrap`, each with an `-overflow` variant carrying a menu taller than
-the sheet, for testing internal scrolling against the drag gesture.
+the sheet, for testing internal scrolling against the drag gesture. The same
+routes are served from
+[the deployed site](https://betelguese.github.io/thumbzone/) if you only want to
+look.
 
 ```bash
 npm test               # unit
