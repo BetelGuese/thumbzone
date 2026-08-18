@@ -7,6 +7,16 @@ import {
   MIN_HIT_TARGET,
 } from '../../../core/index.js'
 import { PLANNED_SYSTEMS, SHIPPED_SYSTEMS } from '../../../systems/registry'
+import { joinBase } from '../lib/routes'
+
+// Every demo route reaches this page as a root-relative literal from the
+// registry, and Astro rewrites nothing for `base` beyond the assets it emits
+// itself — so on a deployment served under a path these have to be joined
+// explicitly or they point above it. The conformance suite runs against a
+// build with no base, where this resolves to the identity, so it is
+// `site/test/routes.test.ts` and the deployment guard that hold the joining
+// honest rather than any assertion the suite makes.
+const BASE = import.meta.env.BASE_URL
 
 const REPO = 'https://github.com/BetelGuese/thumbzone'
 
@@ -141,7 +151,7 @@ const NOTES: Record<string, { text: string; href: string; linkText: string }> = 
             {
               SHIPPED_SYSTEMS.map((system) => (
                 <li data-tz-current={system.id === initialSystem.id ? '' : undefined}>
-                  <a href={system.route} data-tz-system={system.id}>
+                  <a href={joinBase(BASE, system.route)} data-tz-system={system.id}>
                     {system.label}
                   </a>
                   <p data-tz-note={system.id}>
@@ -159,7 +169,7 @@ const NOTES: Record<string, { text: string; href: string; linkText: string }> = 
         <div data-tz-frame-host style={`--tz-frame-inline-size: ${FRAME_WIDTH}px`}>
           <iframe
             data-tz-frame
-            src={initialSystem.route}
+            src={joinBase(BASE, initialSystem.route)}
             title={`${initialSystem.label} demo`}
             width={FRAME_WIDTH}
             height={FRAME_HEIGHT}
