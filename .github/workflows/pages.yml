@@ -1,0 +1,61 @@
+name: Pages
+
+# Deploys only after CI has gone green on main's own run, rather than on the
+# push itself. The two would otherwise race, and a push that broke the
+# conformance suite would still publish: `astro build` succeeding proves the
+# site compiles, not that the pattern still holds in it. An artefact whose
+# whole claim is an executable conformance suite must not serve a build that
+# suite has rejected.
+#
+# workflow_dispatch stays available so the site can be republished without a
+# commit — useful when only Pages settings or the domain have changed.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Queue rather than cancel: a superseded deploy still finishing is harmless,
+# whereas cancelling one mid-flight can leave the site on a half-published
+# state.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    # A manual run has no workflow_run payload to inspect, so it is allowed
+    # through on its own; an automatic run is gated on CI's conclusion.
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # tsconfig.json includes .astro/types.d.ts, which only exists once
+      # generated — .astro/ is gitignored, so nothing else here would create
+      # it. Same reason ci.yml runs this before its typecheck.
+      - run: npx astro sync
+      - run: npm run build
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
