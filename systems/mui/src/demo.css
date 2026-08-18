@@ -1,0 +1,54 @@
+/* Typography for the Material UI demo pages.
+ *
+ * Roboto is loaded here because this port already asks for it and never had
+ * it. MUI's default theme names `"Roboto","Helvetica","Arial",sans-serif`, and
+ * with no font actually delivered every one of those pages fell through to the
+ * second entry — so a port whose whole job is to look native to Material
+ * Design was rendering in Helvetica, and in the browser's serif outside MUI's
+ * own components. Nothing in the conformance suite covers typography, so
+ * nothing caught it.
+ *
+ * Self-hosted rather than fetched from a font CDN: a demo that reaches a third
+ * party on load is a privacy claim this project has not made, it fails offline,
+ * and it would make the pattern's readiness depend on someone else's uptime.
+ *
+ * `CssBaseline` is MUI's own answer to page-level typography and is
+ * deliberately NOT used. It is a reset, and a reset is exactly what once left a
+ * demo route too short to scroll — the Tailwind port's preflight zeroed the
+ * paragraph spacing, `maxScrollY` fell from 601 to 145, and six tucking
+ * assertions failed looking precisely like broken tuck logic. The stack below
+ * restates the theme's own value instead, which changes type without touching
+ * spacing. If `CssBaseline` is ever adopted here, measure the fixture height
+ * before trusting the suite's verdict.
+ *
+ * Kept out of the port's component files so both Material UI routes share one
+ * source and cannot drift apart.
+ */
+body {
+  font-family: "Roboto", "Helvetica", "Arial", sans-serif;
+  line-height: 1.6;
+  margin: 0;
+  /* Space at the end of the document so the last line clears the floating
+     trigger, which sits above the page rather than in its flow. */
+  padding: 1.5rem 1.25rem 6rem;
+  /* Material's own default ink and ground, so the page agrees with the
+     components the port renders on top of it. */
+  color: rgba(0, 0, 0, 0.87);
+  background: #fff;
+}
+
+h1 {
+  /* Roughly Material's headline scale, at a size that suits a phone viewport. */
+  font-size: 1.5rem;
+  font-weight: 500;
+  line-height: 1.3;
+  letter-spacing: 0;
+  margin: 0 0 1.25rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    color: #fff;
+    background: #121212;
+  }
+}

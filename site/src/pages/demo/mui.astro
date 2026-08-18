@@ -1,6 +1,7 @@
 ---
 import DemoLayout from '../../layouts/DemoLayout.astro'
 import ThumbzoneMenu from '../../../../systems/mui/src/ThumbzoneMenu.tsx'
+import '../../../../systems/mui/src/fonts'
 
 const items = ['Home', 'Search', 'Library', 'Profile', 'Settings']
 ---
@@ -79,3 +80,7 @@ const items = ['Home', 'Search', 'Library', 'Profile', 'Settings']
   // @ts-expect-error — deliberate test hook, not part of the page's own contract.
   window.__thumbzoneReady = whenMounted()
 </script>
+
+<style is:global>
+  @import '../../../../systems/mui/src/demo.css';
+</style>
