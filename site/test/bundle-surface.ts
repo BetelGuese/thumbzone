@@ -37,3 +37,27 @@ export function bundleSurfaces(): Record<string, string[]> {
   }
   return surfaces
 }
+
+/**
+ * Every stylesheet the build emitted — linked files **and** the blocks Astro
+ * inlined into the HTML.
+ *
+ * Following `href` attributes alone is a documented trap in this repository:
+ * Astro inlines a stylesheet under a size threshold, so `/demo/vanilla` and
+ * `/demo/mui` link no CSS at all and a scan that reads only linked files
+ * reports them clean without ever having examined them. Caught here by a
+ * mutation that planted a violation in the reference stylesheet and sailed
+ * through.
+ */
+export function builtStylesheets(): Array<{ path: string; css: string }> {
+  if (!existsSync('dist')) execFileSync('npx', ['astro', 'build'], { stdio: 'ignore' })
+
+  const sheets = globSync('dist/**/*.css').map((path) => ({ path, css: readFileSync(path, 'utf8') }))
+  for (const page of globSync('dist/**/*.html')) {
+    const html = readFileSync(page, 'utf8')
+    for (const [index, block] of [...html.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].entries()) {
+      sheets.push({ path: `${page} (inline style #${index + 1})`, css: block[1] })
+    }
+  }
+  return sheets
+}
