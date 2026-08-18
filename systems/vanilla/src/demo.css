@@ -34,9 +34,10 @@ h1 {
   margin: 0 0 1.25rem;
 }
 
-@media (prefers-color-scheme: dark) {
-  body {
-    color: #e8e9ec;
-    background: #14161a;
-  }
-}
+/* No dark-scheme block, deliberately. The showcase pins the frame to
+   `color-scheme: light` so every port renders on the ground its axe contrast
+   run was measured against, and only two of the five systems would have a dark
+   palette of their own — so honouring the reader's scheme here would make the
+   framed demo change ground depending on which system happened to be selected.
+   The suite's accessibility checks run in the default scheme, so a dark palette
+   introduced here would also be contrast-untested surface. */
