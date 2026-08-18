@@ -568,7 +568,26 @@ rather than notice the duplication and wonder whether it was missed.
   instead. Document any workaround and what would let it be removed.
 - JSDoc on public APIs.
 - Prefer an existing dependency over adding a new one. The vanilla
-  implementation must stay dependency-free.
+  implementation must stay dependency-free — it is the reference every other
+  system is measured against, and a dependency there would contradict the one
+  thing it exists to demonstrate.
+- **A port may take a dependency its design system genuinely requires**, and
+  the worked example is a typeface. Material UI's theme names Roboto, so the
+  port carries `@fontsource/roboto`: without it the port renders in the second
+  entry of that stack and stops looking native, which is the only thing a port
+  is for. Two conditions come with it. **Self-host rather than fetch** — a demo
+  that reaches a third party on load is a privacy claim this project has not
+  made, it fails offline, and it makes the pattern's readiness depend on
+  somebody else's uptime. And **take the narrowest form that serves the
+  fixture**: the Latin subset alone is 144K against 740K for the full family,
+  and every subset carries a `unicode-range` so a reader pays nothing extra
+  either way — but the unused ones are still built and deployed.
+- **Load fonts from a module, never from a nested CSS `@import`.** An
+  `@import` inside a route's style element is passed through without asset
+  rewriting: the `@font-face` rules survive into the build pointing at files
+  that were never emitted, the page requests a font that is not there, and it
+  falls back silently. It looks entirely correct in the source and in the
+  compiled CSS. `systems/mui/src/fonts.ts` is the shape that works.
 
 ## Accessibility
 
