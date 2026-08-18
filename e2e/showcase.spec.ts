@@ -274,6 +274,20 @@ test.describe('showcase', () => {
   // system's own axe run already covers — measuring someone else's port and
   // reporting it as this page's result. What is under test here is the
   // showcase's own markup.
+  // The showcase does carry a dark palette of its own, unlike the demo
+  // fixtures it frames, so this is the run where a dark-scheme contrast
+  // failure could actually happen.
+  test('has no accessibility violations under a dark colour scheme', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'dark' })
+    await page.setViewportSize({ width: 1280, height: 900 })
+    await page.goto('/')
+    const results = await buildAxe(page).exclude('iframe').analyze()
+    const summary = results.violations
+      .map((violation) => `${violation.id}: ${violation.help} (${violation.nodes.length} node(s))`)
+      .join('\n')
+    expect(results.violations, summary).toEqual([])
+  })
+
   for (const width of [1280, DESKTOP_BREAKPOINT - 1]) {
     test(`has no accessibility violations at ${width}px`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 })

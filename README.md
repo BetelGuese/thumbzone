@@ -39,13 +39,13 @@ system without looking foreign in any of them.
 | Bootstrap 5 | shipped |
 | Chakra UI, Ant Design, Mantine, Radix/Ark, Bulma, Vuetify, Quasar, Ionic | planned |
 
-Each is held to 130 conformance instances — 65 per mobile device profile, the
+Each is held to 134 conformance instances — 67 per mobile device profile, the
 same groups across two of them, against materially different implementations.
-Six of the 130 drive real touch through Chromium's debug protocol and report as
-skipped on WebKit, so 124 have to pass and none may fail: 620 passes across the
-five. A further 60 instances belong to no system — the registry guard, the scan
+Six of the 134 drive real touch through Chromium's debug protocol and report as
+skipped on WebKit, so 128 have to pass and none may fail: 640 passes across the
+five. A further 62 instances belong to no system — the registry guard, the scan
 for `vh` where `dvh` is required, the contract predicates, the showcase checks —
-and pass too. The whole run is 710 instances: 680 passed, 30 skipped, nothing
+and pass too. The whole run is 732 instances: 702 passed, 30 skipped, nothing
 failed, no retries.
 
 ## What the first port changed

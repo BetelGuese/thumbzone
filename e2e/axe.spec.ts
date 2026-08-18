@@ -62,4 +62,30 @@ describeForEachSystem('accessibility', (system) => {
     const results = await buildAxe(page).analyze()
     expect(results.violations, summarizeViolations(results)).toEqual([])
   })
+
+  // Both states again under a dark colour scheme, because contrast is the one
+  // axe rule whose verdict depends on what the reader's system asked for and
+  // the runs above only ever ask for one thing.
+  //
+  // No port ships a dark palette today — the demo fixtures are deliberately
+  // light-only so that the showcase, which frames them, can pin one ground for
+  // all five rather than have the framed content change colour with whichever
+  // system is selected. That makes these pass for a slightly uninteresting
+  // reason right now, and it is exactly why they are declared per system rather
+  // than written once: the moment a port adds a palette of its own, it is
+  // already covered, instead of being covered if somebody remembers.
+  test('has no violations under a dark colour scheme, sheet closed', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'dark' })
+    await page.goto(system.route)
+    const results = await buildAxe(page).analyze()
+    expect(results.violations, summarizeViolations(results)).toEqual([])
+  })
+
+  test('has no violations under a dark colour scheme, sheet open', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'dark' })
+    await page.goto(system.route)
+    await openSheetAndSettle(page)
+    const results = await buildAxe(page).analyze()
+    expect(results.violations, summarizeViolations(results)).toEqual([])
+  })
 })
