@@ -803,8 +803,16 @@ const NOTES: Record<string, { text: string; href: string; linkText: string }> = 
     text-align: start;
   }
 
-  /* Every note is shown below the breakpoint, where there is no frame and so
-     no "current" system to speak of. */
+  /* Every system's note is shown at every width. The desktop layout used to
+     hide four of the five and reveal only the framed system's, which made the
+     switcher a list of five bare names next to one paragraph — a reader
+     comparing ports could see one port's findings at a time and had to click
+     four times to read the argument the page exists to make.
+
+     Which system is in the frame is carried instead by the marker down the
+     row's edge and by `aria-current` on its link. That was always the stronger
+     signal: note visibility announced nothing to assistive technology, so a
+     screen-reader user never had the indication this rule was protecting. */
   @media (min-width: 768px) {
     /* Bounded by the frame's own width plus what is drawn around it, so the
        panel closes on the demo instead of stretching a plate of empty ground
@@ -815,14 +823,6 @@ const NOTES: Record<string, { text: string; href: string; linkText: string }> = 
       display: block;
       margin: calc(1.5 * var(--leading)) auto 0;
       max-inline-size: calc(var(--tz-frame-inline-size) + 2 * var(--tz-frame-pad) + 2px);
-    }
-
-    [data-tz-note] {
-      display: none;
-    }
-
-    [data-tz-current] [data-tz-note] {
-      display: block;
     }
 
     /* The rule down the edge of a row means "this is the system in the

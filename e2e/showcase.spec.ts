@@ -202,17 +202,53 @@ test.describe('showcase', () => {
 
   // On desktop the note is a caption for the frame, so exactly one belongs on
   // screen — the one describing the system actually framed.
-  test('shows only the framed system’s note on desktop, and moves it on a swap', async ({ page }) => {
+  // Replaces an assertion that only the framed system's note was shown here.
+  // That was a finding about the contract rather than about the page: hiding
+  // four of five notes meant a reader comparing ports could read one port's
+  // findings at a time, on the page whose whole argument is the comparison.
+  //
+  // The guarantee the old assertion existed to protect — that a reader can tell
+  // which system is in the frame, and that it moves on a swap — is kept, and
+  // moved onto the two signals that carry it: the marker on the row and
+  // `aria-current` on the link. Those are strictly stronger, because note
+  // visibility announced nothing at all to assistive technology; a screen-reader
+  // user never had the indication the old rule was defending.
+  test('shows every system’s note on desktop, and moves the framed marker on a swap', async ({
+    page,
+  }) => {
     await page.setViewportSize({ width: 1280, height: 900 })
     await page.goto('/')
 
-    await expect(page.locator(NOTE_ON_SCREEN)).toHaveCount(1)
-    await expect(page.locator(`[data-tz-note="${SHIPPED_SYSTEMS[0].id}"]`)).toBeVisible()
+    // Guards every count below against a one-system registry, where "moves on a
+    // swap" is unobservable and these assertions would pass without comparing.
+    expect(SHIPPED_SYSTEMS.length).toBeGreaterThan(1)
+    await expect(page.locator(NOTE_ON_SCREEN)).toHaveCount(SHIPPED_SYSTEMS.length)
+
+    const first = SHIPPED_SYSTEMS[0]
+    await expect(page.locator('[data-tz-current]')).toHaveCount(1)
+    await expect(page.locator(`a[data-tz-system="${first.id}"]`)).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
 
     const target = SHIPPED_SYSTEMS[1]
     await page.locator(`a[data-tz-system="${target.id}"]`).click()
-    await expect(page.locator(`[data-tz-note="${target.id}"]`)).toBeVisible()
-    await expect(page.locator(NOTE_ON_SCREEN)).toHaveCount(1)
+
+    await expect(page.locator(`a[data-tz-system="${target.id}"]`)).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
+    await expect(page.locator(`a[data-tz-system="${first.id}"]`)).not.toHaveAttribute(
+      'aria-current',
+      'page',
+    )
+    // Exactly one, not merely "the target is marked": two marked rows would
+    // claim two systems are framed, and the count is what catches that.
+    await expect(page.locator('[data-tz-current]')).toHaveCount(1)
+
+    // A swap must not start hiding notes again — this is the assertion that
+    // would fail if the old display rule came back through the script.
+    await expect(page.locator(NOTE_ON_SCREEN)).toHaveCount(SHIPPED_SYSTEMS.length)
   })
 
   // Below the breakpoint there is no frame for a caption to caption, and the
