@@ -1,5 +1,6 @@
 ---
 import {
+  CORNER_REACH_DISTANCE,
   DESKTOP_BREAKPOINT,
   DISMISS_RATIO,
   FLING_VELOCITY,
@@ -108,10 +109,12 @@ const NOTES: Record<string, { text: string; href: string; linkText: string }> = 
         <h1 class="display"><span class="line">Your menu is in</span> <span class="line">the wrong corner.</span></h1>
         <div class="hero-copy">
             <p class="sub">
-              On a 6.7&Prime; phone the top-left corner sits roughly 640px from a thumb resting at
-              the bottom of the screen. Reaching it needs a grip shift or a second hand. Every
-              design system’s default app bar puts the primary navigation trigger exactly there.
-              thumbzone puts it where the thumb already is: bottom centre.
+              On a 6.7&Prime; phone the navigation icon in the top app bar sits roughly
+              {CORNER_REACH_DISTANCE}px from a thumb resting on the bottom edge — 152mm on a
+              display 154mm tall, so the reach is as long as the phone. It needs a grip shift
+              or a second hand. Every design system’s default app bar puts the primary
+              navigation trigger exactly there. thumbzone puts it where the thumb already is:
+              bottom centre.
             </p>
 
             <div class="row">
@@ -152,7 +155,7 @@ const NOTES: Record<string, { text: string; href: string; linkText: string }> = 
           <g fill="currentColor">
             <circle cx="90" cy="176" r="3" />
             <circle cx="230" cy="176" r="3" />
-            <text x="95" y="104" font-size="9">640px</text>
+            <text x="95" y="104" font-size="9">{CORNER_REACH_DISTANCE}px</text>
             <text x="90" y="192" font-size="9" text-anchor="middle">out of reach</text>
             <text x="230" y="192" font-size="9" text-anchor="middle">reachable either-handed</text>
           </g>
@@ -162,7 +165,7 @@ const NOTES: Record<string, { text: string; href: string; linkText: string }> = 
       <section class="stats" aria-label="thumbzone, by the numbers">
         <div class="wrap">
           <div class="stat-band">
-            <div><p class="stat-num">640px</p><p class="stat-label">Thumb to top corner</p></div>
+            <div><p class="stat-num">{CORNER_REACH_DISTANCE}px</p><p class="stat-label">Thumb to the app bar icon</p></div>
             <div><p class="stat-num">{MIN_HIT_TARGET}&times;{MIN_HIT_TARGET}</p><p class="stat-label">Minimum trigger, px</p></div>
             <div><p class="stat-num">{SHIPPED_SYSTEMS.length}</p><p class="stat-label">Design systems, one pattern</p></div>
             <div><p class="stat-num">0</p><p class="stat-label">Axe violations, closed &amp; open</p></div>

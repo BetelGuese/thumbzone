@@ -2,10 +2,16 @@
 
 **Your menu is in the wrong corner.**
 
-On a 6.7" phone, the top-left corner sits roughly 640px from a thumb resting at
-the bottom of the screen. Reaching it needs a grip shift or a second hand. Yet
-every design system's default app bar puts the primary navigation trigger exactly
-there.
+On a 6.7" phone — the one this project's own suite runs against, 430 × 932 CSS
+px — the navigation icon in the top app bar sits roughly **920px** from a thumb
+resting on the bottom edge. That is 152mm on a display measuring 154mm from top
+to bottom: the reach is as long as the phone is tall, so it needs a grip shift or
+a second hand rather than a stretch. Yet every design system's default app bar
+puts the primary navigation trigger exactly there.
+
+The figure is derived rather than asserted — `CORNER_REACH_DISTANCE` in
+`core/index.js` names both endpoints, and the unit suite recomputes the distance
+from them rather than restating it.
 
 thumbzone moves it to the bottom centre — the one point comfortably reachable by
 either thumb, one-handed — and proves the pattern works in every major design
@@ -235,6 +241,71 @@ the one scroll direction that could move it away from the top — a permanent
 deadlock once its content overflows — or permits panning in both directions and
 loses the gesture. Splitting them apart is the only arrangement that works
 everywhere.
+
+## Prior art, and where this disagrees with it
+
+Three objections are worth meeting before they are raised. Each rests on real
+evidence, and none of them is answered by leaving it out.
+
+**Hidden navigation is worse than visible navigation. That is not what this
+argues.** Nielsen Norman Group's [quantitative study of hidden
+navigation](https://www.nngroup.com/articles/hamburger-menus/) — 179
+participants, six live sites, phones and desktops — found it measurably worse on
+every metric collected: content discoverability fell by more than 20%,
+self-reported task difficulty rose 21% against visible navigation and 11% against
+a combination of the two, and mobile task times ran 15% longer than the
+combination's. If you can show your navigation, show it.
+
+That study varies *whether* navigation is concealed. It never varies where the
+trigger sits. It measures discoverability; this pattern addresses reach, and the
+two are independent. The claim here is conditional and stays inside those bounds:
+if you are shipping a hamburger — and most of the mobile web is, for room it does
+not have — its trigger belongs where a thumb already rests.
+
+Note also what that study recommends for phones, which is the combination rather
+than concealing nothing: on mobile that was the only comparison available to it,
+since a wholly exposed condition was not tested there. A combination is
+compatible with this pattern rather than opposed to it. A bottom-centre trigger
+with two or three destinations beside it *is* that recommendation, moved into
+reach.
+
+**Apple and Google already put controls within thumb reach. The trigger is the
+part nobody moved.** Both place primary actions and tab bars near the bottom
+edge, and neither is news. What has not moved is the navigation trigger: all five
+design systems ported here still put it in a top corner by default, which is why
+each needed the work in this repository rather than a configuration flag. The
+claim is not that the bottom edge is reachable. It is that the pattern survives
+being moved there across five materially different systems under one suite, and
+that is a claim you can run rather than read.
+
+**iOS Safari owns the bottom of the screen, and this is the hardest constraint
+the pattern faces.** Safari's URL bar sits at the bottom by default and changes
+height as the page scrolls. Two separate problems follow, and only one of them is
+solvable in CSS.
+
+- `vh` resolves against the expanded viewport, so a sheet sized in it is pushed
+  under the browser's own chrome. Every port here sizes in `dvh`, and the suite
+  fails the build if a `vh` length reaches an element this pattern owns — in the
+  source and in the built output both, because Astro inlines stylesheets under a
+  size threshold, and a scan of the source alone reported clean while a planted
+  `85vh` shipped.
+- `env(safe-area-inset-bottom)` describes the home indicator, not browser chrome,
+  and no `env()` value exposes the toolbar. The trigger's offset and the sheet's
+  reserved clearance both add that inset, and the trigger's gap is clamped to
+  `MAX_TRIGGER_BOTTOM_GAP` — but that arithmetic is against the home indicator.
+  It is not against Safari's bar.
+
+What remains is whether a tap near the bottom edge reaches the trigger or merely
+expands Safari's chrome. No check in this repository can answer that: every one
+of them drives synthetic input, and this is a question about what the browser
+does with a real finger. **It has not yet been measured on hardware, and this
+section will name the result rather than an expectation once it has been.**
+
+<!-- Replace the paragraph above with the measured result after the device pass:
+     which iOS version, whether the bar was at the top or the bottom, and what
+     the first tap near the bottom edge actually did. State a negative result if
+     that is what comes back — the section is worth less if it can only report
+     good news. -->
 
 ## Running it
 

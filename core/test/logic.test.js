@@ -1,7 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import {
+  APP_BAR_ICON_CENTRE,
+  CORNER_REACH_DISTANCE,
   DISMISS_RATIO,
   FLING_VELOCITY,
+  MAX_TRIGGER_BOTTOM_GAP,
+  REFERENCE_VIEWPORT,
   SCROLL_THRESHOLD,
   VELOCITY_WINDOW_MS,
   dragProgress,
@@ -19,6 +23,33 @@ const randHeight = () => rand(320, 900)
 // where in a range it falls.
 const NON_FINITE_VALUES = [NaN, Infinity, -Infinity]
 const randNonFinite = () => NON_FINITE_VALUES[Math.floor(Math.random() * NON_FINITE_VALUES.length)]
+
+// The reach figure is the only number in this project a reader meets before any
+// code, which makes it the one most worth holding to its own arithmetic.
+describe('CORNER_REACH_DISTANCE', () => {
+  it('is the separation between the trigger the pattern places and the one it replaces', () => {
+    // Recomputed from the two endpoints rather than compared against a second
+    // copy of the same figure: a test restating the constant it checks proves
+    // only that the file parsed.
+    const trigger = { x: REFERENCE_VIEWPORT.width / 2, y: REFERENCE_VIEWPORT.height }
+    const measured = Math.hypot(
+      trigger.x - APP_BAR_ICON_CENTRE.x,
+      trigger.y - APP_BAR_ICON_CENTRE.y,
+    )
+    expect(Math.round(measured)).toBe(CORNER_REACH_DISTANCE)
+  })
+
+  it('dwarfs the bound the pattern holds its own trigger to', () => {
+    // Compares two of this project's own figures rather than importing an
+    // anthropometric one, which would put an unsourced number back into the
+    // claim this test exists to keep sourced. Whatever a thumb's real sweep
+    // is, a trigger within MAX_TRIGGER_BOTTOM_GAP of the bottom edge and one
+    // a full CORNER_REACH_DISTANCE away are not the same ask. Without this,
+    // a figure edited to something arithmetically tidy but far too small to
+    // argue anything would still satisfy the check above.
+    expect(CORNER_REACH_DISTANCE).toBeGreaterThan(MAX_TRIGGER_BOTTOM_GAP * 5)
+  })
+})
 
 describe('dragProgress', () => {
   it('reports the fraction of the sheet height dragged', () => {

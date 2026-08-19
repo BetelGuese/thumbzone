@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import {
+  CORNER_REACH_DISTANCE,
   DESKTOP_BREAKPOINT,
   DISMISS_RATIO,
   FLING_VELOCITY,
@@ -297,6 +298,11 @@ test.describe('showcase', () => {
     // carries the page's headline claim, so it needs a text equivalent.
     await expect(diagram).toHaveAttribute('role', 'img')
     await expect(diagram).toHaveAccessibleName(/.+/)
+    // The reach figure reached this page as a literal once, and drifted from
+    // the geometry it claimed to describe while every check stayed green —
+    // the page and the constant were two separate sources for one number.
+    // Imported here so there is only the one.
+    await expect(diagram).toContainText(String(CORNER_REACH_DISTANCE))
   })
 
   // Held to the same gate as every port, through the same builder, so the page

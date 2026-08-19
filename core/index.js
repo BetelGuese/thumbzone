@@ -53,6 +53,45 @@ export const MAX_TRIGGER_BOTTOM_GAP = 96
 /** Viewport width (CSS px) at and above which the pattern hides itself entirely. */
 export const DESKTOP_BREAKPOINT = 768
 
+/**
+ * The viewport the reach claim is measured on: the 6.7" device this project's
+ * own suite runs against, as `mobile-safari` in playwright.config.ts.
+ *
+ * Named here rather than written into the claim so the figure is quoted
+ * against the phone the pattern is actually tested on, and not one picked
+ * because it flattered the number.
+ */
+export const REFERENCE_VIEWPORT = Object.freeze({ width: 430, height: 932 })
+
+/**
+ * Centre (CSS px) of the navigation icon in a stock top app bar: a 48px hit
+ * target inset by a 16px edge margin, on a 56px toolbar. Every design system
+ * ported here puts the trigger at this point by default, and it is the point
+ * the pattern moves away from.
+ */
+export const APP_BAR_ICON_CENTRE = Object.freeze({ x: 40, y: 28 })
+
+/**
+ * Straight-line distance (CSS px) from the trigger this pattern places to the
+ * one it replaces, on REFERENCE_VIEWPORT.
+ *
+ * The thumb-zone trigger sits horizontally centred on the bottom edge, at
+ * (215, 932). The app bar's sits at APP_BAR_ICON_CENTRE. Their separation is
+ * hypot(215 - 40, 932 - 28) = 920.8.
+ *
+ * At 0.1656mm per CSS px on that display, 921px is 152mm — on a display
+ * measuring 154mm from top to bottom. The reach is as long as the phone is
+ * tall, which is why the corner needs a grip shift rather than a stretch.
+ *
+ * Declared here for the reason the constants above it are, and for one more:
+ * this is the opening sentence of README.md and of the showcase's own hero.
+ * A figure carrying that much of the argument, and living only in prose, is a
+ * figure no test can fail. The unit test recomputes it from the two endpoints
+ * rather than restating it, so moving either one without moving this reddens
+ * instead of quietly publishing a number that is no longer true.
+ */
+export const CORNER_REACH_DISTANCE = 921
+
 function assertPositiveHeight(height) {
   if (!Number.isFinite(height) || height <= 0) {
     throw new RangeError(`thumbzone: sheet height must be positive, received ${height}`)
