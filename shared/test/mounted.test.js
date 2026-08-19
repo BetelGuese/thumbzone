@@ -58,10 +58,16 @@ test('marking twice releases each waiter once and does not throw', async () => {
 })
 
 test('a waiter registered from inside a release callback does not hang', async () => {
-  // The queue is drained before the waiters are resolved, so a `whenMounted()`
-  // called from one of these callbacks queues nothing behind a latch that is
-  // already open. Reordering the drain past the resolve leaves this pending
-  // forever, which is the mutation this test exists to kill.
+  // `markMounted()` sets `mounted = true` and drains `waiting` synchronously,
+  // in the same tick, so every `.then()` callback below only runs once both
+  // have already happened — their relative order inside that tick doesn't
+  // matter, only that both finish before any callback gets a turn. Deferring
+  // the `mounted = true` assignment into a microtask that runs *after* the
+  // resolve calls breaks that: the reentrant `whenMounted()` below then finds
+  // `mounted` still false, joins a `waiting` array that was already spliced
+  // and will never be drained again, and hangs forever. That deferral — not
+  // a reordering of the two synchronous statements — is the mutation this
+  // test exists to kill.
   const reentrant = latch.whenMounted().then(() => latch.whenMounted())
   latch.markMounted()
   await expect(reentrant).resolves.toBeUndefined()
