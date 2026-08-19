@@ -74,21 +74,36 @@ jobs:
           path: ~/.cache/ms-playwright
           key: ms-playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-chromium-webkit
 
-      # Best-effort, and deliberately so. This is the step that shells out to
-      # apt-get, and GitHub's runner image already carries almost everything
-      # these two engines need — so on a slow mirror the right outcome is to
-      # spend six minutes and move on, not to spend twenty and fail without
-      # having run a single test.
-      #
-      # This does not hide a real missing library. If one is genuinely absent
-      # the browsers fail to launch and `npm run test:e2e` below fails loudly,
-      # naming the library in Playwright's own launch error. What it removes is
-      # the case where apt is merely slow and everything needed is already
-      # present, which is what both wedges turned out to be.
+      # It is apt's *fetch* that wedges, not apt. Three consecutive runs stalled
+      # here for over five minutes each having resolved the package list in
+      # about sixty seconds: the regional mirror this image prefers accepts the
+      # connection and then serves nothing. The canonical archive is already the
+      # next entry in that mirror list, so dropping the regional one is the
+      # whole fix and the step below is unchanged.
+      - name: Fetch packages from the canonical archive, not the regional mirror
+        run: |
+          MIRRORS=/etc/apt/apt-mirrors.txt
+          if [ -f "$MIRRORS" ]; then
+            sudo sed -i '/azure\.archive\.ubuntu\.com/d' "$MIRRORS"
+            grep -q 'archive\.ubuntu\.com' "$MIRRORS" \
+              || echo 'http://archive.ubuntu.com/ubuntu/' | sudo tee -a "$MIRRORS" >/dev/null
+            cat "$MIRRORS"
+          fi
+
+      # No longer best-effort, because measurement retired the premise that made
+      # it so. That reading held the runner image already carried almost
+      # everything these two engines need, which made a slow apt worth
+      # abandoning rather than waiting on. WebKit is missing thirty-five
+      # libraries on this image — the whole GTK, GStreamer and flite set — and
+      # none of them are cacheable, since apt installs into system paths rather
+      # than the directory the step above restores. Every run needs this step to
+      # succeed, so a failure here was never survivable: it guarantees a browser
+      # that cannot launch. Failing at the step that wedged, under its own name,
+      # beats failing six minutes later inside global setup with a list of
+      # sonames and no indication of which step owed them.
       - name: Install the system libraries the browsers need
         run: npx playwright install-deps chromium webkit
-        timeout-minutes: 6
-        continue-on-error: true
+        timeout-minutes: 8
 
       # Only the two engines the Playwright projects actually use
       # (mobile-safari emulates on WebKit, mobile-chrome on Chromium) —
