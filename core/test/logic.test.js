@@ -194,7 +194,19 @@ describe('createScrollDirectionTracker', () => {
 
   it('uses SCROLL_THRESHOLD as the default threshold', () => {
     const update = createScrollDirectionTracker()
-    const start = rand(100, 500)
+    // Integral, unlike every other start in this file, and the two assertions
+    // below are why: they sit *on* the threshold rather than either side of it.
+    // The tracker decides through `scrollY - anchor`, and for a start that is
+    // not exactly representable `(start + SCROLL_THRESHOLD) - start` rounds to a
+    // hair under the threshold for about 0.8% of draws in this range — so the
+    // boundary case returned null instead of 'hide' roughly once in forty runs
+    // of this file, naming a defect in the tracker that was not there.
+    //
+    // Rounding the start rather than widening the assertion, because the
+    // boundary is the whole point of this test: an exact comparison in floating
+    // point needs exact arithmetic underneath it, and integral pixels are what
+    // a scroll position is anyway.
+    const start = Math.round(rand(100, 500))
     update(start, Infinity)
     expect(update(start + SCROLL_THRESHOLD - 0.1, Infinity)).toBeNull()
     expect(update(start + SCROLL_THRESHOLD, Infinity)).toBe('hide')
