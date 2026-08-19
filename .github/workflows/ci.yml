@@ -32,13 +32,15 @@ jobs:
   e2e:
     runs-on: ubuntu-latest
     # A ceiling, not a target: the suite runs in about six minutes, and this is
-    # here for the case where it does not finish at all. `playwright install
-    # --with-deps` shells out to apt-get and has wedged for 33 minutes against a
-    # slow mirror — and because the Pages deploy is gated on this workflow
-    # *succeeding*, a hang produces no deploy and no failure either, just a site
-    # that silently never changes. That is the same reasoning that pairs
-    # failOnFlakyTests with retries below: a silent non-result is worse than a
-    # loud failure.
+    # here for the case where it does not finish at all. Because the Pages deploy
+    # is gated on this workflow *succeeding*, a hang produces no deploy and no
+    # failure either, just a site that silently never changes. That is the same
+    # reasoning that pairs failOnFlakyTests with retries: a silent non-result is
+    # worse than a loud failure.
+    #
+    # Kept as the outer bound now that the install steps carry their own, which
+    # is what stops any one of them spending the whole budget. It still earns its
+    # place: it is the only thing covering a hang in the suite itself.
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
@@ -47,10 +49,60 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+
+      # `playwright install --with-deps` was one step doing two unrelated
+      # things: downloading browser binaries, and apt-get installing system
+      # libraries. Only the second wedges, and fused together it took the whole
+      # 20-minute ceiling with it — so the suite never ran and the build learned
+      # nothing about the code. It wedged on two consecutive pull requests,
+      # which retired the earlier reading of this as transient.
+      #
+      # Split, so each half is capped and attributable on its own, and so the
+      # half that never hangs can be cached.
+
+      # Keyed on the installed version rather than the lockfile: these binaries
+      # are chosen by Playwright's version alone, so a lockfile key would miss
+      # the cache on every unrelated dependency bump.
+      - name: Resolve the Playwright version the browsers are keyed to
+        id: playwright
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Restore the browser binaries
+        id: browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ms-playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-chromium-webkit
+
+      # Best-effort, and deliberately so. This is the step that shells out to
+      # apt-get, and GitHub's runner image already carries almost everything
+      # these two engines need — so on a slow mirror the right outcome is to
+      # spend six minutes and move on, not to spend twenty and fail without
+      # having run a single test.
+      #
+      # This does not hide a real missing library. If one is genuinely absent
+      # the browsers fail to launch and `npm run test:e2e` below fails loudly,
+      # naming the library in Playwright's own launch error. What it removes is
+      # the case where apt is merely slow and everything needed is already
+      # present, which is what both wedges turned out to be.
+      - name: Install the system libraries the browsers need
+        run: npx playwright install-deps chromium webkit
+        timeout-minutes: 6
+        continue-on-error: true
+
       # Only the two engines the Playwright projects actually use
       # (mobile-safari emulates on WebKit, mobile-chrome on Chromium) —
       # installing Firefox too would cost time for coverage nothing exercises.
-      - run: npx playwright install --with-deps chromium webkit
+      #
+      # Capped as well: a cache miss downloads roughly 300MB, which is fast
+      # normally and worth failing fast on when it is not.
+      - name: Install the browser binaries
+        if: steps.browsers.outputs.cache-hit != 'true'
+        run: npx playwright install chromium webkit
+        timeout-minutes: 8
+
+      # The authoritative check that the two steps above did their job: a
+      # browser that cannot launch fails here, whatever those steps reported.
       - run: npm run test:e2e
       - uses: actions/upload-artifact@v4
         if: failure()
