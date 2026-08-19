@@ -8,6 +8,7 @@ export default defineConfig({
     // test file is deliberately outside the unit guard's reach.
     include: [
       'core/test/**/*.test.js',
+      'shared/test/**/*.test.js',
       'systems/**/test/**/*.test.js',
       'site/test/**/*.test.ts',
     ],

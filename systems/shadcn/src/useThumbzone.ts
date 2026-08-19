@@ -5,7 +5,7 @@
 
 import { useEffect, useMemo, useRef } from 'react'
 import type { RefObject } from 'react'
-import { markMounted } from './mounted'
+import { markMounted } from '../../../shared/react/mounted'
 import { hasThumbzoneOwner, initThumbzone, liveThumbzone, type ThumbzoneHandle } from './thumbzone'
 
 /**
