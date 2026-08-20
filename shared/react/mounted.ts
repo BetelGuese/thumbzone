@@ -29,6 +29,14 @@
  * never resolve in exactly the case worth diagnosing — a tree that *was*
  * discarded, whose replacement mounts over new nodes. Resolving anyway turns
  * that into a failed assertion about a dead handle rather than a hang.
+ *
+ * Known constraint that follows directly from being document-wide rather than
+ * keyed: a page must not mount two React ports that both rely on this latch,
+ * because the first effect to run would resolve the other port's
+ * `whenMounted()` before its own hydration has committed. No page does this
+ * today — each of `site/src/pages/demo/mui.astro` and
+ * `site/src/pages/demo/shadcn.astro` mounts exactly one port — but it is what
+ * would break first if a page ever mounted two.
  */
 
 let mounted = false
