@@ -8,6 +8,21 @@
  * React in here would drag it into that module script. The React binding lives
  * next door in `useThumbzone.ts`.
  *
+ * It is also why the pattern's state lives in the DOM rather than in React
+ * state, and why the ports built on this factory author the contract attributes
+ * in their markup as literals rather than driving them from a render:
+ *
+ * - The shared behaviour's `destroy()` has to hand back the DOM as the markup
+ *   authored it, and be followed by an initialiser running over *whatever is
+ *   there now* — consumers and the conformance suite alike edit that DOM while
+ *   no instance exists (an attribute added, a node inserted between menu
+ *   items). A render driven from props would overwrite those edits on its next
+ *   commit; a render driven from state could not see them at all.
+ * - React only touches an attribute whose prop actually changed between
+ *   renders. Keeping the contract attributes as literals, never back in props,
+ *   is what makes that guarantee usable here — an unrelated re-render (a
+ *   ripple, a focus ring) then leaves the shared behaviour's writes alone.
+ *
  * Distinct from `shared/thumbzone-adapter.js` because the contract genuinely
  * differs, not because of the language it is written in: a framework-free port
  * refuses a second init outright, while a React port must let a late mount
@@ -143,9 +158,10 @@ export function createReactThumbzoneAdapter(
       }
 
       // Before anything reads the markup, the shared behaviour's own capture of
-      // the authored state included: a hoist moves real elements out of the menu
-      // and out of the first item's anchor, and the pattern must not see them
-      // there.
+      // the authored state included: where a port passes a hoist, it moves real
+      // elements out of the menu and out of the first item's anchor, and the
+      // pattern must not see them there. A port that passes nothing has nothing
+      // of its styling system in that markup to move.
       beforeInit?.(elements)
 
       const behaviour = createThumbzoneBehaviour(elements)
