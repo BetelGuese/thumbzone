@@ -18,13 +18,4 @@
 
 import { createThumbzoneAdapter } from '../../../shared/thumbzone-adapter.js'
 
-/**
- * Checked against `HTMLElement` rather than for truthiness: the refs are fed by
- * `querySelector`, so a selector that matched nothing arrives as `null` and one
- * that matched the wrong kind of node arrives without the properties the
- * behaviour will reach for. Both should fail at the call, naming what was
- * missing.
- */
-export const { initThumbzone } = createThumbzoneAdapter({
-  validate: (element) => element instanceof HTMLElement,
-})
+export const { initThumbzone } = createThumbzoneAdapter()
