@@ -30,16 +30,18 @@ import { createThumbzoneBehaviour } from '../core/behaviour.js'
  * harmless in practice — but it would make one port's teardown observable from
  * another's, which is a coupling with no purpose and no test covering it.
  *
- * @param {{ validate: (element: unknown) => boolean }} options
- *   `validate` decides whether a ref is something this port can wire. The
- *   reference implementation asks only for truthiness; the ports built on a
- *   design system check `instanceof HTMLElement`, because those are fed by
- *   `querySelector` and a selector matching the wrong kind of node should fail
- *   here, at the call, naming what was missing — not later, on a property
- *   access with no context.
+ * @param {{ validate?: (element: unknown) => boolean }} [options]
+ *   `validate` decides whether a ref is something this port can wire, and
+ *   defaults to `element instanceof HTMLElement`. The refs it checks are fed by
+ *   `querySelector`: a selector matching nothing arrives as `null`, and one
+ *   matching the wrong kind of node arrives without the properties the
+ *   behaviour reaches for. Both should fail at the call, naming what was
+ *   missing, rather than later on a property access with no context. The
+ *   parameter stays overridable for a port whose markup is not produced by
+ *   `querySelector`.
  * @returns {{ initThumbzone: (refs: { trigger: Element | null, sheet: Element | null, scrim: Element | null, menu: Element | null, inertRoot: Element | null }) => { open: () => void, close: () => void, destroy: () => void } }}
  */
-export function createThumbzoneAdapter({ validate }) {
+export function createThumbzoneAdapter({ validate = (element) => element instanceof HTMLElement } = {}) {
   /**
    * Guards against wiring the same sheet twice — a caller re-running init
    * without destroying the previous instance first, which would otherwise leave
