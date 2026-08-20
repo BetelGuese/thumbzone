@@ -22,8 +22,15 @@ import { permitsPinchZoom, permitsVerticalPanning } from './support/touch'
 // which is the same way a `systems/vanilla/src` root would have stopped
 // covering the twelve systems still to come.
 const BINARY_ASSETS = /\.(png|jpe?g|gif|webp|avif|ico|woff2?|ttf|otf|eot|mp4|webm|mp3|pdf|zip)$/i
-const SCANNED_FILES = [...globSync('systems/*/src/**/*'), ...globSync('site/src/**/*')].filter(
-  (file) => !BINARY_ASSETS.test(file) && statSync(file).isFile(),
+const SCANNED_FILES = [
+  ...globSync('systems/*/src/**/*'),
+  ...globSync('shared/**/*'),
+  ...globSync('site/src/**/*'),
+].filter(
+  // `shared/test/` is excluded on the same principle that keeps every other
+  // test directory outside this guard's reach: a test file may legitimately
+  // write a `vh` length as a fixture for something it is asserting about.
+  (file) => !BINARY_ASSETS.test(file) && !file.startsWith('shared/test/') && statSync(file).isFile(),
 )
 
 // A digit run immediately followed by `vh`, word-bounded on both sides. The
@@ -61,6 +68,10 @@ test.describe('vh guard', () => {
     // reaches real sources.
     expect(SCANNED_FILES.length).toBeGreaterThan(0)
     expect(SCANNED_FILES).toContain('systems/vanilla/src/thumbzone.css')
+    // The shared adapters carry no CSS length today, so nothing about the files
+    // themselves would reveal a glob that stopped reaching them. Naming one
+    // proves the root resolves, exactly as the line above does for `systems/`.
+    expect(SCANNED_FILES).toContain('shared/thumbzone-adapter.js')
     for (const file of SCANNED_FILES) {
       const contents = readFileSync(file, 'utf8')
       expect(contents, `${file} uses vh where dvh is required`).not.toMatch(BARE_VH)
