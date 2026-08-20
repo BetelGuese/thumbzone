@@ -498,23 +498,21 @@ Bootstrap's were identical in every line that ran, and the two React ports'
 versions differed by nine executable lines. It now lives in `shared/`, a sibling
 of `core/`, and there are two entry points to choose between.
 
-**A port with no framework** calls `createThumbzoneAdapter({ validate })` from
-`shared/thumbzone-adapter.js` and writes no behaviour at all:
+**A port with no framework** calls `createThumbzoneAdapter()` from
+`shared/thumbzone-adapter.js` and passes nothing:
 
 ```js
 import { createThumbzoneAdapter } from '../../../shared/thumbzone-adapter.js'
 
-export const { initThumbzone } = createThumbzoneAdapter({
-  validate: (element) => element instanceof HTMLElement,
-})
+export const { initThumbzone } = createThumbzoneAdapter()
 ```
 
-`validate` is the only parameter, because it is the only thing measured to vary:
-every port imports the same `core/behaviour.js`, so a `createBehaviour` seam
-would have nothing left to vary across it. A port fed by `querySelector` checks
-`instanceof HTMLElement`, so that a selector matching the wrong kind of node
-fails at the call naming what was missing, rather than later on a property
-access with no context.
+`validate` defaults to `instanceof HTMLElement`, and every current port leaves
+it at that default: the refs are fed by `querySelector`, so a selector
+matching nothing arrives as `null` and one matching the wrong kind of node
+arrives without the properties the behaviour reaches for, and both should fail
+at the call naming what was missing. The parameter exists for a port whose
+markup is not produced by `querySelector` and needs a different rule.
 
 **A port on React** calls `createReactThumbzoneAdapter()` from
 `shared/react/adapter.ts` and binds the hook to what it hands back:
