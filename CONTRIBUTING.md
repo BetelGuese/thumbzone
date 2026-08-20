@@ -15,6 +15,10 @@ core/               everything no design system gets to decide. Imports no
   behaviour.js      the shared behaviour: lifecycle, focus trap, reorder,
   gestures.js       pointer state machine and scroll-aware tucking. These
   scroll.js         touch the DOM; a port drives them rather than porting them
+shared/             the wiring between a port's markup and core/'s behaviour:
+                    validation, and the initialiser a port publishes
+  react/            the same for a port on React, plus the ownership registry
+                    a late mount needs, the hook and the mount latch
 systems/            one directory per design system
   vanilla/          the reference implementation — no dependencies
 e2e/                Playwright specs, including the conformance suite
@@ -53,18 +57,28 @@ const behaviour = createThumbzoneBehaviour({ trigger, sheet, scrim, menu, inertR
 // → { open, close, destroy }
 ```
 
-The five elements are a precondition: validate them yourself, in your own
-idiom, and fail with a message naming what was missing. `destroy()` is not
-idempotent — it undoes init-time DOM mutations, and undoing one twice puts it
-back — so if your port's handle can have two owners (a component's unmount and
-the published test hook, say), latch it yourself.
+Calling it directly is what `systems/vanilla` does, and a new port should not.
+It goes through a shared adapter instead — which one, and why there are two, is
+the subject of "Which shared adapter your port builds on" below. The five
+elements are a precondition, and the adapter validates them for you and fails
+with a message naming what was missing; the framework-free one takes your rule
+for what counts as an element you can wire, and nothing else.
+
+The adapter also settles `destroy()`, which is not idempotent — it undoes
+init-time DOM mutations, and undoing one twice puts them back. A handle with two
+owners (a component's unmount and the published test hook, say) has to be
+latched against that, and the React adapter latches it, because its adoption
+design is what creates the second owner. A framework-free port has one owner and
+is deliberately left un-latched, so a second `destroy()` there is a caller's
+error rather than a case the shared code absorbs on its behalf.
 
 What is yours to write: the markup, built from your system's own components;
-the styling, tokens and motion; the framework binding, if your system has one;
-the hydration strategy, including `__thumbzoneReady`; and anything your
-system's own rendering leaves in the markup before the pattern reads it — the
-Material UI port's hoist of Emotion's server-rendered `<style>` elements out of
-the menu is the worked example.
+the styling, tokens and motion; the framework binding, unless your system is on
+React, where `shared/react/useThumbzone.ts` already is it; the hydration
+strategy, including `__thumbzoneReady`; and anything your system's own rendering
+leaves in the markup before the pattern reads it — the Material UI port's hoist
+of Emotion's server-rendered `<style>` elements out of the menu is the worked
+example.
 
 ### Expect to reach past your system's drawer component
 
@@ -475,45 +489,78 @@ a 1.54× ratio. Comfortably overflowing on both, as the fixture is meant to be.
 One port finding this does not make it universal. It makes the fixture's
 place in the contract something other than a formality for the next one.
 
-### An open decision: extracting the adapter
+### Which shared adapter your port builds on
 
-Three ports now write the same small module — the one that validates the five
-elements a port is handed and hands them to `createThumbzoneBehaviour` —
-under the name `initThumbzone`. Vanilla's version validates by truthiness, but
-Tailwind's and Bootstrap's are identical in every line that runs; only their
-comments differ. That is validation-and-delegation, written out three times,
-two of those times byte-for-byte the same.
+Between your markup and `core/behaviour.js` sits a small module that validates
+the five elements the port was handed and turns them into a live instance, under
+the name `initThumbzone`. Every port used to write it. Tailwind's and
+Bootstrap's were identical in every line that ran, and the two React ports'
+versions differed by nine executable lines. It now lives in `shared/`, a sibling
+of `core/`, and there are two entry points to choose between.
 
-It has not been extracted, and the reason is not that the repetition is too
-small to matter — it is that doing the extraction inside a port branch buys a
-refactor with merge risk that branch does not need. A branch whose job is to
-add one design system is not the place to also change the three that already
-ship.
+**A port with no framework** calls `createThumbzoneAdapter({ validate })` from
+`shared/thumbzone-adapter.js` and writes no behaviour at all:
 
-When it does land, it belongs beside `core/`, not inside it: a new
-`shared/thumbzone-adapter.js`, exporting `createThumbzoneAdapter({ validate })`
-and parameterised on nothing but the one thing that genuinely varies across
-the three — how a port checks that what it was handed is usable. Every port
-already imports the same `core/behaviour.js` unchanged; a `createBehaviour`
-seam would have nothing left to vary across it, which is what makes `validate`
-the only parameter worth having.
+```js
+import { createThumbzoneAdapter } from '../../../shared/thumbzone-adapter.js'
 
-Not inside `core/`, and the reason is not the usual one — that `core/` is
-where DOM-touching behaviour lives and this module would touch the DOM too.
+export const { initThumbzone } = createThumbzoneAdapter({
+  validate: (element) => element instanceof HTMLElement,
+})
+```
+
+`validate` is the only parameter, because it is the only thing measured to vary:
+every port imports the same `core/behaviour.js`, so a `createBehaviour` seam
+would have nothing left to vary across it. A port fed by `querySelector` checks
+`instanceof HTMLElement`, so that a selector matching the wrong kind of node
+fails at the call naming what was missing, rather than later on a property
+access with no context.
+
+**A port on React** calls `createReactThumbzoneAdapter()` from
+`shared/react/adapter.ts` and binds the hook to what it hands back:
+
+```ts
+import { createReactThumbzoneAdapter } from '../../../shared/react/adapter'
+import { createUseThumbzone } from '../../../shared/react/useThumbzone'
+
+export const adapter = createReactThumbzoneAdapter()
+export const useThumbzone = createUseThumbzone(adapter)
+```
+
+Pass `beforeInit` only if your styling system leaves real nodes inside the
+pattern's own markup when it is rendered to a string. It runs against the
+validated elements immediately before the shared behaviour captures the authored
+DOM, which is the last moment such nodes can be moved out of the way. Material
+UI passes its hoist of Emotion's server-rendered `<style>` elements; shadcn/ui
+passes nothing, because a compiled stylesheet leaves nothing of the styling
+system between the menu and its items.
+
+Two factories rather than one with a mode flag, because the contracts genuinely
+differ and not merely the language they are written in. A framework-free port
+refuses a second init outright. A React port has to let a late mount *adopt* an
+instance already running: the sheet's markup is server-rendered, so a page can
+wire the pattern from a module script during load, before the island's framework
+has finished downloading — and the component arriving afterwards must find the
+sheet already claimed and leave it with its owner instead of putting a
+replacement in place. That is what the React adapter's ownership registry is
+for, and it is why its `destroy()` is latched and the other's is not.
+
+Beside `core/` and not inside it, and the reason is not the usual one — that
+`core/` is where DOM-touching behaviour lives and this touches the DOM too.
 `core/index.js`'s own doc comment says nothing there touches the DOM at all,
 which is precisely what keeps it separate from `behaviour.js`. `core/` is
 already two halves on that line: DOM-free maths in `index.js`, DOM-touching
-behaviour in `behaviour.js`. The adapter is neither. It does not compute the
+behaviour in `behaviour.js`. An adapter is neither. It does not compute the
 pattern's maths and it does not run the pattern's lifecycle; it is the wiring
 between a port's own markup and the behaviour layer, which is a third kind of
-thing this repository does not yet have a home for — hence a sibling
-directory rather than a third file inside an existing one.
+thing — hence a sibling directory rather than a third file inside an existing
+one.
 
-The trigger for doing it: the next framework-free port, which would make the
-repetition three-going-on-four, or the first change that has to be made to
-all three existing adapters at once, whichever comes first. Until then this is
-a named decision, not an oversight — the next porter should meet it here
-rather than notice the duplication and wonder whether it was missed.
+`systems/vanilla` is the deliberate exception and calls
+`createThumbzoneBehaviour` directly. It is normative: a reader opens it to
+settle a disagreement and to see the whole pattern in one place, and an import
+of a shared factory would make it no longer self-contained. It is not the one
+port nobody got around to updating.
 
 ## Design principles
 
@@ -528,12 +575,16 @@ rather than notice the duplication and wonder whether it was missed.
   lifecycle, the focus trap, the pointer state machine and the reorder. They
   touch the DOM but import no framework, which is the line that keeps them
   shareable — `core/index.js` touches no DOM at all, which is what lets it be
-  unit-tested without a browser. `systems/vanilla` stays normative: it is where
-  a disagreement is settled, and it now delegates the same behaviour every port
-  does rather than owning a second copy of it.
+  unit-tested without a browser. `shared/` holds the wiring onto it — the
+  validation and the `initThumbzone` a port publishes, and for a port on React
+  the ownership registry a late mount needs and the hook that drives it — which
+  two framework-free ports and two React ports had each been writing out
+  separately. `systems/vanilla` stays normative: it is where a disagreement is
+  settled, and it now delegates the same behaviour every port does rather than
+  owning a second copy of it.
 - **YAGNI** — build what is needed now, and extract only once there is evidence
-  of what repeats. `core/` is where that judgement was made twice, and it is
-  worth being honest about both. The maths and the constants came out while
+  of what repeats. That judgement has been made three times here, and it is
+  worth being honest about each. The maths and the constants came out while
   there was still one implementation, because they were separable without a
   second one to compare against: a number with no DOM and no framework in it —
   a dismiss ratio, a fling velocity, a hit target — either is the contract or
@@ -550,9 +601,11 @@ rather than notice the duplication and wonder whether it was missed.
   times before anyone noticed. Extracting it then was the principle being
   satisfied, not broken.
 
-  What is still per-system is what a system genuinely decides: its markup, its
-  styling and motion tokens, its framework binding and hydration strategy, and
-  how it validates what it is handed.
+  The wiring came out third, on the same evidence and with the same reasoning:
+  four ports, two pairs, each pair writing one module twice. What is still
+  per-system is what a system genuinely decides: its markup, its styling and
+  motion tokens, its hydration strategy, its framework binding where `shared/`
+  does not already carry one, and how it validates what it is handed.
 - **KISS** — the simplest thing that works, then refactor for clarity.
 - **Composition over inheritance.**
 
