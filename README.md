@@ -344,11 +344,14 @@ that is the normal outcome.
 The behaviour comes from `core/`, and a port drives it rather than rewriting it:
 the open/close lifecycle, the focus trap, the pointer state machine, the
 thumb-first reorder and the teardown, on top of the gesture maths and the tuned
-thresholds. What a port writes is the part that is genuinely its own: the markup,
-the styling, and — if the system hydrates — the strategy for wiring the pattern
-before the page finishes loading. That split is why the gesture *feel* is
-identical across systems without anyone copying the arithmetic, and why no port
-has to get a focus trap right on its own.
+thresholds. Between `core/` and a port sits `shared/`: the validation and the
+initialiser every port publishes, plus, for the two React ports, the ownership
+registry, the hook and the mount latch a late mount needs. What a port writes
+is the part that is genuinely its own: the markup, the styling, and — if the
+system hydrates — the strategy for wiring the pattern before the page finishes
+loading. That split is why the gesture *feel* is identical across systems
+without anyone copying the arithmetic, and why no port has to get a focus trap
+right on its own.
 
 ## Licence
 
