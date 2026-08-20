@@ -65,11 +65,11 @@ export function createUseThumbzone(adapter: ThumbzoneAdapter) {
    * A page that wires the pattern earlier than this — before the framework has
    * arrived, so that the sheet works the moment the document reports itself
    * loaded — gets the *first* reorder in before hydration can start, which is
-   * safe and needs only the text mismatch it leaves annotated (see
-   * `ThumbzoneMenu`). What it must not do is reorder again while hydration is in
-   * flight, and this effect is where such a page learns that it is over: it marks
-   * the latch in `mounted.ts` unconditionally, and the page publishes that as its
-   * readiness hook.
+   * safe and needs only the text mismatch it leaves annotated, in whichever
+   * component the port renders its own menu as. What it must not do is reorder
+   * again while hydration is in flight, and this effect is where such a page
+   * learns that it is over: it marks the latch in `mounted.ts` unconditionally,
+   * and the page publishes that as its readiness hook.
    *
    * @param refs Refs to the trigger, sheet, scrim and menu the component renders.
    * @returns A handle that reaches whichever instance is live on the sheet.

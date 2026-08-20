@@ -104,8 +104,13 @@ function requireElements(refs: ThumbzoneRefs): ThumbzoneElements {
  *   React ports. It exists for a styling system that leaves real nodes inside
  *   the pattern's own markup when rendered to a string — Material UI's Emotion
  *   `<style>` elements — which must be out of the way before anything reads
- *   that markup. A port whose styling system emits a static stylesheet passes
- *   nothing.
+ *   that markup. A port whose styling system emits a compiled stylesheet
+ *   passes nothing.
+ *
+ *   Not currently covered by the conformance suite: a mutation that dropped
+ *   this call entirely left every port green, because the hoisted node has no
+ *   rendered box and is not focusable, so nothing in the suite notices its
+ *   absence. A green suite run is not evidence a port can skip passing it.
  *
  *   Registries are created per call for the same reason the framework-free
  *   guard is: two ports never meet on one page, so sharing them would couple
@@ -157,11 +162,11 @@ export function createReactThumbzoneAdapter(
         )
       }
 
-      // Before anything reads the markup, the shared behaviour's own capture of
-      // the authored state included: where a port passes a hoist, it moves real
-      // elements out of the menu and out of the first item's anchor, and the
-      // pattern must not see them there. A port that passes nothing has nothing
-      // of its styling system in that markup to move.
+      // Runs before the shared behaviour captures the authored DOM, so a port
+      // can move anything its styling system left inside the pattern's markup
+      // out of the way first. Material UI's own hoist is what needs this, for
+      // Emotion's server-rendered style elements; a port whose styling system
+      // leaves nothing behind passes nothing here.
       beforeInit?.(elements)
 
       const behaviour = createThumbzoneBehaviour(elements)
