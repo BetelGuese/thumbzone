@@ -38,8 +38,16 @@ const waiting: Array<() => void> = []
 export function markMounted(): void {
   if (mounted) return
   mounted = true
-  // Drained before resolving, so a `whenMounted()` called from one of these
-  // callbacks queues nothing behind a latch that is already open.
+  // What makes this safe to re-enter is that the assignment above is
+  // synchronous, not that it comes before the drain: `resolve()` only schedules
+  // a microtask, so none of these callbacks runs until this function has
+  // returned, and by then a `whenMounted()` from any of them reads an open latch
+  // and gets an already-resolved promise. Reordering the two statements is
+  // therefore harmless; deferring the assignment into a microtask of its own is
+  // the edit to refuse, and the one the reentrancy test kills — a re-entrant
+  // caller would join a `waiting` array already spliced and never drained again.
+  // `splice(0)` is here for a different property: it hands the loop a snapshot
+  // that a push during the drain cannot mutate underneath it.
   for (const resolve of waiting.splice(0)) resolve()
 }
 
