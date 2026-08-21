@@ -62,10 +62,12 @@ const TRIGGER_GAP_TOKEN = '4'
  * touched; over the ceiling the user is waiting on a menu. Chakra's scale runs
  * 50ms to 500ms, so picking the semantically right token is the whole exercise —
  * with one caveat worth recording, since it is the case `motion.ts` anticipates:
- * Chakra's own `Drawer` enters on `durations.slowest` (500ms), which is past
- * this pattern's ceiling. `moderate` is the token that same recipe uses for its
- * exit, so the sheet still moves at a speed Chakra's own surfaces move at — one
- * of its faster tokens rather than its slowest.
+ * Chakra's own `Drawer` content recipe enters on `durations.slowest` (500ms)
+ * and exits on `durations.slower` (400ms), both past the bound this pattern
+ * allows, so the port takes `moderate` from the same scale instead — one of
+ * its faster tokens rather than either of its slowest two. (That same
+ * recipe's backdrop fades out on `moderate` too, which is corroboration, but
+ * belongs to the backdrop, not to the content the Drawer actually moves.)
  *
  * `easings.ease-in-smooth` is `cubic-bezier(0.32, 0.72, 0, 1)`, the curve
  * Chakra's `Drawer` animates both directions with. Despite the name it
@@ -213,7 +215,12 @@ export default function ThumbzoneMenu({
         position="fixed"
         inset="0"
         // One layer under the sheet, so the scrim covers the page and nothing
-        // else. `overlay` is the token Chakra names for exactly this surface.
+        // else. Chakra's own `drawer` and `dialog` recipes derive their
+        // backdrop's z-index from `zIndex.popover`, not from `overlay` — but
+        // `overlay` sits on the same scale, one layer under `modal`, which is
+        // exactly the relationship this scrim needs to the sheet, so it is
+        // reached for on its own name rather than borrowed from a recipe that
+        // names a different token.
         zIndex="overlay"
         bg="blackAlpha.500"
         opacity="0"
@@ -399,27 +406,29 @@ export default function ThumbzoneMenu({
                   for.
 
                   `size="xl"` is not a taste. Chakra's own height token for that
-                  step is `sizes.12` (3rem, 48px), and it is the first step that
-                  reaches the pattern's floor: the default `md` is `sizes.10`
-                  (40px) and `lg` is `sizes.11` (44px), both under it — the same
-                  finding the Bootstrap port recorded about `.nav-link`. Raised
-                  through Chakra's own size scale rather than by overriding a
-                  smaller step's height, which is how a Chakra developer would
-                  reach 48px.
+                  step is `sizes.12` (3rem, 48px), and it is the first step whose
+                  token reaches the pattern's floor: the default `md` is
+                  `sizes.10` (40px) and `lg` is `sizes.11` (44px), both under it —
+                  the same finding the Bootstrap port recorded about
+                  `.nav-link`. So `size="xl"` asks for the right step in
+                  Chakra's own vocabulary.
 
-                  A size token is arithmetic, though, not a floor, and *nothing
-                  in the conformance suite asserts a menu row's height* — only
-                  the trigger and the drag handle are checked against
-                  MIN_HIT_TARGET. So the floor is also declared, from the
-                  constant itself: a later retune of Chakra's button recipe
-                  cannot drop these rows under the minimum with no test going
-                  red. Stated alongside the token, not instead of it, exactly as
-                  the reference implementation states its own floor twice.
+                  But recipes are layered and style props are not: the port's
+                  own `blockSize="auto"` below outranks the recipe's `height`,
+                  so that token never reaches the rendered row at all. The 48px
+                  comes entirely from the explicit `min-block-size` derived from
+                  MIN_HIT_TARGET below — and *nothing in the conformance suite
+                  asserts a menu row's height*, only the trigger and the drag
+                  handle are checked against the constant. That literal is
+                  therefore load-bearing and must not be removed: delete it and
+                  the row renders 40px — the line-height plus this padding —
+                  with no test to catch the drop.
 
-                  `blockSize="auto"` relaxes the fixed height that step
-                  declares, so the row can also be *taller* than the floor —
-                  with `whiteSpace="normal"` restoring wrapping, a label too long
-                  for one line expands the row instead of running out of it. */}
+                  `blockSize="auto"` is what hands the row's height to its
+                  content instead of the recipe, so it can also be *taller*
+                  than the floor — with `whiteSpace="normal"` restoring
+                  wrapping, a label too long for one line expands the row
+                  instead of running out of it. */}
               <Button
                 asChild
                 variant="ghost"
