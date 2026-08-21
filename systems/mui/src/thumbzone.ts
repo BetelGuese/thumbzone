@@ -24,37 +24,10 @@
  * `<button>` for the trigger to be.
  */
 
-import { createReactThumbzoneAdapter, type ThumbzoneElements } from '../../../shared/react/adapter'
+import { createReactThumbzoneAdapter } from '../../../shared/react/adapter'
+import { hoistServerRenderedStyles } from '../../../shared/react/hoist-emotion'
 
 export type { ThumbzoneRefs, ThumbzoneHandle } from '../../../shared/react/adapter'
-
-/**
- * Moves Emotion's server-rendered rules out of the pattern's own elements and
- * into `document.head`, matching Emotion's own client-side pass in every
- * particular that matters:
- *
- * - the same selector, queried against the document so the nodes are visited in
- *   document order and their order relative to each other survives the move;
- * - the same requirement of a space in `data-emotion`, which is what marks a
- *   rule as Emotion 11's server output rather than Emotion 10's client output;
- * - the same destination, `document.head`;
- * - the same `data-s` stamp on the way out, which is how Emotion records that a
- *   node has already been hoisted — without it, Emotion's own pass would move
- *   these nodes a second time and reorder them against anything hoisted since.
- *
- * Only nodes inside the pattern's own elements are touched. The rest of the
- * page's rules are Emotion's business, and moving them would be this module
- * reaching outside what it was handed.
- */
-function hoistServerRenderedStyles({ sheet, scrim, trigger }: ThumbzoneElements): void {
-  const roots = [sheet, scrim, trigger]
-  for (const style of document.querySelectorAll('style[data-emotion]:not([data-s])')) {
-    if (!roots.some((root) => root.contains(style))) continue
-    if (!style.getAttribute('data-emotion')?.includes(' ')) continue
-    document.head.append(style)
-    style.setAttribute('data-s', '')
-  }
-}
 
 /** This port's adapter. Exported for `useThumbzone` to bind the React hook to. */
 export const adapter = createReactThumbzoneAdapter({ beforeInit: hoistServerRenderedStyles })
