@@ -525,6 +525,15 @@ const NOTES: Record<string, { text: string; href: string; linkText: string }> = 
     margin-top: var(--leading);
   }
 
+  /* The support button is injected by a third-party script after load, so this
+     page's scoped styles cannot reach the element itself — only the wrapper it
+     lands in. Centring it here is what keeps it on the same baseline as the
+     buttons beside it, whatever height the script decides to render. */
+  .bmc-slot {
+    display: inline-flex;
+    align-items: center;
+  }
+
   .reach {
     display: block;
     inline-size: min(420px, 100%);
@@ -947,9 +956,9 @@ const NOTES: Record<string, { text: string; href: string; linkText: string }> = 
      light makes the two agree, which both hands the rule below a canvas it can
      actually set and keeps the ports on the ground their colours were chosen
      and contrast-tested against. Deliberately done from the showcase and not
-     in the demo layout: that layout is shared by all five routes and
+     in the demo layout: that layout is shared by every demo route and
      answerable to the conformance suite, and teaching it to follow the
-     reader's scheme would restyle five ports on the strength of one page's
+     reader's scheme would restyle every port on the strength of one page's
      appearance. */
   [data-tz-frame-host] :global(iframe[data-tz-frame]) {
     display: block;
