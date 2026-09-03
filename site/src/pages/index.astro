@@ -83,6 +83,15 @@ const NOTES: Record<string, { text: string; href: string; linkText: string }> = 
     href: `${REPO}#what-the-fourth-port-settled`,
     linkText: 'What the fourth port settled',
   },
+  chakra: {
+    text:
+      'Chakra’s Drawer wraps Ark UI’s Dialog, and a closed Dialog server-renders no content at ' +
+      'all — nothing for a page to wire during load, nothing to reorder before hydration, and ' +
+      'nothing for the open transition to move. Every part of the lifecycle it owns is a ' +
+      'configurable flag, so it is the absent markup that rules it out rather than the ownership.',
+    href: `${REPO}#what-the-fifth-port-showed`,
+    linkText: 'What the fifth port showed',
+  },
 }
 ---
 <html lang="en">
@@ -92,7 +101,7 @@ const NOTES: Record<string, { text: string; href: string; linkText: string }> = 
     <title>thumbzone — a mobile menu where the thumb already is</title>
     <meta
       name="description"
-      content="The mobile hamburger menu belongs at the bottom centre, not in a top corner. One pattern, five design systems, one executable conformance suite."
+      content="The mobile hamburger menu belongs at the bottom centre, not in a top corner. One pattern, every major design system, one executable conformance suite."
     />
   </head>
   <body>
@@ -194,8 +203,11 @@ const NOTES: Record<string, { text: string; href: string; linkText: string }> = 
 
       <section class="wrap split" data-tz-demo aria-labelledby="tz-demo-heading" id="ports">
         <div class="split-copy">
-          <span class="kicker">Five design systems, one pattern</span>
-          <h2 id="tz-demo-heading" class="split-title">One pattern, five grounds</h2>
+          {/* Derived, not written: this line and the heading below both went
+              stale the moment a sixth port shipped, and a count in prose has no
+              way to notice. */}
+          <span class="kicker">{SHIPPED_SYSTEMS.length} design systems, one pattern</span>
+          <h2 id="tz-demo-heading" class="split-title">One pattern, every ground</h2>
 
           <nav aria-label="Choose a design system">
             <ul class="features">
