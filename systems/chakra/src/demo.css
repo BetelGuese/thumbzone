@@ -1,0 +1,39 @@
+/* Typography for the Chakra UI demo pages.
+ *
+ * `ChakraProvider` renders `<Global styles={sys._global} />` unconditionally
+ * (`@chakra-ui/react`'s own `styled-system/provider.js`), and this port passes
+ * it `defaultSystem` — the only system it can pass, since `useChakraContext` is
+ * declared strict and `ThumbzoneMenu.tsx` takes no prop to hand it another one.
+ * `defaultSystem` sets `preflight: true` (`theme/index.js`), and that flag is
+ * what puts Chakra's own reset into `sys._global`:
+ * `styled-system/preflight.js` writes `* { margin: 0px, padding: 0px, font:
+ * inherit, ... }`, and Emotion's `Global` injects it as a genuinely
+ * document-wide stylesheet — it is not scoped to the island's own subtree, so
+ * it reaches this route's server-rendered prose exactly as Tailwind's
+ * preflight reaches the shadcn and Tailwind routes'.
+ *
+ * That is the same category of zeroing that once cut a fixture's `maxScrollY`
+ * from 601 to 145 and produced six tucking assertions failing as if the tuck
+ * logic itself were broken — measured against the Tailwind port, not this one,
+ * but the mechanism is the same reset shape reaching the same kind of prose.
+ * What follows restores only the type and spacing the reset took. It is not a
+ * reset of its own, and it is not `preflight: false`: this port has no system
+ * of its own to set that on without giving `ThumbzoneMenu.tsx` a second entry
+ * point for the system it renders with, so the fix stays here, in CSS, the
+ * same way the Tailwind and shadcn/ui routes restore what their own preflight
+ * took. Material UI's port made a different call for a different reason —
+ * `CssBaseline` there is optional and simply never invoked, so no reset ever
+ * runs; see `systems/mui/src/demo.css`.
+ *
+ * Kept out of the port's component files so both Chakra routes share one
+ * source and cannot drift apart.
+ */
+h1 {
+  font-size: 2em;
+  font-weight: bold;
+  margin-block: 0.67em;
+}
+
+p {
+  margin-block: 1em;
+}

@@ -1,0 +1,84 @@
+---
+import DemoLayout from '../../layouts/DemoLayout.astro'
+import ThumbzoneMenu from '../../../../systems/chakra/src/ThumbzoneMenu.tsx'
+
+const items = ['Home', 'Search', 'Library', 'Profile', 'Settings']
+---
+<DemoLayout system="chakra">
+  <main data-tz-app>
+    <h1>thumbzone — Chakra UI</h1>
+    {Array.from({ length: 40 }, (_, i) => <p>Scrollable content line {i + 1}.</p>)}
+  </main>
+  <ThumbzoneMenu items={items} client:load />
+</DemoLayout>
+
+<script>
+  import { whenMounted } from '../../../../shared/react/mounted'
+  import { initThumbzone, liveThumbzone } from '../../../../systems/chakra/src/thumbzone'
+
+  // Wired here, from the page, rather than left to the island's own mount.
+  //
+  // `client:load` hydrates from a dynamic `import()`, and the document's load
+  // event does not wait for one: it fires while the island is still fetching
+  // React, Chakra and Emotion, leaving a window in which the whole pattern is
+  // on screen with nothing listening to it. Nothing about that window is
+  // fixable from inside the island — it exists because the framework arrives
+  // late — and it is not a rounding error: a caller that starts interacting
+  // the moment loading finishes spends it pressing a trigger that cannot
+  // answer.
+  //
+  // The behaviour module imports no framework, and the markup is
+  // server-rendered, so the pattern does not have to wait for React at all. A
+  // module script is fetched and run before the document reports itself
+  // loaded, which makes "loaded" mean the sheet works. The island then adopts
+  // this instance when it hydrates instead of making a second one, so both
+  // reach the same live instance.
+  //
+  // Adopted if it is somehow already wired, rather than initialised blind.
+  // Losing this race is not supposed to be possible — a module script runs
+  // before the document is loaded, and the island cannot hydrate that early —
+  // but "not supposed to be possible" is the wrong thing to stake the whole
+  // page on: initialising a sheet that already has an instance throws, and a
+  // throw here would abort this script with neither hook published, which is
+  // the exact failure this script exists to prevent.
+  const sheet = document.querySelector('[data-tz-sheet]')
+  const thumbzone =
+    liveThumbzone(sheet) ??
+    initThumbzone({
+      sheet,
+      trigger: document.querySelector('[data-tz-trigger]'),
+      scrim: document.querySelector('[data-tz-scrim]'),
+      menu: document.querySelector('[data-tz-menu]'),
+      inertRoot: document.querySelector('[data-tz-app]'),
+    })
+
+  // Exposed only so e2e tests can drive the imperative API (destroy(), in
+  // particular, has no attribute-driven equivalent to trigger from a test).
+  // @ts-expect-error — deliberate test hook, not part of the page's own contract.
+  window.__thumbzone = thumbzone
+  // Exposed so a test can destroy() this instance and re-initThumbzone() the
+  // same elements after editing them — there is no other way to exercise "what
+  // was here before initThumbzone ran" from outside the module.
+  // @ts-expect-error — deliberate test hook, not part of the page's own contract.
+  window.__initThumbzone = initThumbzone
+  // The readiness hook the contract asks every route for, and on this route it
+  // is the one that earns its place: the instance above is wired and live
+  // already, but the island has not hydrated yet, and React's hydration walks
+  // the menu's items as siblings while holding a pointer into that list across
+  // the tasks it yields between. Tearing this instance down or re-initialising
+  // over the same markup reorders those items, and doing so mid-hydration
+  // leaves React short of the nodes it still expects — which it answers by
+  // discarding the island and re-rendering it, replacing the elements the
+  // handle above is holding.
+  //
+  // The reorder init has *already* done is safe: it ran before the island
+  // could have started. Everything after it waits here. `whenMounted()`
+  // resolves from the component's own effect, which is the only thing
+  // guaranteed to run after the commit.
+  // @ts-expect-error — deliberate test hook, not part of the page's own contract.
+  window.__thumbzoneReady = whenMounted()
+</script>
+
+<style is:global>
+  @import '../../../../systems/chakra/src/demo.css';
+</style>
