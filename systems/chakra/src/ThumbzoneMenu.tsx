@@ -421,8 +421,10 @@ export default function ThumbzoneMenu({
                   asserts a menu row's height*, only the trigger and the drag
                   handle are checked against the constant. That literal is
                   therefore load-bearing and must not be removed: delete it and
-                  the row renders 40px — the line-height plus this padding —
-                  with no test to catch the drop.
+                  the row renders 42px, measured — the line-height, plus this
+                  padding, plus the 1px the button recipe puts on each edge,
+                  which counts because the box is sized border-box. Six pixels
+                  under the floor, with no test to catch the drop.
 
                   `blockSize="auto"` is what hands the row's height to its
                   content instead of the recipe, so it can also be *taller*

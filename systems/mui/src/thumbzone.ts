@@ -5,14 +5,14 @@
  * and the teardown are `core/behaviour.js`'s, and the wiring between this
  * port's markup and that behaviour — including the ownership registry that lets
  * a late mount adopt an instance already running — is
- * `shared/react/adapter.ts`. What is left here is the one thing that varies
- * between React ports: getting Emotion's server-rendered `<style>` elements out
- * of the pattern's markup before anything reads it.
+ * `shared/react/adapter.ts`. Emotion's server-rendered `<style>` elements have
+ * to be moved out of the pattern's markup before anything reads it, and that
+ * hoist is no longer this port's own: Chakra UI needs the identical one, so it
+ * lives in `shared/react/hoist-emotion.ts` and this file only asks for it. What
+ * is left here is the choice to ask.
  *
  * It imports no framework, deliberately — see `useThumbzone` for the React
- * binding that mounts it. Framework-*agnostic* it is not: it knows what
- * rendering MUI to a string leaves in the markup, which is the price of running
- * before the framework does.
+ * binding that mounts it.
  *
  * Material UI supplies none of the pattern's services here, and that is a
  * consequence of the markup rather than a gap in the library. The services a

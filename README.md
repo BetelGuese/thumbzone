@@ -201,12 +201,14 @@ It still cannot own this pattern, for a reason none of the first four had.
   load, the thumb-first reorder has to land before hydration, and the open
   transition needs something to move. Against absent markup none of that is
   possible.
-- **So the disqualifier moved from behaviour to markup.** The first four ports
-  reached past a drawer because it insisted on owning a lifecycle. This one
-  reaches past a drawer that would have surrendered the lifecycle, because it
-  will not render anything to own. Four systems, now five, four distinct
-  reasons — reaching past the drawer is a property of the pattern, and each new
-  system has found its own way to demonstrate it.
+- **So the disqualifier moved from behaviour to markup.** The three earlier
+  systems shipping a drawer of their own were each reached past because that
+  drawer insisted on owning a lifecycle. This one is reached past despite being
+  willing to surrender the lifecycle, because it will not render anything to
+  own. Three systems, now four, four distinct reasons — reaching past the
+  drawer is a property of the pattern, and each system that ships one has found
+  its own way to demonstrate it. Tailwind CSS ships no drawer at all, which is
+  why the count of ports and the count of drawers are not the same number.
 - **A styling system can leave its own nodes inside the markup.** Chakra
   server-renders five Emotion `<style>` elements, one of them a child of the
   menu itself, which the shared behaviour would otherwise capture as authored
@@ -350,8 +352,8 @@ npm run dev            # http://localhost:4321
 framed at a phone's width with a switcher for the shipped systems — narrow the
 window below 768px and the frame gives way to direct links to the routes below.
 
-Demo routes: `/demo/vanilla`, `/demo/mui`, `/demo/shadcn`, `/demo/tailwind` and
-`/demo/bootstrap`, each with an `-overflow` variant carrying a menu taller than
+Demo routes: `/demo/vanilla`, `/demo/mui`, `/demo/shadcn`, `/demo/tailwind`,
+`/demo/bootstrap` and `/demo/chakra`, each with an `-overflow` variant carrying a menu taller than
 the sheet, for testing internal scrolling against the drag gesture. The same
 routes are served from
 [the deployed site](https://betelguese.github.io/thumbzone/) if you only want to
@@ -368,16 +370,16 @@ npm run typecheck
 See [CONTRIBUTING.md](CONTRIBUTING.md). In short: build it with the target
 system's own components and tokens so it looks native there, add a demo route,
 add one entry to `systems/registry.ts`, and run the suite. Expect to reach past
-the system's own sheet or drawer primitive rather than build on it — three
+the system's own sheet or drawer primitive rather than build on it — four
 design systems shipping a drawer of their own have each forced their port to
-reach past it, for three different reasons, and CONTRIBUTING.md explains why
+reach past it, for four different reasons, and CONTRIBUTING.md explains why
 that is the normal outcome.
 
 The behaviour comes from `core/`, and a port drives it rather than rewriting it:
 the open/close lifecycle, the focus trap, the pointer state machine, the
 thumb-first reorder and the teardown, on top of the gesture maths and the tuned
 thresholds. Between `core/` and a port sits `shared/`: the validation and the
-initialiser every port publishes, plus, for the two React ports, the ownership
+initialiser every port publishes, plus, for the three React ports, the ownership
 registry, the hook and the mount latch a late mount needs. What a port writes
 is the part that is genuinely its own: the markup, the styling, and — if the
 system hydrates — the strategy for wiring the pattern before the page finishes
