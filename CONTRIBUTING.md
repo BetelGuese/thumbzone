@@ -76,9 +76,9 @@ What is yours to write: the markup, built from your system's own components;
 the styling, tokens and motion; the framework binding, unless your system is on
 React, where `shared/react/useThumbzone.ts` already is it; the hydration
 strategy, including `__thumbzoneReady`; and anything your system's own rendering
-leaves in the markup before the pattern reads it — the Material UI port's hoist
-of Emotion's server-rendered `<style>` elements out of the menu is the worked
-example.
+leaves in the markup before the pattern reads it — hoisting Emotion's
+server-rendered `<style>` elements out of the menu is the worked example, and
+`shared/react/hoist-emotion.ts` means you import that one rather than write it.
 
 ### Expect to reach past your system's drawer component
 
@@ -528,10 +528,31 @@ export const useThumbzone = createUseThumbzone(adapter)
 Pass `beforeInit` only if your styling system leaves real nodes inside the
 pattern's own markup when it is rendered to a string. It runs against the
 validated elements immediately before the shared behaviour captures the authored
-DOM, which is the last moment such nodes can be moved out of the way. Material
-UI passes its hoist of Emotion's server-rendered `<style>` elements; shadcn/ui
-passes nothing, because a compiled stylesheet leaves nothing of the styling
-system between the menu and its items.
+DOM, which is the last moment such nodes can be moved out of the way.
+
+**If your system styles with Emotion, do not write that hoist** — import it:
+
+```ts
+import { hoistServerRenderedStyles } from '../../../shared/react/hoist-emotion'
+
+export const adapter = createReactThumbzoneAdapter({ beforeInit: hoistServerRenderedStyles })
+```
+
+Material UI and Chakra UI both pass it. Chakra is the measured case for why this
+is worth checking rather than assuming: rendering a `Box as="nav"` of anchors
+plus a `Button` emits five `<style data-emotion>` elements, one of them a child
+of the menu itself. shadcn/ui passes nothing, because a compiled stylesheet
+leaves nothing of the styling system between the menu and its items.
+
+Check your own system rather than reasoning from these two. Server-render your
+markup, and look for elements your styling library put inside the sheet, the
+menu, or the first item's anchor.
+
+**Nothing in the conformance suite will tell you whether you got this right.**
+Removing the `beforeInit` call entirely leaves all shipped ports green, because
+the hoisted node has no rendered box and is not focusable, so no assertion the
+suite makes can see it. The requirement comes from the contract — `destroy()`
+has to restore the menu's order including non-element nodes — not from a test.
 
 Two factories rather than one with a mode flag, because the contracts genuinely
 differ and not merely the language they are written in. A framework-free port
