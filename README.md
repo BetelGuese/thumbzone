@@ -38,7 +38,7 @@ argument is about reach and reach is something you feel.
 
 ## Status
 
-**Five systems shipped**, all held to the same conformance suite.
+**Six systems shipped**, all held to the same conformance suite.
 
 | Design system | State |
 | --- | --- |
@@ -47,15 +47,16 @@ argument is about reach and reach is something you feel.
 | shadcn/ui | shipped |
 | Tailwind CSS | shipped |
 | Bootstrap 5 | shipped |
-| Chakra UI, Ant Design, Mantine, Radix/Ark, Bulma, Vuetify, Quasar, Ionic | planned |
+| Chakra UI | shipped |
+| Ant Design, Mantine, Radix/Ark, Bulma, Vuetify, Quasar, Ionic | planned |
 
 Each is held to 134 conformance instances — 67 per mobile device profile, the
 same groups across two of them, against materially different implementations.
 Six of the 134 drive real touch through Chromium's debug protocol and report as
-skipped on WebKit, so 128 have to pass and none may fail: 640 passes across the
-five. A further 62 instances belong to no system — the registry guard, the scan
+skipped on WebKit, so 128 have to pass and none may fail: 768 passes across the
+six. A further 62 instances belong to no system — the registry guard, the scan
 for `vh` where `dvh` is required, the contract predicates, the showcase checks —
-and pass too. The whole run is 732 instances: 702 passed, 30 skipped, nothing
+and pass too. The whole run is 866 instances: 830 passed, 36 skipped, nothing
 failed, no retries.
 
 ## What the first port changed
@@ -180,6 +181,37 @@ have now answered the same way.
   the 48px minimum, and neither the conformance suite nor axe would say why.
   Raising Bootstrap's own token, `--bs-nav-link-padding-y`, closes the gap
   without an override: 56px, measured.
+
+## What the fifth port showed
+
+Chakra UI is the fifth port, and the first whose drawer could have been talked
+round. Chakra's `Drawer` wraps Ark UI's `Dialog`, and every lifecycle
+responsibility it takes on — the focus trap, Escape, the scroll lock, dismissal
+on an outside press, hiding the content below — is a configurable flag rather
+than a fixed behaviour. Disarming it was available in a way it never was for
+Material UI's `Modal`.
+
+It still cannot own this pattern, for a reason none of the first four had.
+
+- **A closed `Dialog` server-renders no content at all.** Not hidden content —
+  absent content. Measured: a closed drawer emits zero menu items at 48,870
+  bytes, the same drawer open emits them at 50,777, and setting `unmountOnExit`
+  to its mounted default changes nothing on the server. The contract needs the
+  sheet fully rendered while closed, because the page wires the pattern during
+  load, the thumb-first reorder has to land before hydration, and the open
+  transition needs something to move. Against absent markup none of that is
+  possible.
+- **So the disqualifier moved from behaviour to markup.** The first four ports
+  reached past a drawer because it insisted on owning a lifecycle. This one
+  reaches past a drawer that would have surrendered the lifecycle, because it
+  will not render anything to own. Four systems, now five, four distinct
+  reasons — reaching past the drawer is a property of the pattern, and each new
+  system has found its own way to demonstrate it.
+- **A styling system can leave its own nodes inside the markup.** Chakra
+  server-renders five Emotion `<style>` elements, one of them a child of the
+  menu itself, which the shared behaviour would otherwise capture as authored
+  DOM. Material UI needs the same hoist, so it lives in `shared/react/` rather
+  than in either port.
 
 ## The pattern
 
@@ -315,7 +347,7 @@ npm run dev            # http://localhost:4321
 ```
 
 `/` is the showcase: the argument, the contract's own figures, and a live demo
-framed at a phone's width with a switcher for the five systems — narrow the
+framed at a phone's width with a switcher for the shipped systems — narrow the
 window below 768px and the frame gives way to direct links to the routes below.
 
 Demo routes: `/demo/vanilla`, `/demo/mui`, `/demo/shadcn`, `/demo/tailwind` and
