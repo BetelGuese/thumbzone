@@ -120,6 +120,25 @@ const NOTES: Record<string, { text: string; href: string; linkText: string }> = 
             <div class="row">
               <a class="btn btn-primary" href={joinBase(BASE, initialSystem.route)}>Try it on a phone</a>
               <a class="btn btn-ghost" href={REPO}>Source</a>
+              {/* Rendered by a third-party script, so it arrives after load and
+                  outside this page's scoped styles — hence the wrapper, which is
+                  what the row's own layout can reach. */}
+              <span class="bmc-slot">
+                <script
+                  is:inline
+                  type="text/javascript"
+                  src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js"
+                  data-name="bmc-button"
+                  data-slug="b3t3lgu3s3"
+                  data-color="#FFDD00"
+                  data-emoji=""
+                  data-font="Inter"
+                  data-text="Buy me a coffee"
+                  data-outline-color="#000000"
+                  data-font-color="#000000"
+                  data-coffee-color="#ffffff"
+                ></script>
+              </span>
             </div>
           </div>
 
@@ -261,6 +280,22 @@ const NOTES: Record<string, { text: string; href: string; linkText: string }> = 
 
       <footer class="wrap">
         <p><a href={REPO}>Source</a> · MIT</p>
+        <span class="bmc-slot">
+          <script
+            is:inline
+            type="text/javascript"
+            src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js"
+            data-name="bmc-button"
+            data-slug="b3t3lgu3s3"
+            data-color="#FFDD00"
+            data-emoji=""
+            data-font="Inter"
+            data-text="Buy me a coffee"
+            data-outline-color="#000000"
+            data-font-color="#000000"
+            data-coffee-color="#ffffff"
+          ></script>
+        </span>
       </footer>
     </main>
   </body>
