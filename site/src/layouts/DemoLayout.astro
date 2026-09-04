@@ -4,11 +4,16 @@ interface Props {
   /**
    * Attributes to put on `<html>`, for a system whose styling needs one there.
    *
-   * Mantine is the first: `@mantine/core/styles.css` declares every colour
-   * variable under `:root[data-mantine-color-scheme='light']` and the
-   * `:host(...)` form, and under nothing else — so a wrapper element inside
-   * the page cannot carry it, and without it the sheet and the trigger both
-   * compute a transparent background. `MantineProvider` stamps the attribute
+   * Mantine is the first: 128 of the 270 `--mantine-color-*` properties
+   * `@mantine/core/styles.css` declares — every scheme-dependent name among
+   * them, `--mantine-color-body` and `--mantine-color-text` included — are
+   * declared only under `:root[data-mantine-color-scheme='light'|'dark']` and
+   * the matching `:host(...)` form, so a wrapper element inside the page
+   * cannot carry it, and without it the sheet and the trigger both compute a
+   * transparent background. The other 142, the palette scales plus
+   * `--mantine-color-white` and `--mantine-color-black`, are unconditional,
+   * which is why the symptom is white text on nothing rather than a blank
+   * page. `MantineProvider` stamps the attribute
    * from an effect after hydration, which is far too late here: this pattern
    * is wired from a module script during load, deliberately, so that a
    * loaded page is a working one, and the trigger is on screen for that whole
