@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, globSync } from 'node:fs'
 
 /**
@@ -11,14 +10,36 @@ import { existsSync, readFileSync, globSync } from 'node:fs'
  */
 const CLASS_HEAD = /(?:^|[,}])\s*\.((?:[^\s.,:>+~(){}[\]\\]|\\.)+)/g
 
+/**
+ * `dist` is missing under `npm test`, which is not what this file used to
+ * build on demand for.
+ *
+ * Both exports below once called `execFileSync('npx', ['astro', 'build'], …)`
+ * themselves when `dist` was absent, each guarded by nothing sharper than
+ * `existsSync('dist')`. With two independent on-demand builders in this file
+ * plus a third in `systems/mantine/test/served-markup.test.js`, a cold
+ * `npm test` — vitest runs test files in parallel worker processes — raced up
+ * to three concurrent builds against one output directory. `vitest.config.ts`
+ * now points `globalSetup` at `site/test/global-setup.ts`, which builds once,
+ * in the main process, before any worker starts, so `dist` is guaranteed
+ * fresh by the time either export below runs. Reaching this error means that
+ * guarantee did not hold — the suite was not run through `npm test`, or the
+ * global setup did not complete — and silently returning `{}` or `[]` here
+ * instead would be exactly the failure mode this repository names as its
+ * worst: a check that cannot fail.
+ */
+function assertBuilt(): void {
+  if (!existsSync('dist')) {
+    throw new Error(
+      "dist is missing. It is built once by vitest's globalSetup " +
+        "(site/test/global-setup.ts) before any test file runs — run through `npm test`.",
+    )
+  }
+}
+
 /** A bundle is identified by the port whose route links it, not by its hashed filename. */
 export function bundleSurfaces(): Record<string, string[]> {
-  if (!existsSync('dist')) {
-    // Built on demand rather than skipped. A guard that quietly does nothing
-    // when its input is missing is the failure mode this repository names as
-    // its worst: a check that cannot fail.
-    execFileSync('npx', ['astro', 'build'], { stdio: 'ignore' })
-  }
+  assertBuilt()
 
   const surfaces: Record<string, string[]> = {}
   for (const page of globSync('dist/demo/*/index.html')) {
@@ -50,7 +71,7 @@ export function bundleSurfaces(): Record<string, string[]> {
  * through.
  */
 export function builtStylesheets(): Array<{ path: string; css: string }> {
-  if (!existsSync('dist')) execFileSync('npx', ['astro', 'build'], { stdio: 'ignore' })
+  assertBuilt()
 
   const sheets = globSync('dist/**/*.css').map((path) => ({ path, css: readFileSync(path, 'utf8') }))
   for (const page of globSync('dist/**/*.html')) {
