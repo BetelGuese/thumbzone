@@ -70,11 +70,15 @@
  * import @mantine/core/styles.css itself — this file owns the order, and a
  * second copy loaded after it would put the vendor rules back on top.
  *
- * One thing this file cannot do for itself: Mantine declares every colour
- * variable under :root[data-mantine-color-scheme='light'|'dark'] and the
- * matching :host() form, and under nothing else, so that attribute has to be
- * on the document's root element or the sheet and the trigger both compute a
- * transparent background. The routes put it there.
+ * One thing this file cannot do for itself: 128 of Mantine's 270
+ * --mantine-color-* properties are declared only under
+ * :root[data-mantine-color-scheme='light'|'dark'] and the matching :host()
+ * form — every scheme-dependent name among them, --mantine-color-body and
+ * --mantine-color-dimmed included — so that attribute has to be on the
+ * document's root element or the sheet and the trigger both compute a
+ * transparent background. The other 142, the palette scales and
+ * --mantine-color-white, are unconditional, which is why the symptom is white
+ * text on nothing rather than a blank page. The routes put the attribute there.
  *
  * Two lengths are deliberately not declared here. --tz-hit-target and
  * --tz-trigger-max-bottom-gap are set on the elements that read them by
