@@ -142,21 +142,28 @@ describe('the Mantine route’s served markup', () => {
     // notice a regex simplification that stopped surviving it.
     //
     // Named separately from the string it sits in so the expected return can
-    // be named too. `target` is the element carrying the attribute: a `<div>`
-    // nesting a same-name `<div>` (the pill) and then a `<span>` (the tail)
-    // after that pill's own close. Around it, the string puts a `<style>`
-    // decoy ahead of the target and a `<div class="after">` sibling behind
-    // it — outside the target, inside the wrapper.
+    // be named too. `target` is the element carrying the attribute, and each
+    // of its three children is there to make a different wrong strategy land
+    // somewhere other than the target's own close: a same-name `<div>` (the
+    // pill), whose close is the first `</div>` after the opening tag; a void
+    // `<img>`, which has an open and no close at all; and a `<span>` (the
+    // tail) after the pill's close. Around it, the string puts a `<style>`
+    // decoy ahead of the target, a `<div class="after">` sibling behind it —
+    // outside the target, inside the wrapper — and an unadorned `<p></p>`
+    // past the wrapper's own close, which is there only so that a walk
+    // landing on the wrapper's close and one running to the end of the
+    // string report different slices instead of the same one.
     const target =
       '<div data-tz-sheet="" data-tz-open="false">' +
-      '<div class="pill"></div><span class="tail"></span>' +
+      '<div class="pill"></div><img class="icon" alt=""><span class="tail"></span>' +
       '</div>'
     const decoyAhead =
       '<style>[data-tz-sheet]{display:none}</style>' +
       '<div class="wrap">' +
       target +
       '<div class="after"></div>' +
-      '</div>'
+      '</div>' +
+      '<p></p>'
 
     const found = element(decoyAhead, 'data-tz-sheet')
     expect(found, 'no element carries data-tz-sheet past the decoy').not.toBeNull()
@@ -166,14 +173,38 @@ describe('the Mantine route’s served markup', () => {
     // node such assertions could name and still ends with a `</div>`, so
     // `element`'s own `return html.slice(open)` fallback — the line it
     // reaches when the tag walk never balances — satisfies all of them. One
-    // equality bounds the slice at both ends at once, which makes each way of
-    // getting it wrong a failure rather than only the ones named: starting at
-    // the decoy `<style>` block, whose text carries the attribute and is
-    // where a bare substring search lands; stopping at the pill's `</div>`,
-    // which is the *first* close after the target's opening tag, and so cuts
-    // off the tail; and running past the target's own close to swallow
-    // `class="after"`, which the unbounded fallback does. What is left is a
-    // walk that balances the target's own tags.
+    // equality fixes both ends of the slice at once, and the four wrong
+    // landings this string is shaped to separate are each a byte away from
+    // the target rather than a subset of it:
+    //
+    //   - the decoy `<style>` block, where a search for the attribute's name
+    //     in the bytes rather than in an opening tag starts;
+    //   - the pill's `</div>`, the first close after the target's opening
+    //     tag, where a reader that took it for the matching one stops;
+    //   - the end of the string, where the unbalanced fallback runs to,
+    //     swallowing `class="after"` and the trailing `<p></p>` with it;
+    //   - the *wrapper's* close, one node short of that end, where a walk
+    //     counting every tag rather than only the target's own tag name
+    //     lands: `<img>` is void, so its open has no close to pair with,
+    //     and that walk is left one deep at the target's own close and
+    //     carries on to the next place its count reaches zero. Counting
+    //     only `div`s never sees the `<img>` at all, which is the whole
+    //     difference between the two.
+    //
+    // What this does not establish is that nothing else lands here. It pins
+    // where a walk ends up on one string, not across the space of ways to
+    // find an element's extent, and the string exercises nothing of an
+    // XHTML-style `<div/>` self-close, a tag name whose letters differ in
+    // case from its closing tag's, an attribute value containing `>`, or a
+    // comment holding tag-shaped text — a walk wrong only on those would
+    // still pass. Stated rather than chased, the way the decoy-value limit
+    // above `element` is.
+    //
+    // Kept clear of any word this project's utility scanner compiles, too:
+    // it reads every file's raw text, comments included, so naming those
+    // cases by their CSS-property vocabulary would have added a rule to a
+    // bundle. `site/test/bundle-surface.test.ts` catches that, and caught
+    // this comment's first draft.
     expect(found).toBe(target)
 
     // No element anywhere in this string carries the attribute at all.
