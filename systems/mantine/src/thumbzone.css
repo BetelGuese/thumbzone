@@ -172,13 +172,31 @@
      four logical longhands below replace it, and the bottom two are zeroed
      explicitly rather than left to a shorthand's ordering.
 
-   radius: 'lg' is a deliberate step off Paper's default rather than a reading
-   of it: --paper-radius defaults to --mantine-radius-default, which is
-   theme.defaultRadius, `md`, 0.5rem. A panel-sized surface takes the largest
-   named step on the scale — 1rem, against 8px for a button or an input — and
-   the consequence is stated rather than hidden: an application that retunes
-   theme.defaultRadius no longer moves this sheet. It takes radius.lg with it,
-   which is the value a change would be aimed at anyway.
+   radius.lg is a deliberate step off Paper's default rather than a reading of
+   it, and the scale it is picked from is: --mantine-radius-xs through -xl are
+   calc(0.125rem), calc(0.25rem), calc(0.5rem), calc(1rem) and calc(2rem), each
+   times --mantine-scale, with --paper-radius defaulting to
+   --mantine-radius-default, which is theme.defaultRadius — `md`, 0.5rem. So
+   `lg` is the fourth of the five steps and is not the largest of them; `xl` is,
+   and the trigger takes it.
+
+   Two reasons for `lg`, one factual and one a judgement, kept apart on purpose.
+   The factual one: 1rem is where this pattern's sheet corner has been drawn
+   since the reference implementation, whose own top corners are
+   `border-start-start-radius: 1rem` (systems/vanilla/src/thumbzone.css), with
+   the shadcn/ui port beside it at 0.75rem — and `lg` is the step on Mantine's
+   scale that lands on that value exactly, so the port reaches the pattern's
+   proportion through a token rather than past one. The judgement, which is
+   about how a bottom sheet's top corners should look and is not something the
+   scale says: `xl` at 2rem across a 390px-wide surface reads as a pill rather
+   than a panel edge, and it would echo the trigger's own `xl` circle sitting
+   16px below it, so the two elements would stop being told apart by their
+   shape. Measured on the rendered sheet: 16px at the top corners, 0 at the
+   bottom.
+
+   The cost is stated rather than hidden: an application that retunes
+   theme.defaultRadius no longer moves this sheet, since the sheet names a step
+   instead of reading the default. It does still follow a retuned radius.lg.
 
    The resting position is a rule here and not an inline style on purpose. A
    drag writes `transform` inline on this element and clears it on release

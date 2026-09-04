@@ -353,8 +353,13 @@ export default function ThumbzoneMenu({
           its own rule reads, declared in `thumbzone.css` beside the space the
           sheet reserves for it, so that the two are one length in one place.
 
-          `radius="xl"` is the largest step on Mantine's radius scale, 2rem
-          against a 56px control, which rounds it to a circle. No `color`:
+          `radius="xl"` is the largest of the five steps on Mantine's radius
+          scale — `calc(2rem * var(--mantine-scale))`, measured 32px against
+          this 56px control, which rounds it to a circle. The sheet takes `lg`
+          rather than this one, deliberately and for reasons `thumbzone.css`
+          gives at its own corner declarations; the two are different steps
+          because a full-width panel edge and a circular control want different
+          shapes, not because either is the scale's largest. No `color`:
           Mantine resolves the filled variant's background from the theme's
           primary colour, so leaving it unset is what lets the trigger take
           whichever palette the application sets rather than a colour this port
