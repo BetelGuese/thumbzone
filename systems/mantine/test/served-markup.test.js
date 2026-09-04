@@ -37,6 +37,16 @@ function servedMarkup() {
  * `<div>`s, so stopping at the first `</div>` would slice off everything after
  * the drag handle — and a check that reads a fraction of the element it names
  * would go green while missing exactly what it was written to catch.
+ *
+ * A stated limit rather than a fixed one: this is a regex over the raw
+ * string, not a parser, so a decoy element whose own attribute *value*
+ * happened to contain the literal text ` data-tz-sheet=` would be matched as
+ * if it carried the attribute itself. Nothing in this repository authors a
+ * value shaped like that, and telling the two apart correctly needs a real
+ * HTML parser rather than a tighter regex — stated here rather than chased,
+ * the way `site/test/bundle-units.test.ts` states the gap between "no vh
+ * reaches a thumbzone element" and "no vh anywhere in the build" instead of
+ * trying to close it.
  */
 function element(html, attribute) {
   // An opening tag that carries the attribute, not merely the first place its
@@ -91,6 +101,13 @@ describe('the Mantine route’s served markup', () => {
     expect(menu, 'no element carries data-tz-menu').not.toBeNull()
 
     const firstItemAt = menu.indexOf('<a ')
+    // Guarded like sheet and menu above: indexOf returns -1 when no anchor
+    // is present, and slice(-1, -1) is "" — which would make firstItem's
+    // style count pass on an empty string rather than on the item it names.
+    // (The sibling test's own anchor-count assertion would still catch a
+    // menu with no anchors at all, but that is a different test with a
+    // different premise; this one asserts nothing on its own without this.)
+    expect(firstItemAt, 'no anchor found inside the menu').not.toBe(-1)
     const firstItem = menu.slice(firstItemAt, menu.indexOf('</a>', firstItemAt))
 
     // Collected and asserted together rather than as three sequential
@@ -108,5 +125,37 @@ describe('the Mantine route’s served markup', () => {
       firstItem: (firstItem.match(/<style/g) ?? []).length,
     }
     expect(styleCounts).toEqual({ sheet: 0, menu: 0, firstItem: 0 })
+  })
+
+  test('element() walks past a selector decoy and spans to the matching close', () => {
+    // Synthetic markup, not the build: the point is to pin element()'s own
+    // contract, independently of whatever the current route happens to
+    // serve. The build's two tests above cannot exercise this — thumbzone.css
+    // is a linked stylesheet today, so no `[data-tz-sheet]`-shaped selector
+    // reaches the served bytes to walk past (see the port's stylesheet header
+    // and the note above `element` itself). That hazard was live one commit
+    // ago, dormant only because the CSS moved, and nothing else here would
+    // notice a regex simplification that stopped surviving it.
+    const decoyAhead =
+      '<style>[data-tz-sheet]{display:none}</style>' +
+      '<div class="wrap"><div data-tz-sheet="" data-tz-open="false"><div class="pill"></div></div></div>'
+
+    const found = element(decoyAhead, 'data-tz-sheet')
+    expect(found, 'no element carries data-tz-sheet past the decoy').not.toBeNull()
+    const openingTag = found.slice(0, found.indexOf('>') + 1)
+    // The decoy's display:none lives in the <style> block's text, not on the
+    // real element's opening tag — this only reads false if the search
+    // walked past the decoy rather than returning it (or a slice of it).
+    expect(openingTag).not.toMatch(/display: ?none/)
+    expect(openingTag).toMatch(/data-tz-sheet=/)
+    // The real element nests a further <div> (the drag handle's pill, in the
+    // actual markup), so the return has to reach its *matching* close, not
+    // the first `</div>` encountered — the same depth requirement the doc
+    // comment above `element` states for the real sheet.
+    expect(found).toContain('class="pill"')
+    expect(found.endsWith('</div>')).toBe(true)
+
+    // No element anywhere in this string carries the attribute at all.
+    expect(element('<div class="pill"></div>', 'data-tz-sheet')).toBeNull()
   })
 })
