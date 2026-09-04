@@ -152,7 +152,7 @@
      `none` here, since the handle genuinely needs to own the gesture and the
      impairment is confined to one 48px control — but refusing the vertical pan
      is all that ownership requires, and a pinch landing on a real control
-     should still zoom the page. All four shipped ports make the same call.
+     should still zoom the page. Every shipped port makes the same call.
      That 48px is the whole interactive region, not just the pill drawn inside
      it, and is set from MIN_HIT_TARGET as an inline style on the element
      itself, because a class name here cannot carry a JavaScript constant. */
