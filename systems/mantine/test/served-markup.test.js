@@ -138,7 +138,8 @@ describe('the Mantine route’s served markup', () => {
     // notice a regex simplification that stopped surviving it.
     const decoyAhead =
       '<style>[data-tz-sheet]{display:none}</style>' +
-      '<div class="wrap"><div data-tz-sheet="" data-tz-open="false"><div class="pill"></div></div></div>'
+      '<div class="wrap"><div data-tz-sheet="" data-tz-open="false">' +
+      '<div class="pill"></div><span class="tail"></span></div></div>'
 
     const found = element(decoyAhead, 'data-tz-sheet')
     expect(found, 'no element carries data-tz-sheet past the decoy').not.toBeNull()
@@ -148,11 +149,19 @@ describe('the Mantine route’s served markup', () => {
     // walked past the decoy rather than returning it (or a slice of it).
     expect(openingTag).not.toMatch(/display: ?none/)
     expect(openingTag).toMatch(/data-tz-sheet=/)
-    // The real element nests a further <div> (the drag handle's pill, in the
-    // actual markup), so the return has to reach its *matching* close, not
-    // the first `</div>` encountered — the same depth requirement the doc
-    // comment above `element` states for the real sheet.
+    // The pill is a self-closing <div>, so its own close is the *first*
+    // `</div>` after the target's opening tag — a reader that stopped there
+    // instead of tracking depth would already contain "class=\"pill\"" and
+    // would already end in "</div>", because that truncated slice ends on
+    // the pill's own close. Neither assertion below can tell that reader
+    // apart from a correct one; a variant of `element` built to stop at the
+    // first `</div>` was run against this exact string to confirm both would
+    // still pass on it. The tail span sits *after* the pill's close but
+    // still inside the target, so only a walk that tracked depth past that
+    // first close and out to the target's own matching one ever reaches it —
+    // that assertion is the one this test exists for.
     expect(found).toContain('class="pill"')
+    expect(found).toContain('class="tail"')
     expect(found.endsWith('</div>')).toBe(true)
 
     // No element anywhere in this string carries the attribute at all.
