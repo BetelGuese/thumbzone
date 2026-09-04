@@ -13,7 +13,9 @@
  * `MantineProvider`'s own and both ahead of every element the pattern owns:
  * nothing nested inside the sheet, the menu or the first item's anchor. So
  * this is the first port to pass no pre-init hook at all, and
- * `systems/mantine/test/served-markup.test.js` is what keeps that true.
+ * `systems/mantine/test/served-markup.test.js` is what keeps that true. The
+ * port's own rules are not injected at the point of use either: they are a
+ * stylesheet, `systems/mantine/src/thumbzone.css`, which the routes import.
  *
  * Mantine's own `Drawer` is deliberately absent, and it is the first drawer
  * primitive here that offered to stay mounted while closed. It offered twice

@@ -1,0 +1,436 @@
+/*
+ * The Mantine port's stylesheet.
+ *
+ * Mantine has no styling runtime — its component classes are CSS-module hashes
+ * compiled at build time — so a Mantine component cannot be handed a rule that
+ * depends on a selector, and every rule below depends on one: an attribute the
+ * shared behaviour writes, a media query, or a descendant. The pattern's
+ * geometry therefore lives in a file, as it does for the reference
+ * implementation and for the Bootstrap, Tailwind and shadcn/ui ports, while
+ * Mantine supplies the vocabulary: every colour, radius, shadow and spacing
+ * step below reads a --mantine-* custom property.
+ *
+ * The @import below is load-bearing, and it is why the rules belong in a file
+ * rather than in a style element rendered beside the markup. Every place a rule
+ * here overrides one of Mantine's own component declarations, it does so at
+ * *equal* specificity — a single data attribute against a single hashed class —
+ * so it is the later declaration that wins, and nothing about it is settled by
+ * specificity. Pulling Mantine's stylesheet in at the top of this file makes
+ * that order a property of the file: the vendor sheet is above the port's rules
+ * whatever a route does, rather than depending on where a route happens to put
+ * two stylesheets. The Bootstrap port imports its framework the same way and
+ * for the same reason.
+ *
+ * The sites, so the claim can be audited rather than taken on trust, each
+ * marked again where it appears:
+ *
+ * - the sheet — display, touch-action and four corner radii, against
+ *   .mantine-Paper-root;
+ * - the menu — padding, against .mantine-List-root;
+ * - the trigger — --ai-size, position and the two logical minimums, against
+ *   .mantine-ActionIcon-root;
+ * - the trigger's press rule — transform, against the global .mantine-active,
+ *   which is the one with a visible symptom;
+ * - the breakpoint query — display, against Paper's and ActionIcon's own.
+ *
+ * Nothing else here collides: Overlay declares no opacity, transition or
+ * touch-action of its own, Box carries no class rule at all, and NavLink
+ * declares neither a height nor a radius.
+ *
+ * Mantine also publishes styles.layer.css, the same rules wrapped in a cascade
+ * layer, which would settle every one of those ties by construction — an
+ * unlayered declaration beats a layered one whatever its specificity or
+ * position. It is deliberately not what this imports: it would reverse the
+ * cascade for every Mantine rule on the page, including ones this port has no
+ * opinion about, and it would make the overrides invisible rather than
+ * legible. The import order above is the narrower instrument, and it is visible
+ * from this file, which is what a reader needs.
+ *
+ * Astro bundles styles per page, so this must be imported from the Mantine
+ * routes alone and never from DemoLayout.astro, which every demo route shares:
+ * Mantine's stylesheet is a global reset as well as a component library, and a
+ * reset leaking out of here would restyle the reference implementation that
+ * every other system is measured against. That is not a convention; it is the
+ * only mechanism holding the isolation up. It also means a route must not
+ * import @mantine/core/styles.css itself — this file owns the order, and a
+ * second copy loaded after it would put the vendor rules back on top.
+ *
+ * One thing this file cannot do for itself: Mantine declares every colour
+ * variable under :root[data-mantine-color-scheme='light'|'dark'] and the
+ * matching :host() form, and under nothing else, so that attribute has to be
+ * on the document's root element or the sheet and the trigger both compute a
+ * transparent background. The routes put it there.
+ *
+ * Two lengths are deliberately not declared here. --tz-hit-target and
+ * --tz-trigger-max-bottom-gap are set on the elements that read them by
+ * ThumbzoneMenu.tsx, from MIN_HIT_TARGET and MAX_TRIGGER_BOTTOM_GAP in
+ * core/index.js: a stylesheet cannot import a JavaScript module, and both
+ * values are the contract's rather than this port's. The reference
+ * implementation and the Bootstrap port each restate 96px here with a comment
+ * saying it is a copy; this reads it instead. --tz-hit-target is set on the
+ * sheet and on the trigger, which is every subtree that needs it — the handle
+ * and the menu rows inherit it from the sheet, and the trigger is the pattern's
+ * one element outside the sheet.
+ *
+ * Mantine's own Drawer is deliberately absent, and systems/mantine/src/
+ * thumbzone.ts records why in full: neither of the two ways it can stay mounted
+ * while closed renders a sheet this pattern can drive, and it locks body scroll
+ * where this pattern deliberately leaves the page scrollable behind the scrim.
+ */
+@import '@mantine/core/styles.css';
+
+/* The trigger floats *above* the open sheet by design — tapping it is a close
+   path, so it has to stay hit-testable over the sheet rather than sliding
+   beneath it — and that only reads as "floating above" rather than "covering"
+   if the sheet reserves the trigger's own footprint at its bottom edge. Two
+   rules on two elements therefore depend on the same two lengths, and a size or
+   an offset changed in one of them alone is exactly how the menu's last row
+   ends up underneath the trigger.
+
+   In rem so the trigger tracks the user's font preference: 3.5rem is 56px at
+   the default root size, comfortably above the 48px floor rather than equal to
+   it. Both precedents state it the same way.
+
+   Mantine's own icon-button scale could not have supplied it.
+   @mantine/core/styles.css — the sheet this file imports — declares
+   --ai-size-xs through --ai-size-xl as calc(1.125rem * var(--mantine-scale))
+   through calc(2.75rem * var(--mantine-scale)), which is 18px to 44px at the
+   default root size and a scale of 1: every step under the pattern's floor.
+   (Mantine's per-component sheet, styles/ActionIcon.css, states the same five
+   steps as literal 18px to 44px. This port imports the bundled sheet, so the
+   calc() form is the one that applies here.) Its --ai-size-input-* steps do
+   clear the floor, but that is the input-height scale, for an icon button
+   sitting beside a text field. */
+[data-tz-sheet],
+[data-tz-trigger] {
+  --tz-trigger-size: 3.5rem;
+  --tz-trigger-gap: var(--mantine-spacing-md);
+}
+
+/* The sheet's travel: 250ms on `ease`, restated in the three rules that move.
+   Both values are this port's own, because Mantine publishes no motion scale
+   at all — no --mantine-* custom property matches transition, duration,
+   easing or timing, and the default theme carries no such key; Mantine's motion
+   lives entirely in Transition's props. There is exactly one Mantine-sourced
+   reference and these two numbers are it: Transition's defaults, which are what
+   Mantine's own Drawer moves on. Both are usable unchanged — 250ms sits inside
+   the pattern's 120-400ms bounds (e2e/support/motion.ts: under the floor the
+   sheet reads as already-arrived and stops saying it came up from the trigger
+   the thumb just touched, over the ceiling the user is waiting on a menu), and
+   `ease` satisfies the non-linearity requirement, which rejects only `linear`
+   and the stepped functions. Chakra's drawer recipe had to be declined at
+   500ms; Mantine's number needed no adjustment.
+
+   The stacking numbers below are Mantine's own ladder, which getDefaultZIndex
+   publishes as app 100, modal 200, popover 300, overlay 400, max 9999. The
+   scrim takes `modal` from that helper, in ThumbzoneMenu.tsx, through Overlay's
+   own zIndex prop; the sheet and the trigger restate it as 201 and 202 here,
+   because a stylesheet cannot call the helper. Note that `overlay` is *above*
+   `modal` in that ladder, so it is not the scrim's level in this pattern —
+   reaching for it on the strength of its name would put the scrim over the
+   sheet it is meant to sit under. */
+
+/* Overlay supplies the scrim's box: its own rule is `inset: 0`, its `fixed`
+   prop switches the position to viewport-relative, and its background is
+   var(--overlay-bg, rgba(0, 0, 0, 0.6)) — the fallback applies because the port
+   passes no colour or opacity, which is also what Mantine's own Drawer overlay
+   shows, and being a literal it resolves with no colour-scheme attribute. What
+   is left is the state, and that belongs to the pattern: it is driven from
+   data-tz-open on the element itself rather than from a prop, so the shared
+   behaviour's write is what shows the scrim.
+
+   The touch-action is the scrim's own rather than inherited: it scrolls nothing
+   itself but lies over a page that does, and pointer-events alone does not stop
+   a touch pan reaching that page. pinch-zoom, never `none` — this covers the
+   whole viewport while the sheet is up, so refusing zoom here is a screen-wide
+   regression rather than a local one (WCAG 1.4.4). */
+[data-tz-scrim] {
+  opacity: 0;
+  pointer-events: none;
+  touch-action: pinch-zoom;
+  transition: opacity 250ms ease;
+}
+
+[data-tz-scrim][data-tz-open='true'] {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Paper supplies the surface — background-color: var(--mantine-color-body) and
+   the elevation its `shadow` prop writes into --paper-shadow — and three of its
+   own declarations have to be taken back here. All three are ties on
+   specificity, [data-tz-sheet] against .mantine-Paper-root's hashed class, so
+   the @import at the top of this file is what decides them:
+
+   - display: block, because the sheet is a column of handle and menu with the
+     menu owning the scrolling.
+   - touch-action: manipulation, which permits the vertical pan this surface
+     must refuse — a pan starting on the sheet's own chrome is a dismiss drag.
+     pinch-zoom rather than `none`, so a pinch landing here still zooms the page
+     (WCAG 1.4.4); panning is what has to stay ours.
+   - border-radius: var(--paper-radius), which reaches all four corners. The
+     four logical longhands below replace it, and the bottom two are zeroed
+     explicitly rather than left to a shorthand's ordering.
+
+   radius: 'lg' is a deliberate step off Paper's default rather than a reading
+   of it: --paper-radius defaults to --mantine-radius-default, which is
+   theme.defaultRadius, `md`, 0.5rem. A panel-sized surface takes the largest
+   named step on the scale — 1rem, against 8px for a button or an input — and
+   the consequence is stated rather than hidden: an application that retunes
+   theme.defaultRadius no longer moves this sheet. It takes radius.lg with it,
+   which is the value a change would be aimed at anyway.
+
+   The resting position is a rule here and not an inline style on purpose. A
+   drag writes `transform` inline on this element and clears it on release
+   (core/gestures.js), so an inline resting value would be wiped by the first
+   drag and never restored — React does not re-render for an attribute the
+   behaviour owns. Declared here, it is what the element falls back to the
+   moment the inline value goes.
+
+   The dynamic viewport unit, never the static one — iOS Safari resolves the
+   static one against the expanded viewport, so the sheet's top edge would end
+   up under the collapsing URL bar. Mantine's `sizes` scale has no
+   viewport-relative step to take this from. And the strip of scrim the ceiling
+   leaves above the sheet is what keeps "tap outside to dismiss" discoverable
+   and what says the page is still there behind it.
+
+   The bottom padding reserves the trigger's footprint, whichever is larger of
+   the trigger's own size and the pattern's floor, plus the gap that lifts it
+   off the bottom edge. The safe-area inset is added outright rather than folded
+   into the trigger's (ceiling-clamped) offset: this only has to be at least as
+   large as the trigger's real clearance, and adding the inset can only make
+   that truer. */
+[data-tz-sheet] {
+  position: fixed;
+  inset-inline: 0;
+  inset-block-end: 0;
+  z-index: 201;
+  display: flex;
+  flex-direction: column;
+  max-block-size: 85dvh;
+  overflow: hidden;
+  padding-block-end: calc(
+    max(var(--tz-trigger-size), var(--tz-hit-target)) + var(--tz-trigger-gap) +
+      env(safe-area-inset-bottom, 0px)
+  );
+  border-start-start-radius: var(--mantine-radius-lg);
+  border-start-end-radius: var(--mantine-radius-lg);
+  border-end-start-radius: 0;
+  border-end-end-radius: 0;
+  touch-action: pinch-zoom;
+  transform: translateY(100%);
+  transition: transform 250ms ease;
+}
+
+[data-tz-sheet][data-tz-open='true'] {
+  transform: translateY(0);
+}
+
+/* A drag is direct manipulation: the sheet has to sit under the finger, not
+   chase it a transition-duration behind. */
+[data-tz-sheet][data-tz-dragging='true'] {
+  transition: none;
+}
+
+/* The drag handle. The pill drawn inside it is styled at the element instead,
+   through Mantine's own style props, because nothing selector-shaped reaches it
+   and nothing overrides it.
+
+   The whole target clears the pattern's minimum, not just the pill, and it
+   reads --tz-hit-target — inherited from the sheet, and set there from
+   MIN_HIT_TARGET.
+
+   The touch-action is declared on this element rather than left to the sheet's:
+   an ancestor's value does not change this element's own computed one, which is
+   what a pan starting on the handle is arbitrated against. The contract does
+   sanction `none` here — the handle genuinely needs to own the gesture and the
+   impairment would be confined to one 48px control — but refusing the vertical
+   pan is all that ownership requires, and a pinch landing on a real control
+   should still zoom the page. Every shipped port makes the same call. */
+[data-tz-handle] {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  block-size: var(--tz-hit-target);
+  cursor: grab;
+  touch-action: pinch-zoom;
+}
+
+[data-tz-sheet][data-tz-dragging='true'] [data-tz-handle] {
+  cursor: grabbing;
+}
+
+/* List renders the <ul>, and the scrolling below is the pattern's: the menu,
+   not the sheet, is the scroll container, so that a menu taller than the sheet
+   keeps scrolling by touch while the sheet's own chrome stays a drag surface.
+   Without min-block-size: 0 a flex child's automatic minimum is its content's
+   height, so a long menu would push the sheet past its own ceiling instead of
+   scrolling inside it.
+
+   The padding is one of the ties against Mantine's own class rules, and the
+   widest of them: List's rule is `padding: 0` followed by
+   `padding-inline-start: var(--list-marker-gap)`, and this shorthand replaces
+   both. It is worth saying which mechanism actually renders, because there is a
+   tempting wrong answer — listStyleType="none" also sets data-type="none",
+   which zeroes --list-marker-gap, and it looks like that is what keeps the rows
+   flush. It is not: this shorthand overrides the indent outright either way.
+   The prop is passed for what it does do, which is to set list-style-type and
+   drop the markers.
+
+   This element's touch-action is unconditional, unlike every other surface
+   here: the region has to stay pannable at every scroll position, because a
+   value that changed with scrollTop blocks the very scroll that would move
+   scrollTop off zero. The rows inside it need no declaration of their own — the
+   unstyled button underneath NavLink already computes `manipulation` there,
+   which permits the pan. overscroll-behavior keeps a scroll that reaches the
+   boundary from chaining into the page behind the sheet on iOS.
+
+   The row height is the part nothing in Mantine holds, and it is not a tie:
+   NavLink's rule is `display: flex; align-items: center; width: 100%; padding:
+   8px var(--mantine-spacing-sm)` and declares no height and no minimum of any
+   kind, so a row is exactly its label's line box plus that padding — 24.8px at
+   Mantine's own md size and line height, plus 8px above and below, is 41px,
+   seven under the pattern's floor. The min-block-size below is the only thing
+   holding it, and nothing in the conformance suite asserts a menu row's height
+   at all — only the trigger and the handle are checked against the constant.
+   Measured both ways against this stylesheet: 48px with that declaration and
+   41px with it removed and nothing else changed. It is a minimum rather than a
+   height so a label too long for one line grows its row instead of running out
+   of it, which List.Item's own `white-space: normal` leaves possible. */
+[data-tz-menu] {
+  flex: 1 1 auto;
+  min-block-size: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--mantine-spacing-xs);
+  touch-action: pan-y pinch-zoom;
+}
+
+[data-tz-menu] a {
+  min-block-size: var(--tz-hit-target);
+  border-radius: var(--mantine-radius-sm);
+}
+
+/* ActionIcon sizes itself entirely from one custom property — its rule sets
+   width, height, min-width and min-height to var(--ai-size) — and the `size`
+   prop's only job is to write that property inline on the button. The property
+   is declared here instead — another tie decided by this file's order, since
+   ActionIcon's own rule sets --ai-size: var(--ai-size-md). Declaring it here is
+   what lets the control and the space the sheet reserves for it read one length
+   from one place; a `size` prop would put a second copy of that length on the
+   trigger alone.
+
+   `position: fixed` is a tie of the same kind: ActionIcon's own rule declares
+   `position: relative`. (Its `display: inline-flex` needs no override — a
+   fixed-position box is blockified, which is why the trigger computes
+   `display: flex`.)
+
+   The floor is composed with max() rather than restated bare, and that is
+   deliberate: Mantine already declares min-width and min-height as
+   var(--ai-size), so a bare minimum of --tz-hit-target would *lower* the
+   trigger's own minimum from 56px to 48px instead of raising anything.
+   Composed, whichever is larger wins, and the pattern's floor becomes a bottom
+   that a change to --tz-trigger-size cannot drop below unnoticed. (These two
+   are ties as well, of a subtler shape: min-inline-size and min-block-size are
+   logical properties against Mantine's physical min-width and min-height. They
+   map to the same physical property in this writing mode, and the mapping is
+   resolved by declaration order, so the file's order decides these too.)
+
+   The trigger is placed a gap above the bottom edge and then clamped by the
+   pattern's own ceiling on how far a thumb-reachable trigger may sit from it,
+   so neither a larger spacing step nor a tall home-indicator inset can quietly
+   push it out of the thumb zone. --tz-trigger-max-bottom-gap is
+   MAX_TRIGGER_BOTTOM_GAP, set on this element by the component.
+
+   The trigger scrolls nothing, so its touch-action can be declared once and
+   left: without it a real swipe-to-open is read as an attempt to pan the page
+   and the pointer stream is cancelled before the gesture completes. pinch-zoom
+   rather than `none` — refusing the vertical pan is all the swipe needs, and a
+   56px control is a real thing to zoom over. */
+[data-tz-trigger] {
+  --ai-size: var(--tz-trigger-size);
+  position: fixed;
+  inset-inline-start: 50%;
+  inset-block-end: min(
+    calc(var(--tz-trigger-gap) + env(safe-area-inset-bottom, 0px)),
+    var(--tz-trigger-max-bottom-gap)
+  );
+  z-index: 202;
+  min-inline-size: max(var(--ai-size), var(--tz-hit-target));
+  min-block-size: max(var(--ai-size), var(--tz-hit-target));
+  touch-action: pinch-zoom;
+  transform: translateX(-50%);
+  transition: transform 250ms ease;
+}
+
+/* The tie with a visible symptom. ActionIcon carries
+   Mantine's global `mantine-active` class, whose rule is
+   `.mantine-active:active { transform: translateY(calc(0.0625rem *
+   var(--mantine-scale))) }` — a whole transform, at one class plus one
+   pseudo-class, exactly the specificity of the selector below. Left to win it
+   replaces the centring translate: measured by deleting this rule from the live
+   stylesheet and pressing the trigger, its left edge moves from 167px to 195px
+   on a 390px viewport — 28px, half its own width, off centre for as long as the
+   finger is down. Composing Mantine's own value with the centring translate
+   keeps both: the press dips 1px and the trigger stays where it was. */
+[data-tz-trigger]:active {
+  transform: translateX(-50%) translateY(calc(0.0625rem * var(--mantine-scale)));
+}
+
+/* Declared after the press rule, which it ties on specificity, so a trigger
+   tucked away by a downward scroll stays tucked. The travel is its own height
+   plus a gap, so it clears the bottom edge completely; spacing.xl is 2rem, the
+   largest step on Mantine's spacing scale. */
+[data-tz-trigger][data-tz-tucked='true'] {
+  transform: translateX(-50%)
+    translateY(calc(100% + var(--mantine-spacing-xl) + env(safe-area-inset-bottom, 0px)));
+}
+
+/* The breakpoint is core's, not Mantine's. Mantine states its own breakpoints
+   in em — `sm` is 48em — resolved against a font size the application controls,
+   so a port that leaned on hiddenFrom="sm" agreeing with DESKTOP_BREAKPOINT
+   today would drift silently the moment either one moved. It is stated here
+   against the documented constant instead, which is what both precedents do; a
+   media query cannot read a custom property, so this is the one value in this
+   file that is a copy rather than a reading. Above it the pattern removes
+   itself entirely: the argument it makes is about thumbs on a phone, and a
+   pointer on a desktop has the whole window in reach.
+
+   The last of the ties lives here: this `display` has to outrank Paper's
+   `display: block` and ActionIcon's `display: inline-flex`, both at the same
+   specificity, and a media query grants no extra weight of its own. Measured at
+   767px and 768px — all three elements render below the breakpoint, all three
+   compute `none` at it. */
+@media (min-width: 768px) {
+  [data-tz-scrim],
+  [data-tz-sheet],
+  [data-tz-trigger] {
+    display: none;
+  }
+}
+
+/* Under the preference the sheet does not travel at all: it stays where it
+   rests and only its opacity changes, and every transition collapses to a
+   millisecond, well under the 20ms e2e/support/motion.ts treats as
+   imperceptible. A drag is exempt because it is direct manipulation — the sheet
+   has to sit under the finger — and it stays exempt for free, since the
+   behaviour drives a drag through an inline transform that outranks every rule
+   in this file. The release, which is animation rather than manipulation, is
+   what these rules cancel. */
+@media (prefers-reduced-motion: reduce) {
+  [data-tz-scrim],
+  [data-tz-sheet],
+  [data-tz-trigger] {
+    transition-duration: 1ms;
+  }
+  [data-tz-sheet] {
+    transform: none;
+    opacity: 0;
+    pointer-events: none;
+  }
+  [data-tz-sheet][data-tz-open='true'] {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
