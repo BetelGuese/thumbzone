@@ -57,10 +57,10 @@ function element(html, attribute) {
   const tags = new RegExp(`<${tag}(?=[\\s/>])|</${tag}>`, 'g')
   tags.lastIndex = open
   let depth = 0
-  let match2
-  while ((match2 = tags.exec(html))) {
-    depth += match2[0].startsWith('</') ? -1 : 1
-    if (depth === 0) return html.slice(open, match2.index + match2[0].length)
+  let tagMatch
+  while ((tagMatch = tags.exec(html))) {
+    depth += tagMatch[0].startsWith('</') ? -1 : 1
+    if (depth === 0) return html.slice(open, tagMatch.index + tagMatch[0].length)
   }
   return html.slice(open)
 }
@@ -93,8 +93,20 @@ describe('the Mantine route’s served markup', () => {
     const firstItemAt = menu.indexOf('<a ')
     const firstItem = menu.slice(firstItemAt, menu.indexOf('</a>', firstItemAt))
 
-    expect((sheet.match(/<style/g) ?? []).length).toBe(0)
-    expect((menu.match(/<style/g) ?? []).length).toBe(0)
-    expect((firstItem.match(/<style/g) ?? []).length).toBe(0)
+    // Collected and asserted together rather than as three sequential
+    // `expect`s. The three regions nest — firstItem sits inside menu, which
+    // sits inside sheet — so a node placed anywhere below the top always
+    // shows up in every wider region too. Sequential assertions would report
+    // only the outermost one that failed and stop there, leaving `menu` and
+    // `firstItem` unable to ever be the reported failure. One object keeps
+    // the localisation those three were reaching for — a failure still names
+    // which regions the stray node reached — while making every region
+    // genuinely reportable instead of two of them dead weight.
+    const styleCounts = {
+      sheet: (sheet.match(/<style/g) ?? []).length,
+      menu: (menu.match(/<style/g) ?? []).length,
+      firstItem: (firstItem.match(/<style/g) ?? []).length,
+    }
+    expect(styleCounts).toEqual({ sheet: 0, menu: 0, firstItem: 0 })
   })
 })
