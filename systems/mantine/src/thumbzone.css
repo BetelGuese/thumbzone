@@ -5,10 +5,25 @@
  * compiled at build time — so a Mantine component cannot be handed a rule that
  * depends on a selector, and every rule below depends on one: an attribute the
  * shared behaviour writes, a media query, or a descendant. The pattern's
- * geometry therefore lives in a file, as it does for the reference
- * implementation and for the Bootstrap, Tailwind and shadcn/ui ports, while
- * Mantine supplies the vocabulary: every colour, radius, shadow and spacing
- * step below reads a --mantine-* custom property.
+ * geometry therefore lives in a hand-authored stylesheet, as it does for the
+ * reference implementation (systems/vanilla/src/thumbzone.css) and for the
+ * Bootstrap port (systems/bootstrap/src/thumbzone.css), while Mantine supplies
+ * the vocabulary: every colour, radius, shadow and spacing step below reads a
+ * --mantine-* custom property.
+ *
+ * Those two are the precedents, and deliberately not the two utility-first
+ * ports, which an earlier draft of this header named alongside them. Tailwind's
+ * and shadcn/ui's own stylesheets carry the handful of things a utility class
+ * cannot express — systems/tailwind/src/styles.css declares one rule block of
+ * three custom properties plus a named breakpoint variant, and
+ * systems/shadcn/src/styles.css its theme tokens and the breakpoint query —
+ * while the geometry itself — the sheet's ceiling, the padding that reserves
+ * the trigger's footprint, the corner radii, the centring translate — is in
+ * utility class names on the markup instead. (Not quoted here: those names are
+ * live scanner input, and a bracket-shorthand one written into this file would
+ * compile a real rule into both of their bundles. See
+ * site/test/bundle-surface.test.ts.) Naming those two ports here as
+ * stylesheet precedents overstated what is in their files.
  *
  * The @import below is load-bearing, and it is why the rules belong in a file
  * rather than in a style element rendered beside the markup. Every place a rule

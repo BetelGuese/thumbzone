@@ -11,10 +11,22 @@
  * Measured on a server render of this port's own shape — `Overlay`, `Paper`,
  * `List`, `NavLink`, `ActionIcon` — which emits two style elements, both
  * `MantineProvider`'s own and both ahead of every element the pattern owns:
- * nothing nested inside the sheet, the menu or the first item's anchor. So
- * this is the first port to pass no pre-init hook at all, and
- * `systems/mantine/test/served-markup.test.js` is what keeps that true. The
- * port's own rules are not injected at the point of use either: they are a
+ * nothing nested inside the sheet, the menu or the first item's anchor. So this
+ * port passes no pre-init hook at all, and
+ * `systems/mantine/test/served-markup.test.js` is what keeps that true.
+ *
+ * It is the second React port to pass none, not the first — an earlier draft of
+ * this comment claimed the latter and was wrong. `systems/shadcn/src/
+ * thumbzone.ts:25` has called `createReactThumbzoneAdapter()` with no argument
+ * since commit `5bb54a4`, and its own comment gives its reason: Tailwind emits
+ * a static stylesheet, so nothing of the styling system lands between the menu
+ * and its items either. Same outcome, two different styling architectures —
+ * shadcn/ui because its utilities compile to a file ahead of time, Mantine
+ * because it has no styling runtime to insert anything at the point of use.
+ * `mui` and `chakra` are the two that do pass `{ beforeInit:
+ * hoistServerRenderedStyles }`, both being Emotion-based.
+ *
+ * The port's own rules are not injected at the point of use either: they are a
  * stylesheet, `systems/mantine/src/thumbzone.css`, which the routes import.
  *
  * Mantine's own `Drawer` is deliberately absent, and what is distinctive about
