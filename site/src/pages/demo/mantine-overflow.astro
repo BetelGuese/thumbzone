@@ -15,7 +15,7 @@ import '../../../../systems/mantine/src/thumbzone.css'
 // MIN_HIT_TARGET (48px) by `[data-tz-menu] a { min-block-size:
 // var(--tz-hit-target) }`, and List adds no gap between its own rows here —
 // its `--list-spacing` custom property is only ever set from a `spacing` prop
-// (List.module.mjs's varsResolver), and ThumbzoneMenu.tsx passes none, so it
+// (List.mjs's varsResolver), and ThumbzoneMenu.tsx passes none, so it
 // resolves through the rule's own `var(--list-spacing, 0)` fallback instead.
 // The menu's own padding is `--mantine-spacing-xs`, 10px on every side. N
 // items therefore run N×48 + 20px, against a budget the sheet's own
@@ -26,19 +26,15 @@ import '../../../../systems/mantine/src/thumbzone.css'
 // 20×48 + 20 = 980px, well past that.
 const items = Array.from({ length: 20 }, (_, i) => `Item ${i + 1}`)
 ---
-{/* The page's own scroll depth and the menu's are unrelated: the sheet is
-    `position: fixed` and sits translated off-screen while closed
-    (`[data-tz-sheet] { transform: translateY(100%) }`), so its 20 items above
-    contribute nothing to `document.documentElement.scrollHeight` however many
-    there are — measured at 0 with only the two lines of prose below. The 40
-    paragraphs restore it, the same way /demo/mantine's own 40 do: measured
-    1060px at 390×780 against this route's built output, comfortably past the
-    700px floor. */}
+{/* This route's document deliberately does not scroll. The checks that visit
+    it drive the menu's own scrollTop (e2e/scroll-and-order.spec.ts,
+    e2e/clearance.spec.ts), never the page's, so there is nothing here for a
+    document-level scroll to serve — unlike /demo/mantine, one line of prose
+    is enough. */}
 <DemoLayout system="mantine" rootAttrs={{ 'data-mantine-color-scheme': 'light' }}>
   <main data-tz-app>
     <h1>thumbzone — Mantine (overflowing menu)</h1>
     <p>Fixture for testing touch scrolling inside a menu taller than the sheet.</p>
-    {Array.from({ length: 40 }, (_, i) => <p>Scrollable content line {i + 1}.</p>)}
   </main>
   <ThumbzoneMenu items={items} client:load />
 </DemoLayout>
