@@ -72,6 +72,10 @@ function element(html, attribute) {
     depth += tagMatch[0].startsWith('</') ? -1 : 1
     if (depth === 0) return html.slice(open, tagMatch.index + tagMatch[0].length)
   }
+  // Unbalanced markup, where the target's tags never come back to zero: the
+  // rest of the string is the most that can honestly be returned. The helper
+  // test below pins the balanced case by equality against the exact element,
+  // so this line reaching a caller is a failure there rather than a pass.
   return html.slice(open)
 }
 
@@ -136,33 +140,41 @@ describe('the Mantine route’s served markup', () => {
     // and the note above `element` itself). That hazard was live one commit
     // ago, dormant only because the CSS moved, and nothing else here would
     // notice a regex simplification that stopped surviving it.
+    //
+    // Named separately from the string it sits in so the expected return can
+    // be named too. `target` is the element carrying the attribute: a `<div>`
+    // nesting a same-name `<div>` (the pill) and then a `<span>` (the tail)
+    // after that pill's own close. Around it, the string puts a `<style>`
+    // decoy ahead of the target and a `<div class="after">` sibling behind
+    // it — outside the target, inside the wrapper.
+    const target =
+      '<div data-tz-sheet="" data-tz-open="false">' +
+      '<div class="pill"></div><span class="tail"></span>' +
+      '</div>'
     const decoyAhead =
       '<style>[data-tz-sheet]{display:none}</style>' +
-      '<div class="wrap"><div data-tz-sheet="" data-tz-open="false">' +
-      '<div class="pill"></div><span class="tail"></span></div></div>'
+      '<div class="wrap">' +
+      target +
+      '<div class="after"></div>' +
+      '</div>'
 
     const found = element(decoyAhead, 'data-tz-sheet')
     expect(found, 'no element carries data-tz-sheet past the decoy').not.toBeNull()
-    const openingTag = found.slice(0, found.indexOf('>') + 1)
-    // The decoy's display:none lives in the <style> block's text, not on the
-    // real element's opening tag — this only reads false if the search
-    // walked past the decoy rather than returning it (or a slice of it).
-    expect(openingTag).not.toMatch(/display: ?none/)
-    expect(openingTag).toMatch(/data-tz-sheet=/)
-    // The pill is a self-closing <div>, so its own close is the *first*
-    // `</div>` after the target's opening tag — a reader that stopped there
-    // instead of tracking depth would already contain "class=\"pill\"" and
-    // would already end in "</div>", because that truncated slice ends on
-    // the pill's own close. Neither assertion below can tell that reader
-    // apart from a correct one; a variant of `element` built to stop at the
-    // first `</div>` was run against this exact string to confirm both would
-    // still pass on it. The tail span sits *after* the pill's close but
-    // still inside the target, so only a walk that tracked depth past that
-    // first close and out to the target's own matching one ever reaches it —
-    // that assertion is the one this test exists for.
-    expect(found).toContain('class="pill"')
-    expect(found).toContain('class="tail"')
-    expect(found.endsWith('</div>')).toBe(true)
+    // Equality, not a set of `toContain`s and an `endsWith`. Containment can
+    // only raise a floor, and a floor is not what this test needs: the whole
+    // remainder of the string past the target's opening tag contains every
+    // node such assertions could name and still ends with a `</div>`, so
+    // `element`'s own `return html.slice(open)` fallback — the line it
+    // reaches when the tag walk never balances — satisfies all of them. One
+    // equality bounds the slice at both ends at once, which makes each way of
+    // getting it wrong a failure rather than only the ones named: starting at
+    // the decoy `<style>` block, whose text carries the attribute and is
+    // where a bare substring search lands; stopping at the pill's `</div>`,
+    // which is the *first* close after the target's opening tag, and so cuts
+    // off the tail; and running past the target's own close to swallow
+    // `class="after"`, which the unbounded fallback does. What is left is a
+    // walk that balances the target's own tags.
+    expect(found).toBe(target)
 
     // No element anywhere in this string carries the attribute at all.
     expect(element('<div class="pill"></div>', 'data-tz-sheet')).toBeNull()
