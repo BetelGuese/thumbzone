@@ -38,7 +38,7 @@ argument is about reach and reach is something you feel.
 
 ## Status
 
-**Six systems shipped**, all held to the same conformance suite.
+**Seven systems shipped**, all held to the same conformance suite.
 
 | Design system | State |
 | --- | --- |
@@ -48,16 +48,19 @@ argument is about reach and reach is something you feel.
 | Tailwind CSS | shipped |
 | Bootstrap 5 | shipped |
 | Chakra UI | shipped |
-| Ant Design, Mantine, Radix/Ark, Bulma, Vuetify, Quasar, Ionic | planned |
+| Mantine | shipped |
+| Ant Design, Radix/Ark, Bulma, Vuetify, Quasar, Ionic | planned |
 
 Each is held to 134 conformance instances — 67 per mobile device profile, the
 same groups across two of them, against materially different implementations.
 Six of the 134 drive real touch through Chromium's debug protocol and report as
-skipped on WebKit, so 128 have to pass and none may fail: 768 passes across the
-six. A further 62 instances belong to no system — the registry guard, the scan
+skipped on WebKit, so 128 have to pass and none may fail: 896 passes across the
+seven. A further 62 instances belong to no system — the registry guard, the scan
 for `vh` where `dvh` is required, the contract predicates, the showcase checks —
-and pass too. The whole run is 866 instances: 830 passed, 36 skipped, nothing
-failed, no retries.
+and pass too. The whole run is 1000 instances: 42 of them those declared skips,
+and 958 that have to pass. A pass on a retry does not count as one — CI retries
+a failure twice and then fails the build anyway, because `playwright.config.ts`
+pairs its retries with `failOnFlakyTests`.
 
 ## What the first port changed
 
@@ -108,8 +111,9 @@ did. It found two things anyway.
   tuck logic were a fixture with nothing left to scroll. The Tailwind CSS port
   met the same preflight and restored the spacing in its demo route before its
   first conformance run. Bootstrap 5 ships Reboot, a different reset, and its
-  fixture did not repeat the hazard: `maxScrollY` measured 902 against
-  vanilla's 700, taller rather than shorter.
+  fixture did not repeat the hazard: `maxScrollY` measures 902 against the
+  reference route's 1094 — short of the reference rather than short of the
+  400px the suite scrolls, which is the distinction that matters.
 
 Material UI and shadcn/ui both had to reach past their design system's own
 drawer, for the same structural reason: a drawer owns open/close, focus and
@@ -161,9 +165,13 @@ Tailwind stylesheet at all.
 
 Bootstrap 5 is the fourth port, and the first to ship a drawer of its own that
 actively runs rather than merely holding state — its `Offcanvas` constructs a
-backdrop, activates a focus trap, locks body scroll and binds Escape, all
-responsibilities this pattern already owns. It settles a question three ports
-have now answered the same way.
+backdrop, activates a focus trap, binds Escape and locks body scroll. The first
+three are responsibilities this pattern already owns. The fourth is one it
+deliberately does not: nothing in `core/` or `shared/` writes to
+`document.body` or `document.documentElement` at all, which makes a body-scroll
+lock a change to the document underneath the pattern rather than a contest over
+something it holds. It settles a question three ports have now answered the same
+way.
 
 - **A design system's drawer cannot own this gesture, for a third and
   different reason.** Material UI's problem was an imperative transform and a
@@ -214,6 +222,101 @@ It still cannot own this pattern, for a reason none of the first four had.
   menu itself, which the shared behaviour would otherwise capture as authored
   DOM. Material UI needs the same hoist, so it lives in `shared/react/` rather
   than in either port.
+
+## What the sixth port measured
+
+Mantine is the sixth port. Its `Drawer` offers two ways to keep a closed panel
+mounted — which is the thing the contract asks for — and neither of them hands
+back a sheet this pattern can drive. Five of the seven systems here ship a
+drawer of their own, and all five have now been reached past, for five distinct
+reasons.
+
+- **Two ways to stay mounted, two different failures.** In its default mode a
+  closed `Drawer` server-renders nothing at all, and asking it to stay mounted
+  changes not one byte of the output. Measured on a server render of the
+  `Drawer` around this port's own five menu items, with its portal disabled:
+
+  | Server-rendered `Drawer` | Bytes | Elements | Menu anchors |
+  | --- | --- | --- | --- |
+  | closed, not kept mounted | 1132 | 4 | 0 |
+  | closed, kept mounted | 1132 | 4 | 0 |
+  | closed, `keepMountedMode: 'display-none'` | 4895 | 48 | 5 |
+  | open | 5190 | 48 | 5 |
+
+  The four elements in the first two rows are the two `<style>` elements
+  Mantine's provider emits and two wrappers around an empty
+  `mantine-Drawer-root`. The portal has to be disabled for the closed state to
+  be a question at all: left at its default, the `Drawer` server-renders nothing
+  in *any* mode, open included — 906 bytes, and both of those elements are the
+  provider's `<style>`.
+
+  The third row is the second offer, and it does render the sheet — carrying
+  `display: none` inline, the declaration `systems/registry.ts` rules out by
+  name, because a sheet the browser never renders leaves the open transition
+  with nothing to animate and makes `inert` decorative. On the client the
+  default mode writes
+  `display: none !important` inline on the drawer's own inner element, the
+  sheet's parent: an element the port does not author, carrying a declaration no
+  author stylesheet can outrank. Material UI's `Modal` takes a `keepMounted`
+  prop too and was declined for a third reason — kept mounted and closed, it
+  resolves to `visibility: hidden`
+  (`systems/mui/src/ThumbzoneMenu.tsx:37`). Absent, hidden by a parent, and
+  present-but-hidden are three distinct ways to miss one requirement, which is
+  the comparison worth drawing rather than any claim about which system offered
+  what first.
+- **A styling system with no runtime leaves nothing to hoist.** Mantine compiles
+  its component classes to CSS modules at build time rather than inserting a
+  `<style>` at the point of use, so this port passes no pre-init hook:
+  `createReactThumbzoneAdapter()` takes no argument
+  (`systems/mantine/src/thumbzone.ts:66`). Measured on the same server render,
+  two `<style>` elements are emitted, both `MantineProvider`'s own and both
+  ahead of every element the pattern owns, and none inside the sheet, the menu
+  or the first item's anchor; `systems/mantine/test/served-markup.test.js` is
+  what keeps that true. It is the second React port to pass nothing rather than
+  the first — `systems/shadcn/src/thumbzone.ts:25` has done so since before this
+  port existed, reaching the same outcome from a different architecture:
+  utilities compiled to a file ahead of time, against no styling runtime at all.
+  Material UI and Chakra UI, both on Emotion, are the two that do pass the
+  hoist.
+- **A theme's variables can need an attribute on the document's root element.**
+  Mantine declares every colour custom property under
+  `:root[data-mantine-color-scheme='light'|'dark']` and the matching `:host()`
+  form, and nowhere else, so without that attribute the trigger computes a
+  transparent background under white text. Nothing in the port's own stylesheet
+  can put it there. The two Mantine routes pass it through a generic `rootAttrs`
+  prop added to `site/src/layouts/DemoLayout.astro`; the other twelve demo
+  routes are unchanged.
+- **Where the styling system has no runtime, the pattern's rules go in a
+  stylesheet — and their position in it is load-bearing.** Every place this port
+  overrides one of Mantine's own component declarations it does so at *equal*
+  specificity, a single data attribute against a single hashed class, so nothing
+  is settled by specificity and everything by which declaration comes last. The
+  port's stylesheet pulls `@mantine/core/styles.css` in as its own first
+  statement, which makes that ordering a property of the file rather than of
+  whatever a route does with two stylesheets, and
+  `systems/mantine/src/thumbzone.css` names every site where a rule of its own
+  meets one of Mantine's, so the claim can be audited rather than taken on
+  trust.
+
+The `Drawer` also locks body scroll, through `react-remove-scroll`. This pattern
+does not, and the distinction is worth stating because this file called a
+body-scroll lock a responsibility the pattern already owns until this port went
+looking: nothing in `core/` or `shared/` writes to `document.body` or
+`document.documentElement`, and the only reference to either is a read of
+`documentElement.scrollHeight` in `core/scroll.js`. The page stays scrollable
+behind the scrim, and the scrim's own `touch-action` is what keeps a pan off it.
+
+Mantine's stylesheet is a global reset as well as a component library, which
+made the hazard the second port found look likely to recur. It did not. The
+reset zeroes the body margin and sets its own font size and a 1.55 line height,
+and it declares nothing for `p` at all — so the user agent's paragraph margins
+survive, which is the one rule Tailwind's preflight removes. The same
+40-paragraph fixture measures `maxScrollY` of 984 on an iPhone 14 Pro Max and
+885 on a Pixel 7 — a hundred pixels short of the reference route's 1094 and 995,
+and still more than twice the 400px the suite's largest scroll travels. There is
+no demo-route spacing fix in this port at all. The reset is also why its
+stylesheet is imported from the two Mantine routes and never from the layout
+every demo route shares.
 
 ## The pattern
 
@@ -305,12 +408,13 @@ reach.
 
 **Apple and Google already put controls within thumb reach. The trigger is the
 part nobody moved.** Both place primary actions and tab bars near the bottom
-edge, and neither is news. What has not moved is the navigation trigger: all five
-design systems ported here still put it in a top corner by default, which is why
-each needed the work in this repository rather than a configuration flag. The
+edge, and neither is news. What has not moved is the navigation trigger. Every
+port here places it by hand: the bottom-centre position is authored in the
+port's own markup or stylesheet, not configured on the system's own component,
+which is why each needed the work in this repository rather than a flag. The
 claim is not that the bottom edge is reachable. It is that the pattern survives
-being moved there across five materially different systems under one suite, and
-that is a claim you can run rather than read.
+being moved there across six materially different design systems under one
+suite, and that is a claim you can run rather than read.
 
 **iOS Safari owns the bottom of the screen, and this is the hardest constraint
 the pattern faces.** Safari's URL bar sits at the bottom by default and changes
@@ -353,9 +457,9 @@ framed at a phone's width with a switcher for the shipped systems — narrow the
 window below 768px and the frame gives way to direct links to the routes below.
 
 Demo routes: `/demo/vanilla`, `/demo/mui`, `/demo/shadcn`, `/demo/tailwind`,
-`/demo/bootstrap` and `/demo/chakra`, each with an `-overflow` variant carrying a menu taller than
-the sheet, for testing internal scrolling against the drag gesture. The same
-routes are served from
+`/demo/bootstrap`, `/demo/chakra` and `/demo/mantine`, each with an `-overflow`
+variant carrying a menu taller than the sheet, for testing internal scrolling
+against the drag gesture. The same routes are served from
 [the deployed site](https://betelguese.github.io/thumbzone/) if you only want to
 look.
 
@@ -370,16 +474,16 @@ npm run typecheck
 See [CONTRIBUTING.md](CONTRIBUTING.md). In short: build it with the target
 system's own components and tokens so it looks native there, add a demo route,
 add one entry to `systems/registry.ts`, and run the suite. Expect to reach past
-the system's own sheet or drawer primitive rather than build on it — four
+the system's own sheet or drawer primitive rather than build on it — five
 design systems shipping a drawer of their own have each forced their port to
-reach past it, for four different reasons, and CONTRIBUTING.md explains why
+reach past it, for five different reasons, and CONTRIBUTING.md explains why
 that is the normal outcome.
 
 The behaviour comes from `core/`, and a port drives it rather than rewriting it:
 the open/close lifecycle, the focus trap, the pointer state machine, the
 thumb-first reorder and the teardown, on top of the gesture maths and the tuned
 thresholds. Between `core/` and a port sits `shared/`: the validation and the
-initialiser every port publishes, plus, for the three React ports, the ownership
+initialiser every port publishes, plus, for the four React ports, the ownership
 registry, the hook and the mount latch a late mount needs. What a port writes
 is the part that is genuinely its own: the markup, the styling, and — if the
 system hydrates — the strategy for wiring the pattern before the page finishes
