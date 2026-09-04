@@ -106,10 +106,9 @@ const NOTES: Record<string, { text: string; href: string; linkText: string }> = 
   },
   mantine: {
     text:
-      'Mantine’s Drawer is the first drawer primitive here that offered to stay mounted while ' +
-      'closed. It offered twice, and neither offer renders a sheet this pattern can drive: one ' +
-      'mode server-renders nothing at all, and the other renders the sheet carrying display: ' +
-      'none, the one declaration the contract rules out by name.',
+      'Mantine’s Drawer offers two ways to stay mounted while closed, and they fail for two ' +
+      'different reasons: one mode server-renders nothing at all, and the other renders the ' +
+      'sheet carrying display: none, the one declaration the contract rules out by name.',
     href: `${REPO}#what-the-sixth-port-measured`,
     linkText: 'What the sixth port measured',
   },
