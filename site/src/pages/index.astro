@@ -21,6 +21,18 @@ const BASE = import.meta.env.BASE_URL
 
 const REPO = 'https://github.com/BetelGuese/thumbzone'
 
+// Declared once because the button appears twice, and a URL this long copied
+// into two places is a URL that will be edited in one of them. The image is
+// rendered by Buy Me a Coffee's own button API, so its wording, colours and
+// font are theirs rather than restated here in CSS — but the `alt` text is
+// this page's to author, because an image inside a link with no alternative
+// text is a link with no accessible name, and axe audits this page.
+const BMC_HREF = 'https://www.buymeacoffee.com/b3t3lgu3s3'
+const BMC_IMAGE =
+  'https://img.buymeacoffee.com/button-api/?text=Buy me a coffee&emoji=&slug=b3t3lgu3s3' +
+  '&button_colour=FFDD00&font_colour=000000&font_family=Cookie&outline_colour=000000' +
+  '&coffee_colour=ffffff'
+
 // A common logical phone width, clamped below the width at which the pattern
 // hides itself. The clamp is the point: a frame at or above the breakpoint
 // would render a demo with no trigger, no sheet and no scrim — the port
@@ -129,25 +141,9 @@ const NOTES: Record<string, { text: string; href: string; linkText: string }> = 
             <div class="row">
               <a class="btn btn-primary" href={joinBase(BASE, initialSystem.route)}>Try it on a phone</a>
               <a class="btn btn-ghost" href={REPO}>Source</a>
-              {/* Rendered by a third-party script, so it arrives after load and
-                  outside this page's scoped styles — hence the wrapper, which is
-                  what the row's own layout can reach. */}
-              <span class="bmc-slot">
-                <script
-                  is:inline
-                  type="text/javascript"
-                  src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js"
-                  data-name="bmc-button"
-                  data-slug="b3t3lgu3s3"
-                  data-color="#FFDD00"
-                  data-emoji=""
-                  data-font="Inter"
-                  data-text="Buy me a coffee"
-                  data-outline-color="#000000"
-                  data-font-color="#000000"
-                  data-coffee-color="#ffffff"
-                ></script>
-              </span>
+              <a class="bmc-slot" href={BMC_HREF}>
+                <img src={BMC_IMAGE} alt="Buy me a coffee" width="217" height="60" />
+              </a>
             </div>
           </div>
 
@@ -292,22 +288,9 @@ const NOTES: Record<string, { text: string; href: string; linkText: string }> = 
 
       <footer class="wrap">
         <p><a href={REPO}>Source</a> · MIT</p>
-        <span class="bmc-slot">
-          <script
-            is:inline
-            type="text/javascript"
-            src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js"
-            data-name="bmc-button"
-            data-slug="b3t3lgu3s3"
-            data-color="#FFDD00"
-            data-emoji=""
-            data-font="Inter"
-            data-text="Buy me a coffee"
-            data-outline-color="#000000"
-            data-font-color="#000000"
-            data-coffee-color="#ffffff"
-          ></script>
-        </span>
+        <a class="bmc-slot" href={BMC_HREF}>
+          <img src={BMC_IMAGE} alt="Buy me a coffee" width="217" height="60" />
+        </a>
       </footer>
     </main>
   </body>
@@ -525,13 +508,21 @@ const NOTES: Record<string, { text: string; href: string; linkText: string }> = 
     margin-top: var(--leading);
   }
 
-  /* The support button is injected by a third-party script after load, so this
-     page's scoped styles cannot reach the element itself — only the wrapper it
-     lands in. Centring it here is what keeps it on the same baseline as the
-     buttons beside it, whatever height the script decides to render. */
+  /* The support button is an image from a third party's button API, so its
+     rendered height is theirs to change. `width`/`height` on the element give
+     the box an aspect ratio before the image arrives, so the row does not
+     reflow around it on load, and capping the height keeps it from outgrowing
+     the buttons beside it if that API ever returns a larger asset. */
   .bmc-slot {
     display: inline-flex;
     align-items: center;
+  }
+
+  .bmc-slot img {
+    display: block;
+    block-size: auto;
+    max-block-size: 40px;
+    inline-size: auto;
   }
 
   .reach {
@@ -811,11 +802,22 @@ const NOTES: Record<string, { text: string; href: string; linkText: string }> = 
     color: var(--tz-accent);
   }
 
-  footer {
+  /* `footer.wrap`, not `footer`, and the reason is a defect this button
+     uncovered rather than a preference: the footer carries `class="wrap"`, and
+     `.wrap` sets `padding: 0 var(--edge)`. A class selector outranks an element
+     one, so the vertical half of the padding declared here has never applied.
+     It went unnoticed while the footer held a single paragraph, whose own
+     margins supplied the space; the support button sits below that paragraph
+     and ended flush against the bottom of the page. */
+  footer.wrap {
     padding: calc(2 * var(--leading)) var(--edge);
     font-size: 13px;
     line-height: var(--leading);
     color: color-mix(in srgb, var(--tz-ink) 72%, transparent);
+  }
+
+  footer .bmc-slot {
+    margin-block-start: var(--leading);
   }
 
   /* ——— functional rules, carried over unchanged in behaviour ———
