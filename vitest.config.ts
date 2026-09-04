@@ -18,5 +18,12 @@ export default defineConfig({
       'site/test/**/*.test.ts',
     ],
     environment: 'node',
+    // Builds `dist` once, before any test file runs, and only when its
+    // inputs have actually changed. Runs in the main process ahead of the
+    // parallel workers the `include` globs above are dispatched to, which is
+    // what makes it the one place `dist` is written from — see the file's
+    // own header for why three test files each doing that independently
+    // raced a cold `npm test` red.
+    globalSetup: ['./site/test/global-setup.ts'],
   },
 })

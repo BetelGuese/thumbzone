@@ -1,5 +1,4 @@
 import { existsSync, readFileSync } from 'node:fs'
-import { execFileSync } from 'node:child_process'
 import { describe, expect, test } from 'vitest'
 
 /**
@@ -23,10 +22,24 @@ import { describe, expect, test } from 'vitest'
 const route = 'dist/demo/mantine/index.html'
 
 function servedMarkup() {
-  // Built on demand rather than skipped. A guard that quietly does nothing
-  // when its input is missing is the failure mode this repository names as its
-  // worst: a check that cannot fail.
-  if (!existsSync(route)) execFileSync('npx', ['astro', 'build'], { stdio: 'ignore' })
+  // Used to build on demand here, guarded by nothing sharper than
+  // `existsSync(route)`. That was one of three independent on-demand
+  // builders — the other two are `site/test/bundle-surface.ts`'s
+  // `bundleSurfaces()` and `builtStylesheets()` — and vitest runs test files
+  // in parallel worker processes, so a cold `npm test` raced up to three
+  // concurrent `astro build`s against one `dist`. `vitest.config.ts`'s
+  // `globalSetup` (`site/test/global-setup.ts`) now builds once, in the main
+  // process, before any worker starts, so `route` is guaranteed to exist and
+  // be fresh by the time this runs. Reaching the throw below means that
+  // guarantee did not hold, and silently returning nothing to read instead
+  // would be the failure mode this repository names as its worst: a check
+  // that cannot fail.
+  if (!existsSync(route)) {
+    throw new Error(
+      `${route} is missing. It is built once by vitest's globalSetup ` +
+        '(site/test/global-setup.ts) before any test file runs — run through `npm test`.',
+    )
+  }
   return readFileSync(route, 'utf8')
 }
 
