@@ -288,6 +288,13 @@ export const SHIPPED_SYSTEMS: readonly System[] = [
     authoredMenuOrder: ['Home', 'Search', 'Library', 'Profile', 'Settings'],
     overflowRoute: '/demo/chakra-overflow',
   },
+  {
+    id: 'mantine',
+    label: 'Mantine',
+    route: '/demo/mantine',
+    authoredMenuOrder: ['Home', 'Search', 'Library', 'Profile', 'Settings'],
+    overflowRoute: '/demo/mantine-overflow',
+  },
 ]
 
 /**
@@ -297,7 +304,6 @@ export const SHIPPED_SYSTEMS: readonly System[] = [
  */
 export const PLANNED_SYSTEMS: readonly PlannedSystem[] = [
   { id: 'antd', label: 'Ant Design' },
-  { id: 'mantine', label: 'Mantine' },
   { id: 'radix', label: 'Radix / Ark' },
   { id: 'bulma', label: 'Bulma' },
   { id: 'vuetify', label: 'Vuetify' },
