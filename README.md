@@ -113,7 +113,8 @@ did. It found two things anyway.
   first conformance run. Bootstrap 5 ships Reboot, a different reset, and its
   fixture did not repeat the hazard: `maxScrollY` measures 902 against the
   reference route's 1094 — short of the reference rather than short of the
-  400px the suite scrolls, which is the distinction that matters.
+  400px of the suite's largest fixed-distance scroll, which is the distinction
+  that matters.
 
 Material UI and shadcn/ui both had to reach past their design system's own
 drawer, for the same structural reason: a drawer owns open/close, focus and
@@ -226,15 +227,13 @@ It still cannot own this pattern, for a reason none of the first four had.
 ## What the sixth port measured
 
 Mantine is the sixth port. Its `Drawer` offers two ways to keep a closed panel
-mounted — which is the thing the contract asks for — and neither of them hands
-back a sheet this pattern can drive. Five of the seven systems here ship a
-drawer of their own, and all five have now been reached past, for five distinct
-reasons.
+mounted — the thing the contract asks for — and neither hands back a sheet this
+pattern can drive. Five of the seven systems here ship a drawer of their own,
+and all five have now been reached past, for five distinct reasons.
 
-- **Two ways to stay mounted, two different failures.** In its default mode a
-  closed `Drawer` server-renders nothing at all, and asking it to stay mounted
-  changes not one byte of the output. Measured on a server render of the
-  `Drawer` around this port's own five menu items, with its portal disabled:
+- **Two ways to stay mounted, two different failures.** Measured on a server
+  render of the `Drawer` around this port's own five menu items, portal
+  disabled:
 
   | Server-rendered `Drawer` | Bytes | Elements | Menu anchors |
   | --- | --- | --- | --- |
@@ -243,80 +242,63 @@ reasons.
   | closed, `keepMountedMode: 'display-none'` | 4895 | 48 | 5 |
   | open | 5190 | 48 | 5 |
 
-  The four elements in the first two rows are the two `<style>` elements
-  Mantine's provider emits and two wrappers around an empty
-  `mantine-Drawer-root`. The portal has to be disabled for the closed state to
-  be a question at all: left at its default, the `Drawer` server-renders nothing
-  in *any* mode, open included — 906 bytes, and both of those elements are the
-  provider's `<style>`.
-
-  The third row is the second offer, and it does render the sheet — carrying
-  `display: none` inline, the declaration `systems/registry.ts` rules out by
-  name, because a sheet the browser never renders leaves the open transition
-  with nothing to animate and makes `inert` decorative. On the client the
-  default mode writes
-  `display: none !important` inline on the drawer's own inner element, the
-  sheet's parent: an element the port does not author, carrying a declaration no
-  author stylesheet can outrank. Material UI's `Modal` takes a `keepMounted`
-  prop too and was declined for a third reason — kept mounted and closed, it
-  resolves to `visibility: hidden`
-  (`systems/mui/src/ThumbzoneMenu.tsx:37`). Absent, hidden by a parent, and
-  present-but-hidden are three distinct ways to miss one requirement, which is
-  the comparison worth drawing rather than any claim about which system offered
-  what first.
-- **A styling system with no runtime leaves nothing to hoist.** Mantine compiles
-  its component classes to CSS modules at build time rather than inserting a
-  `<style>` at the point of use, so this port passes no pre-init hook:
+  Asking the default mode to stay mounted changes not one byte: those four
+  elements are the provider's two `<style>` elements, one wrapper, and an empty
+  `mantine-Drawer-root` inside it. The portal has to be disabled for the closed
+  state to be a question at all — at Mantine's default the `Drawer`
+  server-renders nothing in *any* mode, open included. The second offer does
+  render the sheet, carrying the `display: none` `systems/registry.ts` rules
+  out by name; and on the client the default mode writes `display: none
+  !important` inline on the drawer's own inner element, the sheet's parent — an
+  element the port does not author, carrying a declaration no author stylesheet
+  can outrank. Material UI's `Modal` takes a `keepMounted` prop too and was
+  declined for a third reason: kept mounted and closed, it resolves to
+  `visibility: hidden` (`systems/mui/src/ThumbzoneMenu.tsx:37`). Absent, hidden
+  by a parent, and present-but-hidden are three distinct ways to miss one
+  requirement.
+- **A styling system with no runtime leaves nothing to hoist.** Mantine's
+  component classes are CSS modules compiled at build time, not a `<style>`
+  inserted at the point of use, so this port passes no pre-init hook:
   `createReactThumbzoneAdapter()` takes no argument
-  (`systems/mantine/src/thumbzone.ts:66`). Measured on the same server render,
-  two `<style>` elements are emitted, both `MantineProvider`'s own and both
-  ahead of every element the pattern owns, and none inside the sheet, the menu
-  or the first item's anchor; `systems/mantine/test/served-markup.test.js` is
-  what keeps that true. It is the second React port to pass nothing rather than
-  the first — `systems/shadcn/src/thumbzone.ts:25` has done so since before this
-  port existed, reaching the same outcome from a different architecture:
-  utilities compiled to a file ahead of time, against no styling runtime at all.
-  Material UI and Chakra UI, both on Emotion, are the two that do pass the
-  hoist.
+  (`systems/mantine/src/thumbzone.ts:66`). The same render emits two `<style>`
+  elements, both the provider's, both ahead of every element the pattern owns,
+  and none inside the sheet, the menu or the first item's anchor;
+  `systems/mantine/test/served-markup.test.js` keeps that true. It is the
+  second React port to pass nothing, not the first —
+  `systems/shadcn/src/thumbzone.ts:25` reached the same outcome from compiled
+  utilities before this port existed. Material UI and Chakra UI, both on
+  Emotion, are the two that do pass the hoist.
 - **A theme's variables can need an attribute on the document's root element.**
-  Mantine declares every colour custom property under
+  Of Mantine's 270 `--mantine-color-*` properties, 128 are declared only under
   `:root[data-mantine-color-scheme='light'|'dark']` and the matching `:host()`
-  form, and nowhere else, so without that attribute the trigger computes a
-  transparent background under white text. Nothing in the port's own stylesheet
-  can put it there. The two Mantine routes pass it through a generic `rootAttrs`
-  prop added to `site/src/layouts/DemoLayout.astro`; the other twelve demo
-  routes are unchanged.
-- **Where the styling system has no runtime, the pattern's rules go in a
-  stylesheet — and their position in it is load-bearing.** Every place this port
-  overrides one of Mantine's own component declarations it does so at *equal*
-  specificity, a single data attribute against a single hashed class, so nothing
-  is settled by specificity and everything by which declaration comes last. The
-  port's stylesheet pulls `@mantine/core/styles.css` in as its own first
-  statement, which makes that ordering a property of the file rather than of
-  whatever a route does with two stylesheets, and
-  `systems/mantine/src/thumbzone.css` names every site where a rule of its own
-  meets one of Mantine's, so the claim can be audited rather than taken on
-  trust.
+  form — the semantic names, `--mantine-color-body` and `--mantine-color-text`
+  among them — while the other 142, the palette scales and
+  `--mantine-color-white`, sit under plain `:root, :host`. That split is what
+  makes the failure legible: without the attribute the trigger's fill comes
+  from a gated name and resolves to nothing while its glyph comes from the
+  unconditional white, so it renders as white text on a transparent circle.
+  Nothing in the port's own stylesheet can put the attribute there. The two
+  Mantine routes pass it through a generic `rootAttrs` prop on
+  `site/src/layouts/DemoLayout.astro`; the other twelve demo routes are
+  unchanged.
+- **Without a styling runtime the rules go in a stylesheet, and their position
+  in it is load-bearing.** Every override of a Mantine component declaration
+  here ties it on specificity — one data attribute against one hashed class —
+  so document order decides all of them, which is why
+  `systems/mantine/src/thumbzone.css` imports `@mantine/core/styles.css` as its
+  own first statement and names every site where the two meet.
 
-The `Drawer` also locks body scroll, through `react-remove-scroll`. This pattern
-does not, and the distinction is worth stating because this file called a
-body-scroll lock a responsibility the pattern already owns until this port went
-looking: nothing in `core/` or `shared/` writes to `document.body` or
-`document.documentElement`, and the only reference to either is a read of
-`documentElement.scrollHeight` in `core/scroll.js`. The page stays scrollable
-behind the scrim, and the scrim's own `touch-action` is what keeps a pan off it.
-
-Mantine's stylesheet is a global reset as well as a component library, which
-made the hazard the second port found look likely to recur. It did not. The
-reset zeroes the body margin and sets its own font size and a 1.55 line height,
-and it declares nothing for `p` at all — so the user agent's paragraph margins
-survive, which is the one rule Tailwind's preflight removes. The same
-40-paragraph fixture measures `maxScrollY` of 984 on an iPhone 14 Pro Max and
-885 on a Pixel 7 — a hundred pixels short of the reference route's 1094 and 995,
-and still more than twice the 400px the suite's largest scroll travels. There is
-no demo-route spacing fix in this port at all. The reset is also why its
-stylesheet is imported from the two Mantine routes and never from the layout
-every demo route shares.
+Two corrections this port owes the sections above. **This pattern does not own
+body scroll**, which the fourth-port section claimed while listing Bootstrap's
+`Offcanvas` responsibilities: nothing in `core/` or `shared/` writes to
+`document.body` or `document.documentElement`, and the only reference to either
+is a read of `documentElement.scrollHeight` in `core/scroll.js`. Mantine's
+`Drawer` locks it too, through `react-remove-scroll`; the page stays scrollable
+behind this pattern's scrim, and the scrim's own `touch-action` keeps a pan off
+it. And **a fixture is measured against the scroll it has to survive**, not
+against the reference route: Mantine's reset declares nothing for `p`, so the
+paragraph margins Tailwind's preflight removes survive here, and CONTRIBUTING.md
+carries the heights for all four fixtures.
 
 ## The pattern
 

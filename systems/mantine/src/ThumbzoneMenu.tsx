@@ -184,10 +184,15 @@ export default function ThumbzoneMenu({
        this port has no prop for that today.
 
        One thing the provider cannot do from in here, stated because its
-       absence is invisible in the markup: Mantine's colour variables are
-       declared under `:root[data-mantine-color-scheme='light'|'dark']` and the
-       matching `:host` form, and under nothing else — so the attribute has to
-       be on the document's root element, and the route is what puts it there.
+       absence is invisible in the markup: Mantine's *scheme-dependent* colour
+       variables — 128 of its 270 `--mantine-color-*` properties,
+       `--mantine-color-body` and `--mantine-color-text` among them — are
+       declared only under `:root[data-mantine-color-scheme='light'|'dark']`
+       and the matching `:host` form, so the attribute has to be on the
+       document's root element, and the route is what puts it there. The other
+       142, the palette scales and `--mantine-color-white`, are unconditional,
+       which is why a missing attribute leaves white glyphs sitting on
+       transparent surfaces rather than nothing rendering at all.
        The provider stamps it from an effect after hydration, which is far too
        late for a pattern that is wired during load. */
     <MantineProvider>

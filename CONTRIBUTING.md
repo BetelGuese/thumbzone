@@ -117,8 +117,8 @@ than the window it needed to sit in. So a Vaul-based port would have passed
 every assertion here while running a retuned feel, and `core/` is the only
 thing standing in its way.
 
-Bootstrap 5's `Offcanvas` is the third case, and it is the strongest of the
-three, because it fails for a different kind of reason. Where MUI's `Drawer`
+Bootstrap 5's `Offcanvas` is the third case, and it fails for a different kind
+of reason than the two above it. Where MUI's `Drawer`
 and Vaul each merely *hold* state — a transform, an ARIA attribute, a
 hard-coded constant — Bootstrap's is the first primitive here that actively
 *runs*. Opening one constructs a `Backdrop`, activates a `FocusTrap`, calls
@@ -207,14 +207,18 @@ even a question.
 
 Five systems, five primitives, five different reasons, one outcome. The lesson
 worth carrying to the next one: **check a candidate primitive's closed state
-before its open one.** Four of the five failed there, and every one of them
-inspects clean while open — `visibility: hidden` disqualified MUI's `Modal` and
-Bootstrap's `Offcanvas`, absent markup disqualified Chakra's `Dialog`, and
-Mantine's `Drawer` lost one closed state to absent markup and the other to
-`display: none`. The fifth, shadcn/ui's Vaul, failed on a hard-coded constant
-that no inspection of either state would have shown; that one took reading the
-source. Absent this instruction the open state is usually the only one a porter
-thinks to look at.
+before its open one.** Four of the five are disqualified by their closed state
+on its own — `visibility: hidden` for MUI's `Modal` and Bootstrap's
+`Offcanvas`, absent markup for Chakra's `Dialog`, and one of each for Mantine's
+`Drawer`, one per keep-mounted mode. Several of them fail open as well, for
+reasons of their own, as the cases above set out: MUI's `Modal` marks the
+trigger `aria-hidden` and `Slide` occupies the inline transform, Bootstrap's
+`Offcanvas` builds a backdrop and runs a focus trap, Mantine's `Drawer` locks
+body scroll. The claim is not that the open state is clean — it is that the
+closed state settles the question *before* a day has gone into configuring the
+open one, and it is the state nobody thinks to inspect. The fifth, shadcn/ui's
+Vaul, is the case neither state would have shown: a hard-coded constant, found
+by reading the source.
 
 The pattern is not being awkward. A design system's drawer owns open/close,
 focus management and motion; this pattern already owns those, and two owners of
@@ -381,15 +385,18 @@ port added is the name of the thing that causes it. Tailwind's preflight zeroes
 the user-agent block margins on ordinary prose, so a demo route authoring the
 same 40 paragraphs as the other two systems rendered 456px shorter — leaving
 `maxScrollY` at 145 where the reference route's stood at 601 when both were
-measured, under the scroll the suite performs. Every scroll landed at the end of the document, and the first
+measured, under the scroll the suite performs. Every scroll landed at the end
+of the document, and the first
 conformance run produced six failures that all looked like a broken tuck and
 were none of them in the pattern.
 
 Bootstrap 5 ships Reboot, a global reset too, which made the same hazard look
 likely to recur. It was tested rather than assumed, and the forecast did not
 hold: Bootstrap's fixture measures `maxScrollY` of 902 on an iPhone 14 Pro Max
-and 803 on a Pixel 7, comfortably clear of the 400px the suite's largest single
-scroll travels. The reason is one line of difference between the two resets:
+and 803 on a Pixel 7, comfortably clear of the 400px of the suite's largest
+fixed-distance scroll. (Its scroll-to-the-end assertions travel
+`document.body.scrollHeight`, which no fixture can be too short for.) The
+reason is one line of difference between the two resets:
 Reboot keeps `p { margin-bottom: 1rem }` where Tailwind's preflight zeroes the
 same rule outright. The finding above is real, and it belongs to Tailwind's
 reset specifically — "any CSS reset" was this document over-generalising from
@@ -411,7 +418,7 @@ authored type stack of its own in `systems/vanilla/src/demo.css`, whose
 `line-height: 1.6` added 394px on both devices — which makes both Bootstrap's
 fixture and Mantine's shorter than the reference while leaving the only thing
 that matters untouched. Nothing about the reference route's height is a
-threshold; 400px is.
+threshold; the 400px fixed scroll is.
 
 It already came round again within this same branch, when the Tailwind CSS
 port's own preflight hit its demo route the same way and took the same fix.
