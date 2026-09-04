@@ -37,15 +37,22 @@
  * for the same reason.
  *
  * The sites, so the claim can be audited rather than taken on trust, each
- * marked again where it appears:
+ * marked again where it appears. The partner named is the selector the vendor
+ * sheet actually writes the rule on, which for a component is the class its
+ * CSS module compiled to and not the readable .mantine-Paper-root alias: the
+ * components do carry those aliases, but @mantine/core/styles.css writes no
+ * rule for any of them, so the hash is what a reader can grep the sheet for.
+ * The hashes below are @mantine/core 9.6.0's, and a version bump can
+ * recompile them:
  *
- * - the sheet — display, touch-action and four corner radii, against
- *   .mantine-Paper-root;
- * - the menu — padding, against .mantine-List-root;
+ * - the sheet — display, touch-action and four corner radii, against Paper's
+ *   .m_1b7284a3;
+ * - the menu — padding, against List's .m_abbac491;
  * - the trigger — --ai-size, position and the two logical minimums, against
- *   .mantine-ActionIcon-root;
+ *   ActionIcon's .m_8d3f4000;
  * - the trigger's press rule — transform, against the global .mantine-active,
- *   which is the one with a visible symptom;
+ *   which is authored under that name rather than compiled, and is the one
+ *   with a visible symptom;
  * - the breakpoint query — display, against Paper's and ActionIcon's own.
  *
  * Nothing else here collides: Overlay declares no opacity, transition or

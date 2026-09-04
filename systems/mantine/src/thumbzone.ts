@@ -46,6 +46,14 @@
  * that. Present-but-hidden is a different failure from the two below, which is
  * the comparison worth drawing rather than a claim about which came first.)
  *
+ * Every claim below about what a `Drawer` renders was measured with
+ * `withinPortal` turned off: at its default, `true`, the `Drawer`
+ * server-renders nothing in *any* mode, open included, because a portal has no
+ * server-side destination — so disabling it is what makes the closed state a
+ * question at all, and a reader reproducing these renders at the default would
+ * find every mode empty and conclude the readings were wrong. `README.md`
+ * carries the same caveat beside the byte counts themselves.
+ *
  * Mantine's `Transition` keeps a closed drawer in one of two states:
  * React's `<Activity mode="hidden">`, which server-renders nothing (a closed
  * render is byte-identical to `keepMounted: false`) and on the client writes

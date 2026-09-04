@@ -118,10 +118,13 @@ function menuIsReversed(items: readonly string[]): boolean {
  * which pulls `@mantine/core/styles.css` in at its own top. Mantine has no
  * styling runtime — its classes are CSS-module hashes compiled at build time —
  * so nothing here can be handed a rule keyed off `data-tz-open`, off a media
- * query, or off a descendant, and seven of the port's declarations tie one of
- * Mantine's own class rules on specificity and are decided by order. Keeping
- * the vendor import at the top of that one file is what makes the order a
- * property of the file rather than of whatever a route does with two
+ * query, or off a descendant. Every declaration of the port's that ties one of
+ * Mantine's own class rules on specificity is therefore decided by order
+ * alone; that stylesheet enumerates those sites at its own top and marks each
+ * again where it appears, which is where to read them off rather than from a
+ * count restated here that could drift away from the rules it describes.
+ * Keeping the vendor import at the top of that one file is what makes the
+ * order a property of the file rather than of whatever a route does with two
  * stylesheets. Only what a selector cannot reach is styled here: Mantine's own
  * component props, its style props for the handle's pill, and the two custom
  * properties above.

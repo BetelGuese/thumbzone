@@ -74,7 +74,7 @@ const { items } = Astro.props
 >
   <!-- Handle: purely a visual affordance and a dedicated non-scrolling drag target — the gesture machine never recognises a drag starting inside the menu, so this is the only touch-drag entry point once the menu has its own scrollable overflow. `aria-hidden` because it says nothing the dialog's own name has not already said. -->
   <!-- Handle, on the inline `block-size`: the whole interactive region must clear the contract's 48px minimum, not just the pill drawn inside it — WCAG 2.5.8's 24px floor is not the bar here. Declared from `MIN_HIT_TARGET` rather than from a spacing token that could be tidied under it, and inline because a class name built from a JavaScript value is never scanned, so it would emit nothing at all. -->
-  <!-- Handle, on `touch-pinch-zoom`: the contract sanctions `none` here, since the handle genuinely needs to own the gesture and the impairment is confined to one 48px control — but refusing the vertical pan is all that ownership requires, and a pinch landing on a real control should still zoom the page. All three shipped ports make the same call. -->
+  <!-- Handle, on `touch-pinch-zoom`: the contract sanctions `none` here, since the handle genuinely needs to own the gesture and the impairment is confined to one 48px control — but refusing the vertical pan is all that ownership requires, and a pinch landing on a real control should still zoom the page. Every shipped port makes the same call. -->
   <!-- Handle, on `before:bg-zinc-500`: measures 3.67:1 against the sheet's bg-zinc-900 — clears WCAG 1.4.11's 3:1 floor for non-text UI components (verified directly against both this pill's own colour and the sheet's, not assumed). -->
   <div
     data-tz-handle
