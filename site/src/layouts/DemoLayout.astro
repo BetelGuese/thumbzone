@@ -1,10 +1,29 @@
 ---
 interface Props {
   system: string
+  /**
+   * Attributes to put on `<html>`, for a system whose styling needs one there.
+   *
+   * Mantine is the first: `@mantine/core/styles.css` declares every colour
+   * variable under `:root[data-mantine-color-scheme='light']` and the
+   * `:host(...)` form, and under nothing else — so a wrapper element inside
+   * the page cannot carry it, and without it the sheet and the trigger both
+   * compute a transparent background. `MantineProvider` stamps the attribute
+   * from an effect after hydration, which is far too late here: this pattern
+   * is wired from a module script during load, deliberately, so that a
+   * loaded page is a working one, and the trigger is on screen for that whole
+   * window.
+   *
+   * Kept as an open map rather than a `colorScheme` prop so that this layout
+   * stays system-agnostic — the routes that need an attribute know which one,
+   * and the twelve routes that do not are unchanged. Nothing else reads
+   * Mantine's attribute, and no other route links its stylesheet.
+   */
+  rootAttrs?: Record<string, string>
 }
-const { system } = Astro.props
+const { system, rootAttrs = {} } = Astro.props
 ---
-<html lang="en">
+<html lang="en" {...rootAttrs}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
