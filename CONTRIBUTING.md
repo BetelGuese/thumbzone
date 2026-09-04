@@ -82,7 +82,7 @@ server-rendered `<style>` elements out of the menu is the worked example, and
 
 ### Expect to reach past your system's drawer component
 
-Three ports built on a system that ships a drawer of its own have had to, for
+Five ports built on a system that ships a drawer of its own have had to, for
 the same structural reason each time, so a porter may as well know it before
 starting rather than halfway through.
 
@@ -123,8 +123,19 @@ and Vaul each merely *hold* state — a transform, an ARIA attribute, a
 hard-coded constant — Bootstrap's is the first primitive here that actively
 *runs*. Opening one constructs a `Backdrop`, activates a `FocusTrap`, calls
 `new ScrollBarHelper().hide()` to lock body scroll, sets `aria-modal`, and
-binds `keydown.dismiss` for Escape: five responsibilities this pattern
-already owns, carried out by code rather than merely represented in markup.
+binds `keydown.dismiss` for Escape: five responsibilities carried out by code
+rather than merely represented in markup.
+
+Four of the five are this pattern's own. The scroll lock is not, and the
+difference is worth being exact about, because this document had it wrong until
+a later port went looking: **this pattern never locks body scroll.** Nothing in
+`core/` or `shared/` writes to `document.body` or `document.documentElement` at
+all, and the only reference to either is a read of
+`documentElement.scrollHeight` in `core/scroll.js`. The page stays scrollable
+behind the scrim, and the scrim's own `touch-action` is what keeps a pan off
+it. That makes a primitive's scroll lock worse rather than better as a
+conflict: it is not contending for something the pattern holds, it is changing
+the document underneath a pattern that decided not to touch it.
 
 Its CSS conflicts just as hard, in three ways worth checking for in any
 candidate primitive, not only this one. It is `visibility: hidden` while
@@ -159,13 +170,51 @@ rather than hypothetical. That is a known limit of reading source rather than
 a defect in the guard: the check that would close it reads the built CSS
 instead, which is what verifying this port did by hand.
 
-Three systems, three primitives, three different reasons, one outcome. The
-lesson worth carrying to the next one: **check a candidate primitive's closed
-state before its open one.** `visibility: hidden` while closed is what
-disqualified both MUI's `Modal` and Bootstrap's `Offcanvas`, and it is
-invisible if the only state you inspect is the primitive open — which,
-absent this instruction, is usually the only state a porter thinks to look
-at.
+Chakra UI's `Drawer` is the fourth, and it is the one that could have been
+talked round. It wraps Ark UI's `Dialog`, and every lifecycle responsibility it
+takes on — the focus trap, Escape, the scroll lock, dismissal on an outside
+press, hiding the content below — is a configurable flag rather than a fixed
+behaviour, so disarming it was available in a way it never was for MUI's
+`Modal`. It fails on markup instead. A closed `Dialog` server-renders no
+content at all, and `unmountOnExit` left at its mounted default changes nothing
+on the server: not hidden content, absent content. Against absent markup the
+thumb-first reorder has nothing to reorder before hydration and the open
+transition has nothing to move. `systems/chakra/src/ThumbzoneMenu.tsx` carries
+the measurement.
+
+Mantine's `Drawer` is the fifth, and its reason is one the four above do not
+cover: a primitive that *offers* to keep a closed panel mounted and still
+cannot be used. It offers twice, and loses both. Its default keep-mounted mode
+server-renders nothing at all — the closed output is byte-identical to the same
+drawer never asked to stay mounted, 1132 bytes around an empty
+`mantine-Drawer-root` with no menu anchor in it, against an open render's 5190
+bytes and five — and on the client it writes `display: none !important` inline
+on the drawer's own inner element, the sheet's parent: an element the port does
+not author, carrying a declaration author CSS cannot outrank. The other mode,
+`keepMountedMode: 'display-none'`, does render the sheet, carrying the one
+declaration `systems/registry.ts` forbids by name.
+`systems/mantine/src/thumbzone.ts` records both in full. Read an offer as a
+reason to check rather than a reason to relax: MUI's `Modal` takes a
+`keepMounted` prop too, and a kept-mounted closed `Modal` resolves to
+`visibility: hidden`.
+
+Measure a portalled primitive with its portal turned off, or the measurement
+tells you nothing about the closed state: at Mantine's default this `Drawer`
+server-renders no drawer in *any* mode, open included, because a portal has no
+DOM to reach on the server. Both figures above are from a render with the
+portal disabled, which is the only configuration in which the closed state is
+even a question.
+
+Five systems, five primitives, five different reasons, one outcome. The lesson
+worth carrying to the next one: **check a candidate primitive's closed state
+before its open one.** Four of the five failed there, and every one of them
+inspects clean while open — `visibility: hidden` disqualified MUI's `Modal` and
+Bootstrap's `Offcanvas`, absent markup disqualified Chakra's `Dialog`, and
+Mantine's `Drawer` lost one closed state to absent markup and the other to
+`display: none`. The fifth, shadcn/ui's Vaul, failed on a hard-coded constant
+that no inspection of either state would have shown; that one took reading the
+source. Absent this instruction the open state is usually the only one a porter
+thinks to look at.
 
 The pattern is not being awkward. A design system's drawer owns open/close,
 focus management and motion; this pattern already owns those, and two owners of
@@ -331,23 +380,38 @@ a reason that has nothing to do with the scroll under test. What the shadcn
 port added is the name of the thing that causes it. Tailwind's preflight zeroes
 the user-agent block margins on ordinary prose, so a demo route authoring the
 same 40 paragraphs as the other two systems rendered 456px shorter — leaving
-`maxScrollY` at 145 where vanilla's is 601, under the scroll the suite
-performs. Every scroll landed at the end of the document, and the first
+`maxScrollY` at 145 where the reference route's stood at 601 when both were
+measured, under the scroll the suite performs. Every scroll landed at the end of the document, and the first
 conformance run produced six failures that all looked like a broken tuck and
 were none of them in the pattern.
 
 Bootstrap 5 ships Reboot, a global reset too, which made the same hazard look
 likely to recur. It was tested rather than assumed, and the forecast did not
 hold: Bootstrap's fixture measures `maxScrollY` of 902 on an iPhone 14 Pro Max
-and 803 on a Pixel 7, against vanilla's 700 and 601 on the same two devices —
-taller than the reference, not shorter, and comfortably clear of the fixed
-distance the suite scrolls. The reason is one line of difference between the
-two resets: Reboot keeps `p { margin-bottom: 1rem }` where Tailwind's preflight
-zeroes the same rule outright. The finding above is real, and it belongs to
-Tailwind's reset specifically — "any CSS reset" was this document
-over-generalising from one system to a category, and the honest correction is
-to say so rather than carry a forecast the project's own evidence has since
-contradicted.
+and 803 on a Pixel 7, comfortably clear of the 400px the suite's largest single
+scroll travels. The reason is one line of difference between the two resets:
+Reboot keeps `p { margin-bottom: 1rem }` where Tailwind's preflight zeroes the
+same rule outright. The finding above is real, and it belongs to Tailwind's
+reset specifically — "any CSS reset" was this document over-generalising from
+one system to a category, and the honest correction is to say so rather than
+carry a forecast the project's own evidence has since contradicted.
+
+Mantine's stylesheet is the second reset held against that forecast, and the
+second not to repeat it. It zeroes the body margin and sets its own font size
+and a 1.55 line height, and it declares nothing at all for `p` — so the user
+agent's paragraph margins survive, which is the single rule Tailwind's
+preflight removes. Its fixture measures 984 and 885 on those same two devices,
+and the Mantine port ships no demo-route spacing fix at all.
+
+**Compare a fixture against the distance the suite scrolls, not against another
+route.** This section used to compare against the reference instead, quoting it
+at 700 and 601 and calling Bootstrap's fixture taller than it. Re-measured
+alongside Mantine's, the reference route is now 1094 and 995 — it gained an
+authored type stack of its own in `systems/vanilla/src/demo.css`, whose
+`line-height: 1.6` added 394px on both devices — which makes both Bootstrap's
+fixture and Mantine's shorter than the reference while leaving the only thing
+that matters untouched. Nothing about the reference route's height is a
+threshold; 400px is.
 
 It already came round again within this same branch, when the Tailwind CSS
 port's own preflight hit its demo route the same way and took the same fix.
@@ -538,15 +602,26 @@ import { hoistServerRenderedStyles } from '../../../shared/react/hoist-emotion'
 export const adapter = createReactThumbzoneAdapter({ beforeInit: hoistServerRenderedStyles })
 ```
 
-Material UI and Chakra UI both pass it. Chakra is the measured case for why this
-is worth checking rather than assuming: rendering a `Box as="nav"` of anchors
-plus a `Button` emits five `<style data-emotion>` elements, one of them a child
-of the menu itself. shadcn/ui passes nothing, because a compiled stylesheet
-leaves nothing of the styling system between the menu and its items.
+Material UI and Chakra UI both pass it, and both style with Emotion. Chakra is
+the measured case for why this is worth checking rather than assuming:
+rendering a `Box as="nav"` of anchors plus a `Button` emits five
+`<style data-emotion>` elements, one of them a child of the menu itself.
 
-Check your own system rather than reasoning from these two. Server-render your
+**The other two React ports pass nothing**, and they arrive there from opposite
+directions: shadcn/ui's utilities are compiled to a stylesheet ahead of time
+(`systems/shadcn/src/thumbzone.ts`), and Mantine has no styling runtime to
+insert anything at the point of use at all — its component classes are
+CSS-module hashes compiled at build time
+(`systems/mantine/src/thumbzone.ts`). Two of the four, either way, so treat
+neither the argument nor its absence as the default one.
+
+Check your own system rather than reasoning from these four. Server-render your
 markup, and look for elements your styling library put inside the sheet, the
-menu, or the first item's anchor.
+menu, or the first item's anchor — and consider pinning the answer rather than
+recording it in a comment. `systems/mantine/test/served-markup.test.js` is the
+worked example: it asserts against the route's own served bytes that no
+`<style>` element sits inside the sheet, the menu or the first item's anchor,
+which is the fact its decision to pass nothing rests on.
 
 **Nothing in the conformance suite will tell you whether you got this right.**
 Removing the `beforeInit` call entirely leaves all shipped ports green, because
@@ -580,6 +655,35 @@ one.
 settle a disagreement and to see the whole pattern in one place, and an import
 of a shared factory would make it no longer self-contained. It is not the one
 port nobody got around to updating.
+
+### A local run can fail in a way your port did not cause
+
+Run the whole suite on a workstation and you may see a handful of failures that
+look exactly like the dead-handle failure the readiness hook exists to prevent.
+They were chased down over four runs of the suite at two worker counts, plus a
+control run, while the sixth port was being landed, and none of them was a
+port's. What separates them from a real defect:
+
+- **They die inside `page.goto`**, before any assertion in the spec runs — a
+  starved navigation rather than a failed check.
+- **They were confined to one project.** Every one landed on `mobile-safari`
+  and none on `mobile-chrome`.
+- **They are not contention.** Halving the worker count made them *more*
+  frequent, not fewer: fewer workers means a longer wall clock, and they arrive
+  periodically rather than in proportion to load.
+- **They are not the newest port.** A control run with that port taken back out
+  of `SHIPPED_SYSTEMS` reproduced the same shape.
+- **Every readiness check passed in all of those runs**, for all seven systems:
+  `__thumbzone`, `__initThumbzone`, `__thumbzoneReady`, and every
+  destroy-and-re-init. That is the test to apply — a genuine dead handle fails
+  an assertion about the page, and this fails before there is a page.
+
+None of that makes a local run authoritative in either direction. CI is the
+arbiter, and it is not one that launders a flake into a green build:
+`playwright.config.ts` pairs its retries with `failOnFlakyTests`, so a test
+passing only on its second attempt still fails the job. If your failures are in
+assertions rather than in the navigation, or they reproduce on
+`mobile-chrome` too, they are yours.
 
 ## Design principles
 

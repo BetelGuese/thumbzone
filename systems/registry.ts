@@ -47,7 +47,21 @@
  * - The sheet authored `inert` and `data-tz-open="false"`, and still fully
  *   rendered while closed — moved out of view, never `hidden` or
  *   `display: none`, or there is nothing for the open transition to animate
- *   and nothing to make `inert` load-bearing.
+ *   and nothing to make `inert` load-bearing. It is the sheet *as rendered*
+ *   that has to satisfy this, ancestors included: a primitive that keeps its
+ *   closed panel mounted under a parent it takes out of the render tree fails
+ *   this line exactly as a sheet carrying the declaration itself would — and
+ *   where that parent is the primitive's own element and the declaration is
+ *   written inline and `!important`, as Mantine's `Drawer` writes it, a port's
+ *   stylesheet cannot reach it at all.
+ *
+ *   Which is why a candidate primitive's *closed* state is the one to check
+ *   first: every drawer reached past here for this reason inspects clean while
+ *   open. An offer to keep a closed panel mounted is not evidence either.
+ *   Material UI's `Modal`, Chakra UI's `Dialog` and Mantine's `Drawer` each
+ *   have one, and not one of the three arrives in a state this line accepts —
+ *   see "Expect to reach past your system's drawer component" in
+ *   CONTRIBUTING.md for what each of them does instead.
  * - More than one menu item. Ordering, focus order and the trap are all
  *   unobservable on a menu of one, and the suite fails rather than pretending
  *   otherwise.
