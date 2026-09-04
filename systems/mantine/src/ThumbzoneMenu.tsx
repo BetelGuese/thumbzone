@@ -103,13 +103,15 @@ function menuIsReversed(items: readonly string[]): boolean {
  * The pattern's markup in Mantine's primitives, wired to the shared behaviour.
  *
  * Not built on Mantine's `Drawer`, and the reason is measured rather than
- * stylistic: it is the first drawer primitive here that offered to stay
- * mounted while closed, and neither of the two ways it does so renders a sheet
- * this pattern can drive. `systems/mantine/src/thumbzone.ts` records that in
- * full. The same shape as the Material UI, shadcn/ui and Chakra UI ports, and
- * for the same reason: a design system's drawer owns open/close, focus and
- * motion, and this pattern already owns those, so a port reaches past the
- * component to the surface underneath.
+ * stylistic: it offers two ways to stay mounted while closed and neither of
+ * them renders a sheet this pattern can drive — one server-renders nothing at
+ * all, the other renders the sheet carrying `display: none`.
+ * `systems/mantine/src/thumbzone.ts` records both in full, and records why
+ * "the first drawer here to offer it" — which an earlier draft of this comment
+ * claimed — is not true of it. The same shape as the Material UI, shadcn/ui
+ * and Chakra UI ports, and for the same reason: a design system's drawer owns
+ * open/close, focus and motion, and this pattern already owns those, so a port
+ * reaches past the component to the surface underneath.
  *
  * **The pattern's geometry, motion and touch rules are in
  * `systems/mantine/src/thumbzone.css`**, which the Mantine routes import and

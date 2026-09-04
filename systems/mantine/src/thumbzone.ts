@@ -17,12 +17,24 @@
  * port's own rules are not injected at the point of use either: they are a
  * stylesheet, `systems/mantine/src/thumbzone.css`, which the routes import.
  *
- * Mantine's own `Drawer` is deliberately absent, and it is the first drawer
- * primitive here that offered to stay mounted while closed. It offered twice
- * and neither reaches the contract, which needs the sheet fully rendered while
- * closed — a page wires the pattern during load, the thumb-first reorder has
- * to happen before hydration, and the open transition needs something to
- * animate. Its `Transition` keeps a closed drawer in one of two states:
+ * Mantine's own `Drawer` is deliberately absent, and what is distinctive about
+ * it is that it offers *two* ways to stay mounted while closed and they fail
+ * for two different reasons. Neither reaches the contract, which needs the
+ * sheet fully rendered while closed — a page wires the pattern during load, the
+ * thumb-first reorder has to happen before hydration, and the open transition
+ * needs something to animate.
+ *
+ * (Not the first drawer here to offer keeping a closed sheet mounted, and an
+ * earlier draft of this comment said so wrongly. Material UI's `Modal` takes a
+ * first-class `keepMounted` prop, defaulted to false, which `Drawer` forwards
+ * through `ModalProps` — and `systems/mui/src/ThumbzoneMenu.tsx` records why
+ * that offer was still declined: a kept-mounted closed `Modal` is present in
+ * the DOM but resolves to `visibility: hidden`, which removes the sheet from
+ * the tab order and the accessibility tree before `inert` can be what does
+ * that. Present-but-hidden is a different failure from the two below, which is
+ * the comparison worth drawing rather than a claim about which came first.)
+ *
+ * Mantine's `Transition` keeps a closed drawer in one of two states:
  * React's `<Activity mode="hidden">`, which server-renders nothing (a closed
  * render is byte-identical to `keepMounted: false`) and on the client writes
  * `display: none !important` inline on the drawer's own inner element, a node
