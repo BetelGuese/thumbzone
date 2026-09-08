@@ -57,10 +57,12 @@ Six of the 134 drive real touch through Chromium's debug protocol and report as
 skipped on WebKit, so 128 have to pass and none may fail: 896 passes across the
 seven. A further 62 instances belong to no system — the registry guard, the scan
 for `vh` where `dvh` is required, the contract predicates, the showcase checks —
-and pass too. The whole run is 1000 instances: 42 of them those declared skips,
-and 958 that have to pass. A pass on a retry does not count as one — CI retries
-a failure twice and then fails the build anyway, because `playwright.config.ts`
-pairs its retries with `failOnFlakyTests`.
+and pass too. The whole run is 1000 instances, and the suite reports **958
+passed, 42 skipped, none failed** on `main`'s own run — the figure the split
+above predicts, and separately the figure observed, which is why both are
+stated. A pass on a retry does not count as one — CI retries a failure twice and
+then fails the build anyway, because `playwright.config.ts` pairs its retries
+with `failOnFlakyTests`.
 
 ## What the first port changed
 
