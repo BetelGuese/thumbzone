@@ -85,6 +85,17 @@
  *   the rendered geometry, and against a scrolled-to-the-end overflowing menu
  *   too where a port registers one: that is the position where the overlap is
  *   visible, and the one a short fixture cannot reach.
+ * - The trigger's geometry pinned against the host page's stylesheet —
+ *   position, placement, size and shape declared so an ordinary host rule
+ *   cannot move them, change their size, or reshape them. The surface is not covered by this
+ *   and must not be: a host restyling the trigger's colour or shadow is doing
+ *   something the pattern allows. This is on the markup list rather than the
+ *   behaviour one because it is a property of what the port declares, and it
+ *   is stated at all because the common cases win without ever naming the
+ *   trigger: a `:focus-visible` rule squares it on the very close path that
+ *   returns focus to it, and against a port whose utilities sit in a cascade
+ *   layer an unlayered host reset wins at any specificity, taking the hit
+ *   target with it. Asserted by injecting such a stylesheet and re-measuring.
  *
  * Behaviour:
  * - `data-tz-open` on sheet and scrim, `aria-expanded` on the trigger,

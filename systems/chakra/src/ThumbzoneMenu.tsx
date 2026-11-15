@@ -501,22 +501,39 @@ export default function ThumbzoneMenu({
         aria-label="Browse the site menu"
         aria-expanded="false"
         aria-controls={SHEET_ID}
-        position="fixed"
-        insetInlineStart="50%"
-        boxSize={TRIGGER_SIZE_TOKEN}
-        // Chakra's `sizes.14` is already 56px, comfortably past the floor. The
-        // floor is still declared from the constant, so a change to Chakra's own
-        // scale cannot drop the trigger under it unnoticed.
-        minInlineSize={`${MIN_HIT_TARGET}px`}
-        minBlockSize={`${MIN_HIT_TARGET}px`}
-        borderRadius="full"
         boxShadow="lg"
         css={{
+          // The geometry moved out of the style props and into `css` so it
+          // could carry `!important`, which a style prop taking a token name
+          // cannot. The tokens are still the ones the props named, read
+          // through `css`'s own `{category.token}` syntax, so nothing about
+          // the values changed — only their weight.
+          //
+          // They need that weight because this pattern gets dropped into
+          // pages whose stylesheet it never sees, and that stylesheet does not
+          // have to be hostile to break it: a plain
+          // `:focus-visible { border-radius: 2px }` ties with the class Chakra
+          // generates here and wins on source order, squaring the trigger the
+          // moment the sheet closes — which is when the pattern hands focus
+          // back to it. Specificity is no answer, since a host can always
+          // write a heavier selector. The surface — colour, shadow, type —
+          // is deliberately left overridable; only what the contract owns is
+          // pinned. `e2e/host-cascade.spec.ts` holds this.
+          position: 'fixed !important',
+          insetInlineStart: '50% !important',
+          inlineSize: `{sizes.${TRIGGER_SIZE_TOKEN}} !important`,
+          blockSize: `{sizes.${TRIGGER_SIZE_TOKEN}} !important`,
+          // Chakra's `sizes.14` is already 56px, comfortably past the floor.
+          // The floor is still declared from the constant, so a change to
+          // Chakra's own scale cannot drop the trigger under it unnoticed.
+          minInlineSize: `${MIN_HIT_TARGET}px !important`,
+          minBlockSize: `${MIN_HIT_TARGET}px !important`,
+          borderRadius: '{radii.full} !important',
           // Placed on Chakra's spacing scale, then clamped by the pattern's own
           // ceiling on how far a thumb-reachable trigger may sit from the bottom
           // edge — so neither a larger spacing token nor a tall home-indicator
           // inset can quietly push it out of the thumb zone.
-          insetBlockEnd: `min(calc({spacing.${TRIGGER_GAP_TOKEN}} + env(safe-area-inset-bottom, 0px)), ${MAX_TRIGGER_BOTTOM_GAP}px)`,
+          insetBlockEnd: `min(calc({spacing.${TRIGGER_GAP_TOKEN}} + env(safe-area-inset-bottom, 0px)), ${MAX_TRIGGER_BOTTOM_GAP}px) !important`,
           // Above the sheet rather than at Chakra's `overlay` level below it:
           // tapping the trigger while the sheet is up is a close path, so it has
           // to stay hit-testable over it. Written as a reference to the token
