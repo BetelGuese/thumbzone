@@ -26,6 +26,44 @@ async function expectTriggerClearsLastMenuRow(page: Page): Promise<void> {
 }
 
 describeForEachSystem('trigger/sheet clearance', (system) => {
+  // The other half of the claim this file opens with, and the half that had
+  // no test: that the trigger "floats above" the sheet is a statement about
+  // the stacking order, and the clearance assertions below would hold just as
+  // well for a trigger the sheet had buried — they compare boxes, and a buried
+  // element still has one.
+  //
+  // Hit-tested rather than read off `z-index`, because the computed value is
+  // not the guarantee. Ports place the stack on their own system's scale (30
+  // here, 1050 on Bootstrap, Mantine's own token elsewhere) and two of them
+  // settle the trigger/sheet order on source order with equal values, which is
+  // correct and invisible to any comparison of the numbers. What a user needs
+  // is that the tap lands on the trigger, so that is what is asserted.
+  test('the trigger stays hit-testable above the open sheet', async ({ page }) => {
+    await page.goto(system.route)
+    await openSheetAndSettle(page)
+
+    const atTriggerCentre = await page.locator('[data-tz-trigger]').evaluate((trigger) => {
+      const box = trigger.getBoundingClientRect()
+      const topmost = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2)
+      return {
+        // `contains` as well as identity: a port whose trigger wraps an icon
+        // hands back the icon, which is still a tap that reaches the trigger.
+        reachesTrigger: topmost !== null && (topmost === trigger || trigger.contains(topmost)),
+        describedAs: topmost
+          ? `${topmost.tagName.toLowerCase()}${[...topmost.attributes]
+              .filter((attribute) => attribute.name.startsWith('data-tz-'))
+              .map((attribute) => `[${attribute.name}]`)
+              .join('')}`
+          : 'nothing',
+      }
+    })
+
+    expect(
+      atTriggerCentre.reachesTrigger,
+      `tapping the trigger is the close path, so it must stay the topmost element at its own centre while the sheet is open — the tap landed on ${atTriggerCentre.describedAs}`,
+    ).toBe(true)
+  })
+
   test('the trigger never covers the last row of a short menu', async ({ page }) => {
     await page.goto(system.route)
     await openSheetAndSettle(page)

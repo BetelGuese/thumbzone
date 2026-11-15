@@ -248,7 +248,7 @@
   position: fixed;
   inset-inline: 0;
   inset-block-end: 0;
-  z-index: 201;
+  z-index: var(--tz-z-sheet, 201);
   display: flex;
   flex-direction: column;
   max-block-size: 85dvh;
@@ -402,10 +402,13 @@
    specificity is not an answer: a host can always write a heavier selector.
 
    The line is that the host may restyle the trigger's surface and may not move,
-   change its size, or reshape it. `transform` is deliberately left out of it even though
-   it contributes to the position: the tucked rule and Mantine's `mantine-active`
-   composition below both drive that property, and pinning it here would make
-   them lose. `e2e/host-cascade.spec.ts` holds all of this. */
+   change its size, or reshape it. `transform` is deliberately left out of it:
+   the tucked rule and Mantine's `mantine-active` composition below both drive
+   that property, and pinning it here would make them lose. The centring
+   half-step is pinned all the same, because it no longer rides on `transform`
+   — it sits on the standalone translation property, which is applied before
+   `transform` rather than replaced by it, so the two compose.
+   `e2e/host-cascade.spec.ts` holds all of this. */
 [data-tz-trigger] {
   --ai-size: var(--tz-trigger-size);
   position: fixed !important;
@@ -414,7 +417,17 @@
     calc(var(--tz-trigger-gap) + env(safe-area-inset-bottom, 0px)),
     var(--tz-trigger-max-bottom-gap)
   ) !important;
-  z-index: 202;
+  /* The stack, as a token with this port's own value as its fallback. The
+     three layers have to stay in this order — scrim under sheet under
+     trigger, because tapping the trigger while the sheet is up is the close
+     path — but the numbers themselves are only meaningful against whatever
+     else the host page stacks, which this stylesheet cannot see. Deliberately
+     not pinned: a host that needs its own banner above all of this is making a
+     legitimate decision, and an important declaration here would take that
+     from it. Setting the token is how it says so without having to outweigh a
+     selector. `e2e/clearance.spec.ts` holds the order itself, by hit-testing
+     the trigger through an open sheet rather than comparing these numbers. */
+  z-index: var(--tz-z-trigger, 202);
   min-inline-size: max(var(--ai-size), var(--tz-hit-target)) !important;
   min-block-size: max(var(--ai-size), var(--tz-hit-target)) !important;
   /* Restated rather than left to ActionIcon's own rule, because a declaration
@@ -423,7 +436,7 @@
      decides the value — only its weight changes here. */
   border-radius: var(--ai-radius) !important;
   touch-action: pinch-zoom;
-  transform: translateX(-50%);
+  translate: -50% !important;
   transition: transform 250ms ease;
 }
 
@@ -438,7 +451,7 @@
    finger is down. Composing Mantine's own value with the centring translate
    keeps both: the press dips 1px and the trigger stays where it was. */
 [data-tz-trigger]:active {
-  transform: translateX(-50%) translateY(calc(0.0625rem * var(--mantine-scale)));
+  transform: translateY(calc(0.0625rem * var(--mantine-scale)));
 }
 
 /* Declared after the press rule, which it ties on specificity, so a trigger
@@ -446,8 +459,7 @@
    plus a gap, so it clears the bottom edge completely; spacing.xl is 2rem, the
    largest step on Mantine's spacing scale. */
 [data-tz-trigger][data-tz-tucked='true'] {
-  transform: translateX(-50%)
-    translateY(calc(100% + var(--mantine-spacing-xl) + env(safe-area-inset-bottom, 0px)));
+  transform: translateY(calc(100% + var(--mantine-spacing-xl) + env(safe-area-inset-bottom, 0px)));
 }
 
 /* The breakpoint is core's, not Mantine's. Mantine states its own breakpoints

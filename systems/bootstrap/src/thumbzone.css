@@ -62,7 +62,7 @@
 [data-tz-scrim] {
   position: fixed;
   inset: 0;
-  z-index: 1040;
+  z-index: var(--tz-z-scrim, 1040);
   background-color: #000;
   opacity: 0;
   pointer-events: none;
@@ -85,7 +85,7 @@
   position: fixed;
   inset-inline: 0;
   bottom: 0;
-  z-index: 1045;
+  z-index: var(--tz-z-sheet, 1045);
   display: flex;
   flex-direction: column;
   /* dvh, not vh: iOS Safari's collapsing URL bar makes vh resolve to the
@@ -239,7 +239,17 @@
      larger gap nor a tall home-indicator inset can push it out of the thumb
      zone. */
   bottom: min(calc(var(--tz-trigger-gap) + env(safe-area-inset-bottom, 0px)), var(--tz-trigger-max-bottom-gap)) !important;
-  z-index: 1050;
+  /* The stack, as a token with this port's own value as its fallback. The
+     three layers have to stay in this order — scrim under sheet under
+     trigger, because tapping the trigger while the sheet is up is the close
+     path — but the numbers themselves are only meaningful against whatever
+     else the host page stacks, which this stylesheet cannot see. Deliberately
+     not pinned: a host that needs its own banner above all of this is making a
+     legitimate decision, and an important declaration here would take that
+     from it. Setting the token is how it says so without having to outweigh a
+     selector. `e2e/clearance.spec.ts` holds the order itself, by hit-testing
+     the trigger through an open sheet rather than comparing these numbers. */
+  z-index: var(--tz-z-trigger, 1050);
   display: grid;
   place-items: center;
   inline-size: var(--tz-trigger-size) !important;
@@ -248,12 +258,12 @@
      swipe-to-open is read as an attempt to pan the page and the pointer stream
      is cancelled before the gesture completes. */
   touch-action: pinch-zoom;
-  transform: translateX(-50%);
+  translate: -50% !important;
   transition: transform 0.3s ease-in-out;
 }
 
 [data-tz-trigger][data-tz-tucked='true'] {
-  transform: translateX(-50%) translateY(calc(100% + 2rem + env(safe-area-inset-bottom, 0px)));
+  transform: translateY(calc(100% + 2rem + env(safe-area-inset-bottom, 0px)));
 }
 
 /* The breakpoint is core's, not Bootstrap's. They agree at 768px today —
