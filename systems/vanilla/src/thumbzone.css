@@ -42,17 +42,21 @@
    the properties the contract owns; everything else stays overridable on
    purpose.
 
-   `transform` is deliberately *not* pinned, and that leaves a real gap rather
-   than a covered one. It is state-dependent — the tucked rule below drives the
-   same property — so marking it here would make that rule lose to this one and
-   silently disable the tuck. But the centring translate it carries is what
-   actually puts the trigger on the centre line: `left: 50%` only places its
-   leading edge there. A host rule that replaced `transform` would therefore
-   leave it half its own width off centre, and nothing above would stop that.
-   The exchange is deliberate — a broken tuck is a broken behaviour, where an
-   off-centre trigger is still a reachable one — and the fixture in
-   `e2e/host-cascade.spec.ts` does not probe it, so nothing here should be read
-   as evidence that it holds. */
+   `transform` is deliberately *not* pinned: it is state-dependent — the tucked
+   rule below drives it — so marking it here would make that rule lose to this
+   one and silently disable the tuck.
+
+   That used to cost the centring, because the half-step which actually puts
+   the trigger on the centre line rode on the same property. `left: 50%` only
+   places its leading edge there, so a host rule replacing `transform` left the
+   trigger half its own width to the right of centre — measured at exactly 28px
+   on both device profiles, in all seven ports.
+
+   The half-step sits on the standalone translation property now, where it can
+   be pinned without taking anything from the tuck: the individual transform
+   properties are applied *before* `transform` rather than being overwritten by
+   it, so the two compose instead of competing. `transform` is left free and
+   carries only motion. `e2e/host-cascade.spec.ts` probes this directly. */
 .tz-trigger {
   position: fixed !important;
   left: 50% !important;
@@ -62,7 +66,17 @@
      zone. The MUI port clamps the same way; the reference must not be the
      less defensive of the two. */
   bottom: min(calc(var(--tz-trigger-gap) + env(safe-area-inset-bottom, 0px)), var(--tz-trigger-max-bottom-gap)) !important;
-  z-index: 30;
+  /* The stack, as a token with this port's own value as its fallback. The
+     three layers have to stay in this order — scrim under sheet under
+     trigger, because tapping the trigger while the sheet is up is the close
+     path — but the numbers themselves are only meaningful against whatever
+     else the host page stacks, which this stylesheet cannot see. Deliberately
+     not pinned: a host that needs its own banner above all of this is making a
+     legitimate decision, and an important declaration here would take that
+     from it. Setting the token is how it says so without having to outweigh a
+     selector. `e2e/clearance.spec.ts` holds the order itself, by hit-testing
+     the trigger through an open sheet rather than comparing these numbers. */
+  z-index: var(--tz-z-trigger, 30);
   display: grid;
   place-items: center;
   inline-size: var(--tz-trigger-size) !important;
@@ -83,18 +97,18 @@
      none, so a finger that happens to start a pinch gesture here still
      zooms the page (WCAG 1.4.4) — panning is what must stay ours, not zoom. */
   touch-action: pinch-zoom;
-  transform: translateX(-50%);
+  translate: -50% !important;
   transition: transform 240ms cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 .tz-trigger[data-tz-tucked='true'] {
-  transform: translateX(-50%) translateY(calc(100% + 2rem + env(safe-area-inset-bottom, 0px)));
+  transform: translateY(calc(100% + 2rem + env(safe-area-inset-bottom, 0px)));
 }
 
 .tz-scrim {
   position: fixed;
   inset: 0;
-  z-index: 20;
+  z-index: var(--tz-z-scrim, 20);
   background: rgb(0 0 0 / 0.5);
   opacity: 0;
   pointer-events: none;
@@ -126,7 +140,7 @@
   position: fixed;
   inset-inline: 0;
   bottom: 0;
-  z-index: 25;
+  z-index: var(--tz-z-sheet, 25);
   display: flex;
   flex-direction: column;
   /* dvh, not vh: iOS Safari's collapsing URL bar makes vh resolve to the

@@ -1,6 +1,7 @@
 {
   "tailwind-overflow": [
     "-translate-x-1/2",
+    "-translate-x-1/2!",
     "before:bg-zinc-500",
     "before:block",
     "before:h-1",
@@ -128,6 +129,7 @@
   ],
   "tailwind": [
     "-translate-x-1/2",
+    "-translate-x-1/2!",
     "before:bg-zinc-500",
     "before:block",
     "before:h-1",
@@ -255,6 +257,7 @@
   ],
   "shadcn-overflow": [
     "-translate-x-1/2",
+    "-translate-x-1/2!",
     "before:bg-zinc-500",
     "before:block",
     "before:h-1",
@@ -394,6 +397,7 @@
   ],
   "shadcn": [
     "-translate-x-1/2",
+    "-translate-x-1/2!",
     "before:bg-zinc-500",
     "before:block",
     "before:h-1",

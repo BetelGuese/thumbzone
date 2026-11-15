@@ -46,7 +46,7 @@ import { describeForEachSystem } from './support/systems'
 // exactly this, three words over.
 const INDIFFERENT_HOST_STYLESHEET = `
   button { width: auto; height: auto; min-width: 0; padding: 0; position: static; }
-  :focus-visible { border-radius: 2px; }
+  :focus-visible { border-radius: 2px; transform: none; translate: none; }
   * { border-radius: 0; }
 `
 
@@ -65,6 +65,34 @@ async function triggerGeometry(page: import('@playwright/test').Page) {
       y: Math.round(box.y),
       borderRadius: getComputedStyle(element).borderRadius,
     }
+  })
+}
+
+/**
+ * Lets any transition the injected stylesheet started run to completion.
+ *
+ * Without this the second measurement is taken off a moving element. Every
+ * port transitions `transform`, so a host rule that replaces it starts a
+ * 240ms animation, and the read lands wherever that animation happens to be:
+ * 1px of travel on one run, 17px on the next, a different set of ports
+ * failing each time. That is worse than either outcome it stands between —
+ * a flake that is sometimes green hides the bug, and one that is red with a
+ * different number each time says nothing about how far the trigger moved.
+ */
+async function settleTransitions(page: import('@playwright/test').Page) {
+  await page.locator('[data-tz-trigger]').evaluate(async (element) => {
+    // Two frames: one for the injected rule to be styled, one for the
+    // transition it starts to exist. Sampling in the same task as the
+    // injection finds an empty list and settles before anything has moved.
+    await new Promise((resolve) =>
+      requestAnimationFrame(() => requestAnimationFrame(resolve)),
+    )
+    const finished = Promise.all(
+      element.getAnimations().map((animation) => animation.finished.catch(() => undefined)),
+    )
+    // Bounded, so a transition that never finishes fails this spec on its own
+    // assertions rather than timing the whole run out with no diagnosis.
+    await Promise.race([finished, new Promise((resolve) => setTimeout(resolve, 1000))])
   })
 }
 
@@ -98,6 +126,7 @@ describeForEachSystem('host cascade', (system) => {
     const authored = await triggerGeometry(page)
 
     await page.addStyleTag({ content: INDIFFERENT_HOST_STYLESHEET })
+    await settleTransitions(page)
     const underHostStyles = await triggerGeometry(page)
 
     expect(

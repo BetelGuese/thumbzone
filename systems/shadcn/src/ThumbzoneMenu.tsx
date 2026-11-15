@@ -267,10 +267,13 @@ export default function ThumbzoneMenu({
           // `fixed` and `left-1/2` carry the `!` modifier for the same reason
           // the `target` size variant does — see Button.tsx. Without it a host
           // `button { position: static }` dropped this trigger out of the
-          // thumb zone and into document flow. `-translate-x-1/2` is
-          // deliberately left alone: the tucked variant below drives the same
-          // property, and pinning it here would make that rule lose.
-          'fixed! left-1/2! z-50 -translate-x-1/2 shadow-lg',
+          // thumb zone and into document flow. The centring half-step carries
+          // it too, and that costs the tucked variant nothing: Tailwind v4
+          // emits both on CSS's standalone translation property through
+          // variables, so the important declaration here reads whatever the
+          // tucked rule has written rather than overriding it. `transform` is
+          // left entirely alone — it is what the tuck transition animates.
+          'fixed! left-1/2! z-50 -translate-x-1/2! shadow-lg',
           // Placed a gap above the bottom edge, then clamped by the pattern's
           // own ceiling on how far a thumb-reachable trigger may sit from it —
           // so neither a larger spacing token nor a tall home-indicator inset

@@ -391,7 +391,7 @@ export default function ThumbzoneMenu({
           // real swipe-to-open is read as an attempt to pan the page and the
           // pointer stream is cancelled before the gesture completes.
           touchAction: 'pinch-zoom',
-          transform: 'translateX(-50%)',
+          translate: '-50% !important',
           // Composed, not replaced: a bare `transform` declaration would drop
           // the Fab's own colour and elevation transitions, since one element
           // has a single transition list. MUI's half keeps its tokens.
@@ -402,7 +402,7 @@ export default function ThumbzoneMenu({
             theme.transitions.create('transform', sheetMotion(theme)),
           ].join(', '),
           '&[data-tz-tucked="true"]': {
-            transform: `translateX(-50%) translateY(calc(100% + ${theme.spacing(4)} + env(safe-area-inset-bottom, 0px)))`,
+            transform: `translateY(calc(100% + ${theme.spacing(4)} + env(safe-area-inset-bottom, 0px)))`,
           },
           [theme.breakpoints.up(DESKTOP_BREAKPOINT)]: { display: 'none' },
           '@media (prefers-reduced-motion: reduce)': REDUCED_MOTION_RESET,

@@ -546,7 +546,7 @@ export default function ThumbzoneMenu({
           // is all the swipe needs, and a 56px control is a real thing to zoom
           // over (WCAG 1.4.4).
           touchAction: 'pinch-zoom',
-          transform: 'translateX(-50%)',
+          translate: '-50% !important',
           // Composed, not replaced. The button recipe declares
           // `transitionProperty: 'common'`, which Chakra expands to
           // `background-color, border-color, color, fill, stroke, opacity,
@@ -562,7 +562,7 @@ export default function ThumbzoneMenu({
           transitionDuration: SHEET_DURATION,
           transitionTimingFunction: SHEET_EASING,
           '&[data-tz-tucked="true"]': {
-            transform: `translateX(-50%) translateY(calc(100% + {spacing.8} + env(safe-area-inset-bottom, 0px)))`,
+            transform: `translateY(calc(100% + {spacing.8} + env(safe-area-inset-bottom, 0px)))`,
           },
           [DESKTOP_QUERY]: { display: 'none' },
           _motionReduce: REDUCED_MOTION_RESET,
