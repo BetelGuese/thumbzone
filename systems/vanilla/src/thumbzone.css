@@ -22,26 +22,57 @@
   --tz-trigger-max-bottom-gap: 96px;
 }
 
+/* The geometry below is pinned `!important`, which in a reference
+   implementation needs its reason stated rather than assumed.
+   `e2e/host-cascade.spec.ts` is the executable form of it.
+
+   This pattern is meant to be dropped into a page whose stylesheet it will
+   never see, and that stylesheet does not have to be hostile to break it —
+   `button { width: auto; height: auto }` and `:focus-visible { border-radius }`
+   are both ordinary things for a site to write about its own buttons. Raising
+   specificity does not answer them: whatever selector this rule used, a host
+   can always write a heavier one, and against a layered port it is worse than
+   that — Tailwind v4 emits its utilities inside `@layer utilities`, and an
+   unlayered host rule beats a layered one at *any* specificity. An important
+   declaration is the only mechanism that answers both, because it reverses
+   layer order as well as winning the tie.
+
+   So the line drawn here is: the host may restyle the trigger's surface —
+   colour, shadow, type — and may not move it, change its size, or reshape it. Those are
+   the properties the contract owns; everything else stays overridable on
+   purpose.
+
+   `transform` is deliberately *not* pinned, and that leaves a real gap rather
+   than a covered one. It is state-dependent — the tucked rule below drives the
+   same property — so marking it here would make that rule lose to this one and
+   silently disable the tuck. But the centring translate it carries is what
+   actually puts the trigger on the centre line: `left: 50%` only places its
+   leading edge there. A host rule that replaced `transform` would therefore
+   leave it half its own width off centre, and nothing above would stop that.
+   The exchange is deliberate — a broken tuck is a broken behaviour, where an
+   off-centre trigger is still a reachable one — and the fixture in
+   `e2e/host-cascade.spec.ts` does not probe it, so nothing here should be read
+   as evidence that it holds. */
 .tz-trigger {
-  position: fixed;
-  left: 50%;
+  position: fixed !important;
+  left: 50% !important;
   /* Placed a gap above the bottom edge, then clamped by the pattern's own
      ceiling on how far a thumb-reachable trigger may sit from it — so neither
      a larger gap nor a tall home-indicator inset can push it out of the thumb
      zone. The MUI port clamps the same way; the reference must not be the
      less defensive of the two. */
-  bottom: min(calc(var(--tz-trigger-gap) + env(safe-area-inset-bottom, 0px)), var(--tz-trigger-max-bottom-gap));
+  bottom: min(calc(var(--tz-trigger-gap) + env(safe-area-inset-bottom, 0px)), var(--tz-trigger-max-bottom-gap)) !important;
   z-index: 30;
   display: grid;
   place-items: center;
-  inline-size: var(--tz-trigger-size);
-  block-size: var(--tz-trigger-size);
+  inline-size: var(--tz-trigger-size) !important;
+  block-size: var(--tz-trigger-size) !important;
   /* The 48px minimum hit target is a stated project constraint, not an
      accident of UA form-control defaults — make border-box explicit so the
      box model can't shift under us if that default ever changes. */
-  box-sizing: border-box;
+  box-sizing: border-box !important;
   border: 0;
-  border-radius: 50%;
+  border-radius: 50% !important;
   background: var(--tz-trigger-bg, #ff5a1f);
   color: var(--tz-trigger-fg, #0e1012);
   cursor: pointer;

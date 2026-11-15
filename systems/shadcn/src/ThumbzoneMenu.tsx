@@ -264,7 +264,13 @@ export default function ThumbzoneMenu({
         suppressHydrationWarning
         data-tz-trigger=""
         className={cn(
-          'fixed left-1/2 z-50 -translate-x-1/2 shadow-lg',
+          // `fixed` and `left-1/2` carry the `!` modifier for the same reason
+          // the `target` size variant does — see Button.tsx. Without it a host
+          // `button { position: static }` dropped this trigger out of the
+          // thumb zone and into document flow. `-translate-x-1/2` is
+          // deliberately left alone: the tucked variant below drives the same
+          // property, and pinning it here would make that rule lose.
+          'fixed! left-1/2! z-50 -translate-x-1/2 shadow-lg',
           // Placed a gap above the bottom edge, then clamped by the pattern's
           // own ceiling on how far a thumb-reachable trigger may sit from it —
           // so neither a larger spacing token nor a tall home-indicator inset
@@ -273,7 +279,7 @@ export default function ThumbzoneMenu({
           // import; the conformance suite asserts the rendered position against
           // the constant itself, so a value that drifted from it fails a test
           // rather than moving the trigger somewhere no thumb reaches.
-          'bottom-[min(calc(env(safe-area-inset-bottom,0px)+1rem),96px)]',
+          'bottom-[min(calc(env(safe-area-inset-bottom,0px)+1rem),96px)]!',
           'transition-transform duration-200 ease-out',
           'data-[tz-tucked=true]:translate-y-[calc(100%+2rem+env(safe-area-inset-bottom,0px))]',
           // The trigger scrolls nothing, so this can be static: without it a

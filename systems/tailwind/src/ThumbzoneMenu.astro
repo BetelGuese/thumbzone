@@ -111,16 +111,17 @@ const { items } = Astro.props
 <!-- Trigger, on `cursor-pointer`: Tailwind's preflight resets a button's cursor to `default`, so this is restoring the affordance the reset removed rather than decorating it. -->
 <!-- Trigger, on `aria-label`: the name names the menu and stays put in both states — `aria-expanded` is what reports open or closed, so a name that changed with it would say the same thing twice, and the pattern deliberately leaves an authored name alone. -->
 <!-- Trigger, on `touch-pinch-zoom`: the trigger scrolls nothing, so this can be static. Without it a real swipe-to-open is read as an attempt to pan the page and the pointer stream is cancelled before the gesture completes. -->
+<!-- Trigger, on the `!` modifiers: they pin the geometry the contract owns — position, placement, size and shape — against the stylesheet of whatever page this is dropped into. This port needs them more than the others do, and specificity could not have supplied them: Tailwind v4 emits utilities inside `@layer utilities`, and an unlayered host rule beats a layered one at *any* specificity, so a plain `button { width: auto; height: auto }` on the host page collapsed this trigger to 20x14 and dropped it out of the thumb zone entirely. An important declaration is what reverses layer order. The surface — colour, shadow, type — is deliberately left overridable, and `-translate-x-1/2` is deliberately not pinned, because the tucked variant drives the same property. `e2e/host-cascade.spec.ts` holds this. -->
 <button
   type="button"
   data-tz-trigger
   aria-expanded="false"
   aria-controls={SHEET_ID}
   aria-label="Navigation menu"
-  class="fixed left-1/2 z-40 grid place-items-center
-         size-[var(--tz-trigger-size)]
-         bottom-[min(calc(var(--tz-trigger-gap)+env(safe-area-inset-bottom,0px)),var(--tz-trigger-max-bottom-gap))]
-         cursor-pointer rounded-full bg-orange-500 text-zinc-950 shadow-lg
+  class="fixed! left-1/2! z-40 grid place-items-center
+         size-[var(--tz-trigger-size)]!
+         bottom-[min(calc(var(--tz-trigger-gap)+env(safe-area-inset-bottom,0px)),var(--tz-trigger-max-bottom-gap))]!
+         cursor-pointer rounded-full! bg-orange-500 text-zinc-950 shadow-lg
          -translate-x-1/2 transition-transform duration-200 ease-out
          data-[tz-tucked=true]:translate-y-[calc(100%+2rem+env(safe-area-inset-bottom,0px))]
          touch-pinch-zoom

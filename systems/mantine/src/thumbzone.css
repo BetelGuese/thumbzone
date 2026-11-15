@@ -392,17 +392,36 @@
    and the pointer stream is cancelled before the gesture completes. pinch-zoom
    rather than `none` — refusing the vertical pan is all the swipe needs, and a
    56px control is a real thing to zoom over. */
+/* On the `!important` below: this pattern gets dropped into pages whose
+   stylesheet it never sees, and that stylesheet does not have to be hostile to
+   break it. `:focus-visible { border-radius: 2px }` is an ordinary thing for a
+   site to write about its own buttons, and it ties with the attribute selector
+   here at one class's worth of specificity, so source order decides — and the
+   host's file comes later. The symptom lands exactly when the sheet closes,
+   because that is when the pattern hands focus back to the trigger. Raising
+   specificity is not an answer: a host can always write a heavier selector.
+
+   The line is that the host may restyle the trigger's surface and may not move,
+   change its size, or reshape it. `transform` is deliberately left out of it even though
+   it contributes to the position: the tucked rule and Mantine's `mantine-active`
+   composition below both drive that property, and pinning it here would make
+   them lose. `e2e/host-cascade.spec.ts` holds all of this. */
 [data-tz-trigger] {
   --ai-size: var(--tz-trigger-size);
-  position: fixed;
-  inset-inline-start: 50%;
+  position: fixed !important;
+  inset-inline-start: 50% !important;
   inset-block-end: min(
     calc(var(--tz-trigger-gap) + env(safe-area-inset-bottom, 0px)),
     var(--tz-trigger-max-bottom-gap)
-  );
+  ) !important;
   z-index: 202;
-  min-inline-size: max(var(--ai-size), var(--tz-hit-target));
-  min-block-size: max(var(--ai-size), var(--tz-hit-target));
+  min-inline-size: max(var(--ai-size), var(--tz-hit-target)) !important;
+  min-block-size: max(var(--ai-size), var(--tz-hit-target)) !important;
+  /* Restated rather than left to ActionIcon's own rule, because a declaration
+     this file never makes is one it cannot pin. It reads Mantine's variable
+     rather than a literal, so `radius="xl"` on the component is still what
+     decides the value — only its weight changes here. */
+  border-radius: var(--ai-radius) !important;
   touch-action: pinch-zoom;
   transform: translateX(-50%);
   transition: transform 250ms ease;

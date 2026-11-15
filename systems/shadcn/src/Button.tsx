@@ -25,7 +25,16 @@ const buttonVariants = cva(
         // Clears the contract's 48px minimum hit target with headroom in both
         // axes. Named for what it is rather than given a t-shirt size, so it
         // cannot be swapped for a smaller one by someone tidying the variants.
-        target: 'h-14 w-14 rounded-full',
+        //
+        // The `!` modifiers pin it against the stylesheet of whatever page the
+        // pattern is dropped into. They are not decoration: Tailwind v4 emits
+        // utilities inside `@layer utilities`, and an unlayered host rule beats
+        // a layered one at *any* specificity, so an ordinary
+        // `button { width: auto; height: auto }` on the host page collapsed
+        // this trigger to 24x24 — half the floor this variant exists to clear.
+        // No selector could have defended it; only an important declaration
+        // reverses layer order. `e2e/host-cascade.spec.ts` holds this.
+        target: 'h-14! w-14! rounded-full!',
       },
     },
     defaultVariants: { variant: 'default', size: 'default' },

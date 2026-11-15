@@ -354,19 +354,35 @@ export default function ThumbzoneMenu({
         aria-label="Browse menu"
         aria-expanded={false}
         aria-controls={SHEET_ID}
+        // On the `!important` suffixes throughout the geometry below: this
+        // pattern gets dropped into pages whose stylesheet it never sees, and
+        // that stylesheet does not have to be hostile to break it. A plain
+        // `:focus-visible { border-radius: 2px }` — an ordinary thing for a
+        // site to write — ties with the class Emotion generates here and wins
+        // on source order, squaring the Fab. It shows up the moment the sheet
+        // closes, because that is when the pattern hands focus back to the
+        // trigger. Specificity is not an answer: a host can always write a
+        // heavier selector. The surface is left overridable on purpose; only
+        // what the contract owns is pinned. `e2e/host-cascade.spec.ts` holds
+        // this.
         sx={(theme) => ({
-          position: 'fixed',
-          left: '50%',
+          position: 'fixed !important',
+          left: '50% !important',
           // Placed on MUI's spacing scale, then clamped by the pattern's own
           // ceiling on how far a thumb-reachable trigger may sit from the
           // bottom edge — so neither a larger spacing token nor a tall
           // home-indicator inset can quietly push it out of the thumb zone.
-          bottom: `min(calc(${theme.spacing(2)} + env(safe-area-inset-bottom, 0px)), ${MAX_TRIGGER_BOTTOM_GAP}px)`,
+          bottom: `min(calc(${theme.spacing(2)} + env(safe-area-inset-bottom, 0px)), ${MAX_TRIGGER_BOTTOM_GAP}px) !important`,
           // MUI's Fab is already 56px square, comfortably past the floor. The
           // floor is still declared from the constant, so a change to MUI's
           // own sizing cannot drop the trigger under it unnoticed.
-          minInlineSize: `${MIN_HIT_TARGET}px`,
-          minBlockSize: `${MIN_HIT_TARGET}px`,
+          minInlineSize: `${MIN_HIT_TARGET}px !important`,
+          minBlockSize: `${MIN_HIT_TARGET}px !important`,
+          // Restates the Fab's own radius rather than reading a token, because
+          // MUI publishes none for it — the value lives in the Fab's styles as
+          // a literal. It has to be restated here to be pinned at all: a
+          // declaration this component never makes is one it cannot defend.
+          borderRadius: '50% !important',
           // Above the sheet, not at MUI's fab level below it: tapping the
           // trigger while the sheet is up is a close path, so it has to stay
           // hit-testable over it.

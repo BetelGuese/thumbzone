@@ -222,18 +222,28 @@
      the size below is explicit rather than left to the component. */
   --bs-btn-padding-x: 0;
   --bs-btn-padding-y: 0;
-  position: fixed;
-  left: 50%;
+  /* On the `!important` through the geometry here: this port was already the
+     only one that survived a host page's stylesheet, and it survived by
+     accident — `rounded-circle` is one of Bootstrap's own utilities, and
+     Bootstrap writes those `!important` by convention, so the shape was
+     pinned without anyone deciding to pin it. Its placement and size were
+     not; they merely outweighed the host rules that happened to be tried.
+     Pinned deliberately now, so the guarantee this port offers is the same
+     one the other six offer rather than a selector that happened to win.
+     See the reference implementation for the reasoning in full, and
+     `e2e/host-cascade.spec.ts` for the executable form. */
+  position: fixed !important;
+  left: 50% !important;
   /* Placed a gap above the bottom edge, then clamped by the pattern's own
      ceiling on how far a thumb-reachable trigger may sit from it — so neither a
      larger gap nor a tall home-indicator inset can push it out of the thumb
      zone. */
-  bottom: min(calc(var(--tz-trigger-gap) + env(safe-area-inset-bottom, 0px)), var(--tz-trigger-max-bottom-gap));
+  bottom: min(calc(var(--tz-trigger-gap) + env(safe-area-inset-bottom, 0px)), var(--tz-trigger-max-bottom-gap)) !important;
   z-index: 1050;
   display: grid;
   place-items: center;
-  inline-size: var(--tz-trigger-size);
-  block-size: var(--tz-trigger-size);
+  inline-size: var(--tz-trigger-size) !important;
+  block-size: var(--tz-trigger-size) !important;
   /* The trigger scrolls nothing, so this can be static: without it a real
      swipe-to-open is read as an attempt to pan the page and the pointer stream
      is cancelled before the gesture completes. */
