@@ -51,13 +51,13 @@ argument is about reach and reach is something you feel.
 | Mantine | shipped |
 | Ant Design, Radix/Ark, Bulma, Vuetify, Quasar, Ionic | planned |
 
-Each is held to 134 conformance instances — 67 per mobile device profile, the
+Each is held to 136 conformance instances — 68 per mobile device profile, the
 same groups across two of them, against materially different implementations.
-Six of the 134 drive real touch through Chromium's debug protocol and report as
-skipped on WebKit, so 128 have to pass and none may fail: 896 passes across the
+Six of the 136 drive real touch through Chromium's debug protocol and report as
+skipped on WebKit, so 130 have to pass and none may fail: 910 passes across the
 seven. A further 62 instances belong to no system — the registry guard, the scan
 for `vh` where `dvh` is required, the contract predicates, the showcase checks —
-and pass too. The whole run is 1000 instances, and the suite reports **958
+and pass too. The whole run is 1014 instances, and the suite reports **972
 passed, 42 skipped, none failed** on `main`'s own run — the figure the split
 above predicts, and separately the figure observed, which is why both are
 stated. A pass on a retry does not count as one — CI retries a failure twice and

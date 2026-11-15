@@ -524,6 +524,68 @@ defaults against the 48px minimum before trusting that a real component
 clears it — a design system's own choices are not guaranteed to agree with
 this pattern's floor any more than a bespoke one is.
 
+### The host page's stylesheet can reach your trigger, and it does not have to be hostile
+
+The demo route is a page this project controls. The pattern's actual job is to
+work inside one it does not, and a host stylesheet that has never heard of it
+can still take the trigger apart — not by targeting it, but by writing
+perfectly ordinary things about its own buttons.
+
+Two declarations, both found in the wild, both ordinary:
+
+- `:focus-visible { border-radius: 2px }`, paired with a focus indicator. It ties
+  with a single class on specificity and wins on source order, so it squares
+  the trigger. The reason it shows up as a *closing* bug is that the pattern
+  hands focus back to the trigger when the sheet closes — which is also why it
+  looks intermittent: whether `:focus-visible` matches after a tap is a
+  modality heuristic, so it depends on how the menu was opened.
+- `button { width: auto; height: auto }`, in a reset. Against the ports that
+  size the trigger with Tailwind utilities this collapsed it to 20×14 and
+  24×24 — under the 48px floor, and in the same breath it dropped out of the
+  thumb zone into document flow.
+
+That second one is the instructive case, because no selector those ports could
+have written would have stopped it. Tailwind v4 emits utilities inside
+`@layer utilities`, and **an unlayered rule beats a layered one at any
+specificity** — the host's declaration wins at (0,0,0) against anything. The
+only mechanism that answers it is an important declaration, which reverses
+layer order as well as winning a tie. Specificity is not a general answer
+either, layers aside: whatever selector you write, a host can write a heavier
+one.
+
+So pin the geometry, in your system's idiom — `!important` in a stylesheet,
+the `!` modifier on a Tailwind utility, a string suffix in `sx` or `css`. The
+line is that **the host may restyle the trigger's surface and may not move,
+change its size, or reshape it**: position, placement, size and shape are pinned;
+colour, shadow and type stay overridable, deliberately.
+
+Leave `transform` out of it, and understand what that costs. It is
+state-dependent — the tuck drives it, and so does any press or active style
+your system composes onto it — so pinning it makes those rules lose and
+disables the behaviour they implement. The cost is that the centring translate
+goes unpinned with them, and that translate is what actually puts the trigger
+on the centre line; `left: 50%` only places its leading edge there. A host rule
+replacing `transform` leaves the trigger half its own width off centre. That
+exchange is the one every port here has made — a broken tuck is a broken
+behaviour, an off-centre trigger is still a reachable one — but make it
+knowingly, and do not read the check passing as evidence that `transform` is
+covered. It is not probed.
+
+One port passed before the check existed, and it is worth knowing why:
+Bootstrap's `rounded-circle` is one of Bootstrap's own utilities, and Bootstrap
+writes those `!important` by convention — so its shape was pinned without
+anyone deciding to pin it. Treat that as the precedent rather than as luck: a
+drop-in widget pinning its own invariants is the normal thing, not the
+aggressive one. Its placement and size were pinned afterwards all the same,
+because passing and being guaranteed are not the same thing — those
+declarations had only outweighed the host rules that happened to be tried, and
+a heavier host selector would have taken them.
+
+`e2e/host-cascade.spec.ts` is the executable form of all of it. It injects a
+stylesheet of exactly these ordinary declarations and asserts your trigger's
+box and radius do not move. Note what it cannot promise: it tests one sample
+host, and an `!important` declaration on the host's side still outranks yours.
+
 ### The tall-menu fixture is not a formality
 
 Every port is asked to ship an overflow fixture — a menu long enough to
