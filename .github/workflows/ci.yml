@@ -60,19 +60,41 @@ jobs:
       # Split, so each half is capped and attributable on its own, and so the
       # half that never hangs can be cached.
 
-      # Keyed on the installed version rather than the lockfile: these binaries
-      # are chosen by Playwright's version alone, so a lockfile key would miss
-      # the cache on every unrelated dependency bump.
-      - name: Resolve the Playwright version the browsers are keyed to
-        id: playwright
-        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+      # Keyed on the installed Playwright version and on the release of the
+      # image it will run against, because the binaries are chosen by both.
+      # Not the lockfile: a lockfile key would miss the cache on every
+      # unrelated dependency bump.
+      #
+      # The release earned its place in the key by having been left out of it.
+      # These binaries do not travel between Ubuntu versions — Playwright ships
+      # a separate WebKit build per release, linked against that release's own
+      # system libraries — so a key naming only the version was claiming a
+      # match it could not honour. That went unnoticed while the answer
+      # happened to be the same every run, and broke the first time
+      # `ubuntu-latest` moved: the 24.04 build restored cleanly onto 26.04,
+      # which skipped the install step that would have replaced it, and then
+      # failed to launch on a missing `libicudata.so.74` six steps later inside
+      # global setup, naming a soname rather than the cache that supplied it.
+      #
+      # `runner.os` goes, as part of the same correction. It was carrying the
+      # distinction this key actually needed, at a resolution too coarse to
+      # make it: `ubuntu26.04` says everything `Linux` said and the part it
+      # could not.
+      - name: Resolve what the browser binaries are keyed to
+        id: browsers-key
+        run: |
+          echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+          # The same two fields Playwright itself reads to pick the build, so
+          # the key moves if and only if its choice of binary would have.
+          . /etc/os-release
+          echo "platform=${ID}${VERSION_ID}" >> "$GITHUB_OUTPUT"
 
       - name: Restore the browser binaries
         id: browsers
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
-          key: ms-playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-chromium-webkit
+          key: ms-playwright-${{ steps.browsers-key.outputs.platform }}-${{ steps.browsers-key.outputs.version }}-chromium-webkit
 
       # It is apt's *fetch* that wedges, not apt. Three consecutive runs stalled
       # here for over five minutes each having resolved the package list in
